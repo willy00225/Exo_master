@@ -17,7 +17,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Routes
 app.get("/", (req, res) => {
-  res.send("API is running...");
+  res.send("API OK 🚀");
 });
 
 // 🔥 Test connexion PostgreSQL
@@ -90,7 +90,6 @@ app.use("/api/challenges", challengeRoutes);
 // Import et utilisation des routes de settings
 const settingsRoutes = require("./routes/settings");
 app.use("/api/settings", settingsRoutes);
-
 
 // Import et utilisation des routes de students
 const adminStudentRoutes = require("./routes/admin/students");
