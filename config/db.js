@@ -1,9 +1,13 @@
 const { Pool } = require("pg");
 
-// Utilise DATABASE_URL si elle existe (production), sinon la configuration locale
+// Si DATABASE_URL est fournie (Railway), on l'utilise AVEC SSL
+// Sinon, on utilise la configuration locale (développement)
 const pool = new Pool(
   process.env.DATABASE_URL
-    ? { connectionString: process.env.DATABASE_URL }
+    ? {
+        connectionString: process.env.DATABASE_URL,
+        ssl: { rejectUnauthorized: false },   // ← OBLIGATOIRE pour Railway
+      }
     : {
         user: "postgres",
         host: "localhost",
