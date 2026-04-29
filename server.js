@@ -95,6 +95,14 @@ app.use("/api/settings", settingsRoutes);
 const adminStudentRoutes = require("./routes/admin/students");
 app.use("/api/admin/students", adminStudentRoutes);
 
+// Import et utilisation des routes de admin stats
+const adminStatsRoutes = require("./routes/admin/stats");
+app.use("/api/admin/stats", adminStatsRoutes);
+
+// Import et utilisation des routes de student stats
+const studentStatsRoutes = require("./routes/student/stats");
+app.use("/api/student/stats", studentStatsRoutes);
+
 // Port
 const PORT = process.env.PORT || 5000;
 

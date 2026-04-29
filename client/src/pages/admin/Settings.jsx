@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, Key, MessageCircle, Clock, AlertCircle } from 'lucide-react';
+import { Save, Key, MessageCircle, Clock, AlertCircle, Timer } from 'lucide-react';
 import api from '../../services/api';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
@@ -9,7 +9,8 @@ const Settings = () => {
   const [settings, setSettings] = useState({
     openai_api_key: '',
     whatsapp_number: '',
-    subscription_days: '30'
+    subscription_days: '30',
+    trial_days: '7'
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -110,13 +111,25 @@ const Settings = () => {
             <Clock size={20} className="text-amber-600" />
             Abonnement
           </h2>
-          <Input
-            label="Durée de l'abonnement (jours)"
-            name="subscription_days"
-            type="number"
-            value={settings.subscription_days}
-            onChange={handleChange}
-          />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input
+              label="Durée de l'abonnement (jours)"
+              name="subscription_days"
+              type="number"
+              value={settings.subscription_days}
+              onChange={handleChange}
+            />
+            <Input
+              label="Durée de l'essai (jours)"
+              name="trial_days"
+              type="number"
+              value={settings.trial_days}
+              onChange={handleChange}
+            />
+          </div>
+          <p className="text-sm text-slate-500 mt-2">
+            L'essai gratuit est accordé automatiquement à l'inscription. L'abonnement standard est utilisé pour les renouvellements manuels ou automatiques.
+          </p>
         </Card>
 
         {/* Bouton enregistrer */}

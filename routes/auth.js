@@ -37,7 +37,22 @@ router.post("/register", async (req, res) => {
       );
     }
 
-    // 4. Générer un token JWT
+    // 4. Récupérer la durée d'essai depuis la table settings (par défaut 7 jours)
+    let trialDays = 7;
+    try {
+      const setting = await pool.query("SELECT value FROM settings WHERE key = 'trial_days'");
+      if (setting.rows.length > 0) trialDays = parseInt(setting.rows[0].value) || 7;
+    } catch (e) {
+      // En cas d'erreur (table inexistante, etc.), on garde 7 jours
+    }
+
+    // Définir la date d'expiration de l'essai
+    await pool.query(
+      "UPDATE users SET subscription_expires = NOW() + INTERVAL '1 day' * $1 WHERE id = $2",
+      [trialDays, newUser.rows[0].id]
+    );
+
+    // 5. Générer un token JWT
     const token = jwt.sign(
       {
         id: newUser.rows[0].id,

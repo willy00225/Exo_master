@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Users, Calendar, CreditCard, Ban, PlusCircle, MinusCircle, Eye } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Users, Calendar, CreditCard, Ban, PlusCircle, MinusCircle, Eye, Loader, X,
+} from 'lucide-react';
 import api from '../../services/api';
-import Card from '../../components/common/Card';
-import Button from '../../components/common/Button';
-import Input from '../../components/common/Input';
 
 const Students = () => {
   const [students, setStudents] = useState([]);
@@ -49,7 +49,7 @@ const Students = () => {
   };
 
   const handleRevoke = async (studentId) => {
-    if (!window.confirm('Révoquer l\'abonnement de cet élève ?')) return;
+    if (!window.confirm("Révoquer l'abonnement de cet élève ?")) return;
     try {
       await api.put(`/admin/students/${studentId}/subscription`, { action: 'revoke' });
       fetchStudents();
@@ -73,104 +73,185 @@ const Students = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-800">Élèves</h1>
-          <p className="text-slate-500 mt-1">Gérez les élèves et leurs abonnements</p>
-        </div>
-      </div>
+      {/* En-tête */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <h1 className="text-3xl font-bold text-white font-space-grotesk">Élèves</h1>
+        <p className="text-slate-400 mt-1">Gérez les élèves et leurs abonnements</p>
+      </motion.div>
 
       {/* Filtres */}
-      <Card>
-        <div className="flex items-center gap-4">
-          <Users size={18} className="text-slate-400" />
-          <select className="border border-slate-300 rounded-lg px-3 py-2 text-sm" value={filter.group_id} onChange={e => setFilter({...filter, group_id: e.target.value})}>
-            <option value="">Tous les groupes</option>
-            {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-          </select>
-          <select className="border border-slate-300 rounded-lg px-3 py-2 text-sm" value={filter.subscription_status} onChange={e => setFilter({...filter, subscription_status: e.target.value})}>
-            <option value="">Tous les statuts</option>
-            <option value="active">Actif</option>
-            <option value="expired">Expiré</option>
-          </select>
-        </div>
-      </Card>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.05 }}
+        className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-4 flex flex-wrap items-center gap-3"
+      >
+        <Users size={18} className="text-slate-400" />
+        <select
+          className="bg-white/5 border border-white/20 rounded-lg text-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+          value={filter.group_id}
+          onChange={e => setFilter({ ...filter, group_id: e.target.value })}
+        >
+          <option value="">Tous les groupes</option>
+          {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+        </select>
+        <select
+          className="bg-white/5 border border-white/20 rounded-lg text-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+          value={filter.subscription_status}
+          onChange={e => setFilter({ ...filter, subscription_status: e.target.value })}
+        >
+          <option value="">Tous les statuts</option>
+          <option value="active">Actif</option>
+          <option value="expired">Expiré</option>
+        </select>
+      </motion.div>
 
       {/* Liste des élèves */}
-      <Card className="overflow-hidden">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl overflow-hidden"
+      >
         {loading ? (
-          <div className="p-8 text-center text-slate-500">Chargement...</div>
-        ) : students.length === 0 ? (
-          <div className="p-8 text-center text-slate-500">Aucun élève trouvé.</div>
-        ) : (
-          <table className="w-full">
-            <thead className="bg-slate-50 border-b border-slate-200">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Élève</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Groupes</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Abonnement</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {students.map(s => (
-                <tr key={s.id} className="hover:bg-slate-50">
-                  <td className="px-6 py-4">
-                    <div className="font-medium">{s.name}</div>
-                    <div className="text-sm text-slate-500">{s.email}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex flex-wrap gap-1">
-                      {s.groups && s.groups[0] ? s.groups.map(g => (
-                        <span key={g.id} className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs">{g.name}</span>
-                      )) : <span className="text-slate-400">Aucun</span>}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${isActive(s.subscription_expires) ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                      {isActive(s.subscription_expires) ? `Actif (${new Date(s.subscription_expires).toLocaleDateString()})` : 'Expiré'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm" onClick={() => handleExtend(s.id)}>Prolonger</Button>
-                      <Button variant="danger" size="sm" onClick={() => handleRevoke(s.id)}>Révoquer</Button>
-                      <button onClick={() => showPaymentHistory(s)} className="text-blue-600 hover:underline text-sm">Paiements</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </Card>
-
-      {/* Modale rapide pour historique des paiements */}
-      {showPayments && selectedStudent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-6 relative">
-            <button onClick={() => setShowPayments(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">✕</button>
-            <h2 className="text-xl font-bold mb-4">Paiements de {selectedStudent.name}</h2>
-            {payments.length === 0 ? (
-              <p className="text-slate-500">Aucun paiement.</p>
-            ) : (
-              <table className="w-full text-sm">
-                <thead><tr><th className="p-2">Date</th><th className="p-2">Montant</th><th className="p-2">Référence</th><th className="p-2">Statut</th></tr></thead>
-                <tbody>
-                  {payments.map(p => (
-                    <tr key={p.id} className="border-t">
-                      <td className="p-2">{new Date(p.created_at).toLocaleDateString()}</td>
-                      <td className="p-2">{p.amount}</td>
-                      <td className="p-2">{p.transaction_ref}</td>
-                      <td className="p-2">{p.status}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+          <div className="flex items-center justify-center py-12">
+            <Loader className="animate-spin text-violet-400" size={32} />
+            <span className="ml-3 text-slate-400 text-lg">Chargement…</span>
           </div>
-        </div>
-      )}
+        ) : students.length === 0 ? (
+          <div className="p-12 text-center">
+            <Users size={48} className="mx-auto text-slate-600 mb-4" />
+            <p className="text-slate-400 text-lg">Aucun élève trouvé.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="bg-white/5 border-b border-white/10">
+                <tr>
+                  <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Élève</th>
+                  <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Groupes</th>
+                  <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Abonnement</th>
+                  <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {students.map(s => (
+                  <tr key={s.id} className="hover:bg-white/5 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="font-medium text-white">{s.name}</div>
+                      <div className="text-sm text-slate-400">{s.email}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-wrap gap-1">
+                        {s.groups && s.groups[0] ? s.groups.map(g => (
+                          <span key={g.id} className="px-2 py-1 bg-violet-500/20 text-violet-300 rounded text-xs border border-violet-500/30">{g.name}</span>
+                        )) : <span className="text-slate-500">Aucun</span>}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium border ${
+                        isActive(s.subscription_expires)
+                          ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                          : 'bg-red-500/20 text-red-400 border-red-500/30'
+                      }`}>
+                        {isActive(s.subscription_expires)
+                          ? `Actif (${new Date(s.subscription_expires).toLocaleDateString()})`
+                          : 'Expiré'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleExtend(s.id)}
+                          className="inline-flex items-center gap-1 bg-emerald-600/20 text-emerald-400 border border-emerald-600/30 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-emerald-600/30 transition-all"
+                        >
+                          <PlusCircle size={14} /> Prolonger
+                        </button>
+                        <button
+                          onClick={() => handleRevoke(s.id)}
+                          className="inline-flex items-center gap-1 bg-red-600/20 text-red-400 border border-red-600/30 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-red-600/30 transition-all"
+                        >
+                          <MinusCircle size={14} /> Révoquer
+                        </button>
+                        <button
+                          onClick={() => showPaymentHistory(s)}
+                          className="text-violet-400 hover:text-violet-300 text-sm font-medium underline underline-offset-2 transition-colors ml-2"
+                        >
+                          Paiements
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </motion.div>
+
+      {/* Modale d'historique des paiements */}
+      <AnimatePresence>
+        {showPayments && selectedStudent && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+            onClick={() => setShowPayments(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.95 }}
+              className="bg-slate-900 border border-white/10 rounded-2xl shadow-2xl w-full max-w-2xl p-6 relative"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => setShowPayments(false)}
+                className="absolute top-4 right-4 p-1.5 bg-white/10 text-slate-300 rounded-full hover:bg-white/20 transition-colors"
+              >
+                <X size={18} />
+              </button>
+              <h2 className="text-xl font-bold text-white mb-4 font-space-grotesk">
+                Paiements de {selectedStudent.name}
+              </h2>
+              {payments.length === 0 ? (
+                <p className="text-slate-400 text-center py-8">Aucun paiement enregistré.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-white/5 border-b border-white/10">
+                      <tr>
+                        <th className="p-3 text-slate-300 font-medium">Date</th>
+                        <th className="p-3 text-slate-300 font-medium">Montant</th>
+                        <th className="p-3 text-slate-300 font-medium">Référence</th>
+                        <th className="p-3 text-slate-300 font-medium">Statut</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {payments.map(p => (
+                        <tr key={p.id} className="hover:bg-white/5 transition-colors">
+                          <td className="p-3 text-slate-400">{new Date(p.created_at).toLocaleDateString()}</td>
+                          <td className="p-3 text-white font-medium">{p.amount} FCFA</td>
+                          <td className="p-3 text-slate-300">{p.transaction_ref}</td>
+                          <td className="p-3">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              p.status === 'validated' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'
+                            }`}>{p.status}</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

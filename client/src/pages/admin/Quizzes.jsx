@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, HelpCircle, Clock, Layers } from 'lucide-react';
+import { motion } from 'framer-motion';
+import {
+  Plus, Edit, Trash2, HelpCircle, Clock, Layers, Loader,
+} from 'lucide-react';
 import api from '../../services/api';
-import Card from '../../components/common/Card';
-import Button from '../../components/common/Button';
 import QuizModal from '../../components/admin/QuizModal';
 
 const difficultyLabels = {
-  easy: { label: 'Facile', color: 'bg-green-100 text-green-700' },
-  medium: { label: 'Moyen', color: 'bg-yellow-100 text-yellow-700' },
-  hard: { label: 'Difficile', color: 'bg-orange-100 text-orange-700' },
-  very_hard: { label: 'Très difficile', color: 'bg-red-100 text-red-700' },
+  easy: { label: 'Facile', color: 'text-emerald-400 bg-emerald-500/20 border-emerald-500/30' },
+  medium: { label: 'Moyen', color: 'text-amber-400 bg-amber-500/20 border-amber-500/30' },
+  hard: { label: 'Difficile', color: 'text-orange-400 bg-orange-500/20 border-orange-500/30' },
+  very_hard: { label: 'Très difficile', color: 'text-red-400 bg-red-500/20 border-red-500/30' },
 };
 
 const Quizzes = () => {
@@ -63,88 +64,113 @@ const Quizzes = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* En-tête */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+      >
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">Quiz</h1>
-          <p className="text-slate-500 mt-1">Créez des quiz intelligents générés automatiquement</p>
+          <h1 className="text-3xl font-bold text-white font-space-grotesk">Quiz</h1>
+          <p className="text-slate-400 mt-1">Créez des quiz intelligents générés automatiquement</p>
         </div>
-        <Button onClick={() => setModalOpen(true)} className="flex items-center gap-2">
+        <button
+          onClick={() => setModalOpen(true)}
+          className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-4 py-2.5 rounded-lg font-medium hover:from-violet-700 hover:to-cyan-700 transition-all shadow-lg"
+        >
           <Plus size={18} />
           Nouveau quiz
-        </Button>
-      </div>
+        </button>
+      </motion.div>
 
-      <Card className="overflow-hidden">
+      {/* Tableau des quiz */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl overflow-hidden"
+      >
         {loading ? (
-          <div className="p-8 text-center text-slate-500">Chargement...</div>
+          <div className="flex items-center justify-center py-12">
+            <Loader className="animate-spin text-violet-400" size={32} />
+            <span className="ml-3 text-slate-400 text-lg">Chargement…</span>
+          </div>
         ) : quizzes.length === 0 ? (
-          <div className="p-8 text-center text-slate-500">
-            <HelpCircle size={48} className="mx-auto mb-4 opacity-30" />
-            <p>Aucun quiz pour le moment.</p>
-            <Button variant="outline" onClick={() => setModalOpen(true)} className="mt-4">
-              Créer votre premier quiz
-            </Button>
+          <div className="p-12 text-center">
+            <HelpCircle size={48} className="mx-auto text-slate-600 mb-4" />
+            <p className="text-slate-400 text-lg">Aucun quiz pour le moment.</p>
+            <button
+              onClick={() => setModalOpen(true)}
+              className="mt-4 inline-flex items-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-4 py-2 rounded-lg font-medium hover:shadow-lg transition-all"
+            >
+              <Plus size={16} /> Créer votre premier quiz
+            </button>
           </div>
         ) : (
-          <table className="w-full">
-            <thead className="bg-slate-50 border-b border-slate-200">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Titre</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Groupe</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Difficulté</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Questions</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Temps limite</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {quizzes.map((quiz) => (
-                <tr key={quiz.id} className="hover:bg-slate-50">
-                  <td className="px-6 py-4">
-                    <div className="font-medium text-slate-800">{quiz.title}</div>
-                    <div className="text-sm text-slate-500 truncate max-w-xs">{quiz.description}</div>
-                  </td>
-                  <td className="px-6 py-4 text-slate-600">
-                    {groups.find(g => g.id === quiz.group_id)?.name || '-'}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${difficultyLabels[quiz.difficulty_filter]?.color || 'bg-gray-100'}`}>
-                      {difficultyLabels[quiz.difficulty_filter]?.label || 'Mixte'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-slate-600">
-                    <div className="flex items-center gap-1">
-                      <Layers size={14} />
-                      {quiz.question_count || 10} questions
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-slate-600">
-                    <div className="flex items-center gap-1">
-                      <Clock size={14} />
-                      {Math.floor(quiz.time_limit / 60)} min {quiz.time_limit % 60}s
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <button
-                      onClick={() => { setEditingQuiz(quiz); setModalOpen(true); }}
-                      className="text-slate-600 hover:text-blue-600 p-2 rounded-lg hover:bg-blue-50 mr-1"
-                    >
-                      <Edit size={18} />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(quiz.id)}
-                      className="text-slate-600 hover:text-red-600 p-2 rounded-lg hover:bg-red-50"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="bg-white/5 border-b border-white/10">
+                <tr>
+                  <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Titre</th>
+                  <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Groupe</th>
+                  <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Difficulté</th>
+                  <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Questions</th>
+                  <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Temps limite</th>
+                  <th className="px-6 py-4 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {quizzes.map((quiz) => (
+                  <tr key={quiz.id} className="hover:bg-white/5 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="font-medium text-white">{quiz.title}</div>
+                      <div className="text-sm text-slate-500 truncate max-w-xs">{quiz.description}</div>
+                    </td>
+                    <td className="px-6 py-4 text-slate-300">
+                      {groups.find(g => g.id === quiz.group_id)?.name || '-'}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium border ${difficultyLabels[quiz.difficulty_filter]?.color || 'bg-gray-500/20 text-gray-400 border-gray-500/30'}`}>
+                        {difficultyLabels[quiz.difficulty_filter]?.label || 'Mixte'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-slate-300">
+                      <div className="flex items-center gap-1">
+                        <Layers size={14} />
+                        {quiz.question_count || 10} questions
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-slate-300">
+                      <div className="flex items-center gap-1">
+                        <Clock size={14} />
+                        {Math.floor(quiz.time_limit / 60)} min {quiz.time_limit % 60}s
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button
+                        onClick={() => { setEditingQuiz(quiz); setModalOpen(true); }}
+                        className="text-slate-400 hover:text-violet-400 p-2 rounded-lg hover:bg-white/10 transition-all mr-1"
+                        title="Modifier"
+                      >
+                        <Edit size={18} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(quiz.id)}
+                        className="text-slate-400 hover:text-red-400 p-2 rounded-lg hover:bg-red-500/10 transition-all"
+                        title="Supprimer"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
-      </Card>
+      </motion.div>
 
+      {/* Modale de création/édition */}
       <QuizModal
         isOpen={modalOpen}
         onClose={() => { setModalOpen(false); setEditingQuiz(null); }}

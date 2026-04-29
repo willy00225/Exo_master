@@ -22,7 +22,8 @@ import StudentExercises from './pages/student/Exercises';
 import StudentQuizzes from './pages/student/Quizzes';
 import StudentChallenges from './pages/student/Challenges';
 import StudentProfile from './pages/student/Profile';
-import Subscription from './pages/student/Subscription'; // <-- Nouvel import
+import Subscription from './pages/student/Subscription';
+import StudentPayments from './pages/student/Payments'; // 🔥 Nouvel import
 
 // Landing page
 import LandingPage from './pages/LandingPage';
@@ -97,8 +98,8 @@ function AppContent() {
         <Route path="quizzes" element={<StudentQuizzes />} />
         <Route path="challenges" element={<StudentChallenges />} />
         <Route path="profile" element={<StudentProfile />} />
-        <Route path="payments" element={<div>Paiements (à venir)</div>} />
-        <Route path="subscription" element={<Subscription />} /> {/* Nouvelle route */}
+        <Route path="payments" element={<StudentPayments />} /> {/* 🔥 Historique des paiements */}
+        <Route path="subscription" element={<Subscription />} />
       </Route>
     </Routes>
   );
