@@ -113,7 +113,7 @@ router.post("/login", async (req, res) => {
     });
   } catch (error) {
     console.error(error.message);
-    res.status(500).json({ error: "Erreur lors de la connexion." });
+    res.status(500).json({ error: "Erreur lors de la connexion.", details: error.message });
   }
 });
 
