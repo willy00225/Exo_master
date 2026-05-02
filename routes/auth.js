@@ -4,8 +4,8 @@ const pool = require("../config/db");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
-const { sendMail, sendPasswordResetEmail } = require("../utils/mailer");
-const auth = require("../middleware/auth");
+const auth = require("../middleware/auth"); // si utilisé pour change-password
+const { sendMail, sendPasswordResetEmail } = require("../config/mailer"); // ✅ corrigé
 
 // ------------------------------------------------------------
 // 📝 INSCRIPTION avec envoi d'email de vérification
@@ -53,7 +53,7 @@ router.post("/register", async (req, res) => {
              <a href="${verificationLink}">${verificationLink}</a>`
     });
 
-    // Générer un token JWT pour l'authentification immédiate (même si l'email n'est pas vérifié)
+    // Générer un token JWT pour l'authentification immédiate
     const token = jwt.sign(
       { id: newUser.rows[0].id, email: newUser.rows[0].email },
       process.env.JWT_SECRET,
@@ -115,11 +115,7 @@ router.post("/login", async (req, res) => {
 
     // 3. Générer un token JWT
     const token = jwt.sign(
-      {
-        id: user.rows[0].id,
-        email: user.rows[0].email,
-        role: user.rows[0].role,
-      },
+      { id: user.rows[0].id, email: user.rows[0].email, role: user.rows[0].role },
       process.env.JWT_SECRET,
       { expiresIn: "24h" }
     );
@@ -127,10 +123,7 @@ router.post("/login", async (req, res) => {
     // 4. Retourner les informations utilisateur (sans le mot de passe)
     const { password: _, ...userWithoutPassword } = user.rows[0];
 
-    res.json({
-      user: userWithoutPassword,
-      token,
-    });
+    res.json({ user: userWithoutPassword, token });
   } catch (error) {
     console.error(error.message);
     res.status(500).json({ error: "Erreur lors de la connexion." });
@@ -203,7 +196,7 @@ router.post("/reset-password", async (req, res) => {
 });
 
 // ------------------------------------------------------------
-// 🔑 CHANGER LE MOT DE PASSE (utilisateur connecté)
+// 🔒 CHANGER LE MOT DE PASSE (utilisateur connecté)
 // ------------------------------------------------------------
 router.put("/change-password", auth, async (req, res) => {
   try {
