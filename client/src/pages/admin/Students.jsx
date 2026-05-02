@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Users, Calendar, CreditCard, Ban, PlusCircle, MinusCircle, Eye, Loader, X,
+  Users, Loader, X, AlertCircle, PlusCircle, MinusCircle,
 } from 'lucide-react';
 import api from '../../services/api';
 
@@ -9,14 +9,42 @@ const Students = () => {
   const [students, setStudents] = useState([]);
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [groupsLoading, setGroupsLoading] = useState(true);
+  const [groupsError, setGroupsError] = useState('');
   const [filter, setFilter] = useState({ group_id: '', subscription_status: '' });
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [payments, setPayments] = useState([]);
   const [showPayments, setShowPayments] = useState(false);
-  const [extendDays, setExtendDays] = useState(30);
+  const [extendDays] = useState(30);
 
+  // Charger les groupes avec log
   useEffect(() => {
-    api.get('/groups').then(res => setGroups(res.data)).catch(console.error);
+    const fetchGroups = async () => {
+      setGroupsLoading(true);
+      try {
+        const res = await api.get('/groups');
+        console.log('Réponse API /groups :', res.data);
+        if (Array.isArray(res.data)) {
+          setGroups(res.data);
+          if (res.data.length === 0) {
+            setGroupsError('Aucun groupe trouvé dans la base.');
+          } else {
+            setGroupsError('');
+          }
+        } else if (res.data && Array.isArray(res.data.groups)) {
+          setGroups(res.data.groups);
+        } else {
+          setGroupsError('Format de données inattendu. Voir console.');
+          console.error('Format attendu : un tableau ou { groups: [...] }', res.data);
+        }
+      } catch (err) {
+        console.error('Erreur chargement groupes', err);
+        setGroupsError('Erreur réseau ou API injoignable.');
+      } finally {
+        setGroupsLoading(false);
+      }
+    };
+    fetchGroups();
   }, []);
 
   const fetchStudents = async () => {
@@ -39,10 +67,10 @@ const Students = () => {
   }, [filter]);
 
   const handleExtend = async (studentId) => {
+    if (!window.confirm(`Prolonger l'abonnement de ${extendDays} jours ?`)) return;
     try {
       await api.put(`/admin/students/${studentId}/subscription`, { action: 'extend', days: extendDays });
       fetchStudents();
-      alert(`Abonnement prolongé de ${extendDays} jours.`);
     } catch (err) {
       alert('Erreur lors de la prolongation.');
     }
@@ -74,10 +102,7 @@ const Students = () => {
   return (
     <div className="space-y-6">
       {/* En-tête */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
+      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
         <h1 className="text-3xl font-bold text-white font-space-grotesk">Élèves</h1>
         <p className="text-slate-400 mt-1">Gérez les élèves et leurs abonnements</p>
       </motion.div>
@@ -90,22 +115,42 @@ const Students = () => {
         className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-4 flex flex-wrap items-center gap-3"
       >
         <Users size={18} className="text-slate-400" />
-        <select
-          className="bg-white/5 border border-white/20 rounded-lg text-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-          value={filter.group_id}
-          onChange={e => setFilter({ ...filter, group_id: e.target.value })}
-        >
-          <option value="">Tous les groupes</option>
-          {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-        </select>
+
+        {/* Sélecteur de groupe */}
+        <div className="relative">
+          {groupsLoading ? (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Loader size={16} className="animate-spin text-slate-400" />
+            </div>
+          ) : groupsError ? (
+            <p className="text-xs text-red-400 flex items-center gap-1">
+              <AlertCircle size={14} /> {groupsError}
+            </p>
+          ) : (
+            <select
+              className="bg-white/5 border border-white/20 rounded-lg text-white px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+              value={filter.group_id}
+              onChange={(e) => setFilter({ ...filter, group_id: e.target.value })}
+            >
+              <option value="">Tous les groupes</option>
+              {groups.map((g) => (
+                <option key={g.id} value={g.id} className="bg-slate-800 text-white">
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+
+        {/* Sélecteur de statut – CORRIGÉ avec classes explicites */}
         <select
           className="bg-white/5 border border-white/20 rounded-lg text-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
           value={filter.subscription_status}
-          onChange={e => setFilter({ ...filter, subscription_status: e.target.value })}
+          onChange={(e) => setFilter({ ...filter, subscription_status: e.target.value })}
         >
-          <option value="">Tous les statuts</option>
-          <option value="active">Actif</option>
-          <option value="expired">Expiré</option>
+          <option value="" className="bg-slate-800 text-white">Tous les statuts</option>
+          <option value="active" className="bg-slate-800 text-white">Actif</option>
+          <option value="expired" className="bg-slate-800 text-white">Expiré</option>
         </select>
       </motion.div>
 
@@ -138,7 +183,7 @@ const Students = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {students.map(s => (
+                {students.map((s) => (
                   <tr key={s.id} className="hover:bg-white/5 transition-colors">
                     <td className="px-6 py-4">
                       <div className="font-medium text-white">{s.name}</div>
@@ -146,9 +191,15 @@ const Students = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-wrap gap-1">
-                        {s.groups && s.groups[0] ? s.groups.map(g => (
-                          <span key={g.id} className="px-2 py-1 bg-violet-500/20 text-violet-300 rounded text-xs border border-violet-500/30">{g.name}</span>
-                        )) : <span className="text-slate-500">Aucun</span>}
+                        {s.groups && s.groups[0] ? (
+                          s.groups.map((g) => (
+                            <span key={g.id} className="px-2 py-1 bg-violet-500/20 text-violet-300 rounded text-xs border border-violet-500/30">
+                              {g.name}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-slate-500">Aucun</span>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -232,7 +283,7 @@ const Students = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
-                      {payments.map(p => (
+                      {payments.map((p) => (
                         <tr key={p.id} className="hover:bg-white/5 transition-colors">
                           <td className="p-3 text-slate-400">{new Date(p.created_at).toLocaleDateString()}</td>
                           <td className="p-3 text-white font-medium">{p.amount} FCFA</td>

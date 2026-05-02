@@ -50,4 +50,35 @@ router.get("/monthly", async (req, res) => {
   }
 });
 
+// GET /api/admin/stats/payments-by-method
+router.get("/payments-by-method", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT payment_method, COUNT(*)::int AS count 
+      FROM payments 
+      GROUP BY payment_method
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erreur" });
+  }
+});
+
+// GET /api/admin/stats/students-by-group
+router.get("/students-by-group", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT g.name AS group_name, COUNT(ug.user_id)::int AS student_count
+      FROM groups g
+      LEFT JOIN user_groups ug ON g.id = ug.group_id
+      GROUP BY g.id, g.name
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erreur" });
+  }
+});
+
 module.exports = router;

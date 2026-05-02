@@ -5,6 +5,8 @@ import {
   LayoutDashboard, Users, BookOpen, FileText, HelpCircle, CreditCard, Settings, LogOut, ChevronRight, Swords
 } from 'lucide-react';
 import logo from '../../assets/exo_master_logo.png';
+import NotificationBell from '../../components/common/NotificationBell';
+import WhatsAppButton from '../../components/common/WhatsAppButton'; // 🆕
 
 const AdminLayout = () => {
   const { user, logout } = useAuth();
@@ -39,8 +41,8 @@ const AdminLayout = () => {
           </p>
         </div>
 
-        {/* Profil utilisateur */}
-        <div className="p-4 border-b border-white/10">
+        {/* Profil utilisateur + notifications */}
+        <div className="p-4 border-b border-white/10 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-gradient-to-r from-violet-600 to-cyan-600 flex items-center justify-center text-white font-semibold shadow-lg">
               {user?.name?.charAt(0) || 'A'}
@@ -50,6 +52,7 @@ const AdminLayout = () => {
               <p className="text-xs text-slate-400">Administrateur</p>
             </div>
           </div>
+          <NotificationBell />
         </div>
 
         {/* Navigation */}
@@ -88,7 +91,6 @@ const AdminLayout = () => {
 
       {/* Zone principale */}
       <div className="flex-1 flex flex-col min-w-0 bg-[#0B0E1A]">
-        {/* Contenu de la page (Outlet) avec fondu */}
         <motion.main
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -98,7 +100,6 @@ const AdminLayout = () => {
           <Outlet />
         </motion.main>
 
-        {/* Footer discret */}
         <footer className="border-t border-white/10 bg-white/5 backdrop-blur-md px-8 py-4">
           <div className="flex justify-between items-center text-sm text-slate-400">
             <p>© 2026 EXO MASTER. Tous droits réservés.</p>
@@ -110,6 +111,9 @@ const AdminLayout = () => {
           </div>
         </footer>
       </div>
+
+      {/* Bouton WhatsApp flottant */}
+      <WhatsAppButton />
     </div>
   );
 };

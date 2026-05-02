@@ -281,6 +281,9 @@ app.use("/api/admin/stats", adminStatsRoutes);
 const studentStatsRoutes = require("./routes/student/stats");
 app.use("/api/student/stats", studentStatsRoutes);
 
+// Import et utilisation des routes de notifications
+app.use("/api/notifications", require("./routes/notifications"));
+
 // Port
 const PORT = process.env.PORT || 5000;
 

@@ -3,6 +3,7 @@ const router = express.Router();
 const pool = require("../config/db");
 const auth = require("../middleware/auth");
 const subscription = require("../middleware/subscription");
+const { createNotification } = require("../utils/notificationHelper"); // 🆕
 
 // Toutes les routes nécessitent authentification et abonnement actif
 router.use(auth);
@@ -51,6 +52,24 @@ router.post("/", async (req, res) => {
        VALUES ($1, $2, $3) RETURNING *`,
       [challengerId, challenged_id, quiz_id]
     );
+
+    // Récupération du nom du challenger et du titre du quiz pour la notification
+    const challenger = await pool.query("SELECT name FROM users WHERE id = $1", [challengerId]);
+    const challengerName = challenger.rows[0]?.name || "Un élève";
+    const quizTitle = quizCheck.rows[0]?.title || "Quiz inconnu";
+
+    // Notification au défié
+    try {
+      await createNotification({
+        userId: challenged_id,
+        message: `${challengerName} vous a défié sur le quiz "${quizTitle}".`,
+        type: "challenge",
+        link: "/student/challenges"
+      });
+    } catch (notifErr) {
+      console.error("Erreur notification défi:", notifErr.message);
+      // Ne pas faire échouer la création du défi
+    }
 
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -140,7 +159,6 @@ router.post("/:id/start", async (req, res) => {
     const userId = req.user.id;
     const challengeId = req.params.id;
 
-    // Vérifier que le défi est accepté et que l'utilisateur est participant
     const challenge = await pool.query(
       `SELECT * FROM challenges WHERE id = $1 AND status = 'accepted' AND (challenger_id = $2 OR challenged_id = $2)`,
       [challengeId, userId]
@@ -150,16 +168,6 @@ router.post("/:id/start", async (req, res) => {
     }
 
     const quizId = challenge.rows[0].quiz_id;
-    // Récupérer le quiz et générer les questions (identique à la route /quizzes/:id/start)
-    // ... (réutiliser la logique de génération de questions depuis la banque)
-    // Nous allons déporter cette logique dans une fonction helper pour éviter la duplication.
-
-    // Pour le moment, nous redirigeons vers la route existante, mais en enregistrant le challenge_id dans la tentative.
-    // Nous allons modifier la route /quizzes/:id/start pour accepter un paramètre optionnel challenge_id.
-
-    // Solution simple : faire un appel interne à la logique de start en passant challenge_id.
-    // Ici, je fournis une version adaptée directement.
-
     const quiz = await pool.query("SELECT * FROM quizzes WHERE id = $1", [quizId]);
     const quizData = quiz.rows[0];
     const { group_id, chapter_id, difficulty_filter, question_count } = quizData;
@@ -209,7 +217,6 @@ router.post("/:id/submit", async (req, res) => {
     const challengeId = req.params.id;
     const { attempt_id, answers, time_spent } = req.body;
 
-    // Vérifier que la tentative appartient bien à ce challenge et utilisateur
     const attemptCheck = await pool.query(
       `SELECT * FROM quiz_attempts WHERE id = $1 AND user_id = $2 AND challenge_id = $3`,
       [attempt_id, userId, challengeId]
@@ -219,10 +226,6 @@ router.post("/:id/submit", async (req, res) => {
     }
 
     const quizId = attemptCheck.rows[0].quiz_id;
-    const quiz = await pool.query("SELECT * FROM quizzes WHERE id = $1", [quizId]);
-    // Récupérer les questions de la banque pour correction
-    // (nous devons les avoir stockées ou les récupérer via les ids de questions)
-    // Simplification : nous allons récupérer les questions via la banque pour correction
     const questionIds = answers.map(a => a.questionId);
     const questionsData = await pool.query(
       "SELECT id, correct_option FROM question_bank WHERE id = ANY($1::int[])",
@@ -244,7 +247,6 @@ router.post("/:id/submit", async (req, res) => {
       [score, time_spent, attempt_id]
     );
 
-    // Mettre à jour le challenge avec le score du joueur
     const challenge = await pool.query(
       "SELECT * FROM challenges WHERE id = $1",
       [challengeId]
@@ -270,7 +272,6 @@ router.post("/:id/submit", async (req, res) => {
       if (c.challenger_score > c.challenged_score) winnerId = c.challenger_id;
       else if (c.challenged_score > c.challenger_score) winnerId = c.challenged_id;
       else {
-        // Égalité : comparer les temps
         if (c.challenger_time < c.challenged_time) winnerId = c.challenger_id;
         else if (c.challenged_time < c.challenger_time) winnerId = c.challenged_id;
       }
@@ -287,7 +288,7 @@ router.post("/:id/submit", async (req, res) => {
   }
 });
 
-// GET /api/challenges/:id/status - Voir l'état d'un défi (scores, gagnant)
+// GET /api/challenges/:id/status - Voir l'état d'un défi
 router.get("/:id/status", async (req, res) => {
   try {
     const { id } = req.params;

@@ -2,9 +2,11 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { motion } from 'framer-motion';
 import { 
-  Home, FileText, HelpCircle, Swords, User, CreditCard, LogOut, ChevronRight
+  Home, FileText, HelpCircle, Swords, User, CreditCard, Lock, LogOut, ChevronRight
 } from 'lucide-react';
 import logo from '../../assets/exo_master_logo.png';
+import NotificationBell from '../../components/common/NotificationBell';
+import WhatsAppButton from '../../components/common/WhatsAppButton';
 
 const StudentLayout = () => {
   const { user, logout } = useAuth();
@@ -22,6 +24,7 @@ const StudentLayout = () => {
     { path: '/student/challenges', icon: Swords, label: 'Challenges' },
     { path: '/student/payments', icon: CreditCard, label: 'Paiements' },
     { path: '/student/profile', icon: User, label: 'Profil' },
+    { path: '/student/change-password', icon: Lock, label: 'Mot de passe' }, // 🆕
   ];
 
   return (
@@ -36,8 +39,8 @@ const StudentLayout = () => {
           </p>
         </div>
 
-        {/* Profil utilisateur */}
-        <div className="p-4 border-b border-white/10">
+        {/* Profil utilisateur + notifications */}
+        <div className="p-4 border-b border-white/10 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 flex items-center justify-center text-white font-semibold shadow-lg">
               {user?.name?.charAt(0) || 'E'}
@@ -47,6 +50,7 @@ const StudentLayout = () => {
               <p className="text-xs text-slate-400">Élève</p>
             </div>
           </div>
+          <NotificationBell />
         </div>
 
         {/* Navigation */}
@@ -85,7 +89,6 @@ const StudentLayout = () => {
 
       {/* Zone principale */}
       <div className="flex-1 flex flex-col min-w-0 bg-[#0B0E1A]">
-        {/* Contenu avec animation */}
         <motion.main
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -95,7 +98,6 @@ const StudentLayout = () => {
           <Outlet />
         </motion.main>
 
-        {/* Footer */}
         <footer className="border-t border-white/10 bg-white/5 backdrop-blur-md px-8 py-4">
           <div className="flex justify-between items-center text-sm text-slate-400">
             <p>© 2026 EXO MASTER. Tous droits réservés.</p>
@@ -107,6 +109,9 @@ const StudentLayout = () => {
           </div>
         </footer>
       </div>
+
+      {/* Bouton WhatsApp flottant */}
+      <WhatsAppButton />
     </div>
   );
 };

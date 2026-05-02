@@ -7,6 +7,9 @@ const upload = require("../middleware/upload");
 const fs = require("fs");
 const path = require("path");
 
+// Import du helper de notification
+const { createNotification } = require("../utils/notificationHelper");
+
 // ----------------------
 // ROUTES ÉLÈVES
 // ----------------------
@@ -152,6 +155,19 @@ router.put("/:id/validate", async (req, res) => {
       [subscription_days, userId]
     );
 
+    // NOTIFICATION AUTOMATIQUE
+    try {
+      await createNotification({
+        userId: userId,
+        message: "Votre paiement a été validé. Abonnement activé pour " + subscription_days + " jours.",
+        type: "success",
+        link: "/student/profile"
+      });
+    } catch (notifErr) {
+      console.error("Erreur lors de la création de la notification:", notifErr.message);
+      // Ne pas bloquer la réponse en cas d'erreur de notification
+    }
+
     res.json({
       message: `Paiement validé. Abonnement activé pour ${subscription_days} jours.`,
     });
@@ -175,6 +191,21 @@ router.put("/:id/reject", async (req, res) => {
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Paiement non trouvé ou déjà traité." });
+    }
+
+    // Notification de rejet (optionnelle)
+    try {
+      const paymentInfo = await pool.query("SELECT user_id FROM payments WHERE id = $1", [id]);
+      if (paymentInfo.rows.length > 0) {
+        await createNotification({
+          userId: paymentInfo.rows[0].user_id,
+          message: "Votre paiement a été rejeté. " + (admin_notes ? "Motif : " + admin_notes : "Contactez l'administration."),
+          type: "error",
+          link: "/student/subscription"
+        });
+      }
+    } catch (notifErr) {
+      console.error("Erreur notification rejet:", notifErr.message);
     }
 
     res.json({ message: "Paiement rejeté." });

@@ -1,6 +1,8 @@
 import axios from 'axios';
 
 const api = axios.create({
+  // En production, utilisez la variable d'environnement VITE_API_URL
+  // Si elle n'est pas définie, on reste sur localhost (développement)
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
   headers: { 'Content-Type': 'application/json' },
 });

@@ -16,6 +16,7 @@ import Quizzes from './pages/admin/Quizzes';
 import Challenges from './pages/admin/Challenges';
 import Settings from './pages/admin/Settings';
 import Students from './pages/admin/Students';
+import Chapters from './pages/admin/Chapters';
 
 // Pages Élève (alias pour éviter les conflits)
 import StudentExercises from './pages/student/Exercises';
@@ -23,10 +24,17 @@ import StudentQuizzes from './pages/student/Quizzes';
 import StudentChallenges from './pages/student/Challenges';
 import StudentProfile from './pages/student/Profile';
 import Subscription from './pages/student/Subscription';
-import StudentPayments from './pages/student/Payments'; // 🔥 Nouvel import
+import StudentPayments from './pages/student/Payments';
+import ChangePassword from './pages/student/ChangePassword';
 
 // Landing page
 import LandingPage from './pages/LandingPage';
+
+// Email vérifié
+import EmailVerified from './pages/EmailVerified';
+
+// Page 404
+import NotFound from './pages/NotFound'; // 🆕
 
 function AppContent() {
   const { user, loading } = useAuth();
@@ -53,6 +61,9 @@ function AppContent() {
         element={!user ? <Register /> : <Navigate to="/" />}
       />
 
+      {/* Route email vérifié (publique) */}
+      <Route path="/email-verified" element={<EmailVerified />} />
+
       {/* Route racine : Landing page si non connecté, sinon redirection selon le rôle */}
       <Route
         path="/"
@@ -77,6 +88,7 @@ function AppContent() {
         <Route index element={<AdminDashboard />} />
         <Route path="students" element={<Students />} />
         <Route path="groups" element={<Groups />} />
+        <Route path="chapters" element={<Chapters />} />
         <Route path="payments" element={<Payments />} />
         <Route path="exercises" element={<Exercises />} />
         <Route path="quizzes" element={<Quizzes />} />
@@ -98,9 +110,13 @@ function AppContent() {
         <Route path="quizzes" element={<StudentQuizzes />} />
         <Route path="challenges" element={<StudentChallenges />} />
         <Route path="profile" element={<StudentProfile />} />
-        <Route path="payments" element={<StudentPayments />} /> {/* 🔥 Historique des paiements */}
+        <Route path="payments" element={<StudentPayments />} />
         <Route path="subscription" element={<Subscription />} />
+        <Route path="change-password" element={<ChangePassword />} />
       </Route>
+
+      {/* Route 404 - doit rester en dernier */}
+      <Route path="*" element={<NotFound />} /> {/* 🆕 */}
     </Routes>
   );
 }
