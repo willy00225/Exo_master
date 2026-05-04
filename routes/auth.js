@@ -4,8 +4,8 @@ const pool = require("../config/db");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
-const auth = require("../middleware/auth"); // si utilisé pour change-password
-const { sendMail, sendPasswordResetEmail } = require("../config/mailer"); // ✅ corrigé
+const auth = require("../middleware/auth");
+const { sendMail, sendPasswordResetEmail } = require("../config/mailer");
 
 // ------------------------------------------------------------
 // 📝 INSCRIPTION avec envoi d'email de vérification
@@ -43,15 +43,20 @@ router.post("/register", async (req, res) => {
       );
     }
 
-    // Envoyer l'email de vérification (si configuré)
-    const verificationLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${verificationToken}`;
-    await sendMail({
-      to: email,
-      subject: 'Vérifiez votre adresse email - EXO MASTER',
-      html: `<h1>Bienvenue sur EXO MASTER</h1>
-             <p>Cliquez sur le lien ci-dessous pour activer votre compte :</p>
-             <a href="${verificationLink}">${verificationLink}</a>`
-    });
+    // Envoyer l'email de vérification (ne bloque pas l'inscription en cas d'échec)
+    try {
+      const verificationLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${verificationToken}`;
+      await sendMail({
+        to: email,
+        subject: 'Vérifiez votre adresse email - EXO MASTER',
+        html: `<h1>Bienvenue sur EXO MASTER</h1>
+               <p>Cliquez sur le lien ci-dessous pour activer votre compte :</p>
+               <a href="${verificationLink}">${verificationLink}</a>`
+      });
+    } catch (mailErr) {
+      console.error("Erreur lors de l'envoi du mail de vérification :", mailErr.message);
+      // L'inscription continue même sans l'email
+    }
 
     // Générer un token JWT pour l'authentification immédiate
     const token = jwt.sign(
