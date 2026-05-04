@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
-import { LogIn, Mail, Lock, ArrowLeft, UserPlus } from 'lucide-react';
+import api from '../../services/api';
+import { LogIn, Mail, Lock, ArrowLeft, UserPlus, Send, CheckCircle } from 'lucide-react';
 import logo from '../../assets/exo_master_logo.png';
 
 const Login = () => {
@@ -10,18 +11,42 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [verificationSent, setVerificationSent] = useState(false);
+  const [resending, setResending] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  const handleResendVerification = async () => {
+    if (!email) return;
+    setResending(true);
+    try {
+      await api.post('/auth/resend-verification', { email });
+      setVerificationSent(true);
+      setError('');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Erreur lors du renvoi.');
+    } finally {
+      setResending(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setVerificationSent(false);
     setLoading(true);
     try {
       await login(email, password);
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.error || 'Erreur de connexion');
+      const data = err.response?.data;
+      if (data?.code === 'EMAIL_NOT_VERIFIED' || data?.error?.includes('Email non vérifié')) {
+        setError(
+          'Votre adresse email n’est pas encore vérifiée. Veuillez consulter votre boîte de réception ou renvoyer un lien de vérification.'
+        );
+      } else {
+        setError(data?.error || 'Erreur de connexion');
+      }
     } finally {
       setLoading(false);
     }
@@ -56,6 +81,22 @@ const Login = () => {
         {error && (
           <div className="bg-red-500/20 border border-red-500/50 text-red-200 p-3 rounded-lg mb-4 text-sm">
             {error}
+            {error.includes('non vérifiée') && (
+              <button
+                onClick={handleResendVerification}
+                disabled={resending}
+                className="ml-2 underline text-violet-300 hover:text-violet-200 disabled:opacity-50"
+              >
+                {resending ? 'Envoi...' : 'Renvoyer le lien'}
+              </button>
+            )}
+          </div>
+        )}
+
+        {verificationSent && (
+          <div className="bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 p-3 rounded-lg mb-4 text-sm flex items-center gap-2">
+            <CheckCircle size={16} />
+            Un nouveau lien de vérification a été envoyé.
           </div>
         )}
 
@@ -88,6 +129,13 @@ const Login = () => {
               placeholder="Votre mot de passe"
               required
             />
+          </div>
+
+          {/* Lien Mot de passe oublié */}
+          <div className="text-right">
+            <Link to="/forgot-password" className="text-xs text-violet-400 hover:text-violet-300 transition-colors">
+              Mot de passe oublié ?
+            </Link>
           </div>
 
           <button

@@ -33,8 +33,12 @@ import LandingPage from './pages/LandingPage';
 // Email vérifié
 import EmailVerified from './pages/EmailVerified';
 
+// Mot de passe oublié
+import ForgotPassword from './pages/auth/ForgotPassword';
+import ResetPassword from './pages/auth/ResetPassword'; // 🆕
+
 // Page 404
-import NotFound from './pages/NotFound'; // 🆕
+import NotFound from './pages/NotFound';
 
 function AppContent() {
   const { user, loading } = useAuth();
@@ -60,6 +64,12 @@ function AppContent() {
         path="/register"
         element={!user ? <Register /> : <Navigate to="/" />}
       />
+
+      {/* Route mot de passe oublié (publique) */}
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+
+      {/* Route réinitialisation de mot de passe (publique) */}
+      <Route path="/reset-password" element={<ResetPassword />} /> {/* 🆕 */}
 
       {/* Route email vérifié (publique) */}
       <Route path="/email-verified" element={<EmailVerified />} />
@@ -116,7 +126,7 @@ function AppContent() {
       </Route>
 
       {/* Route 404 - doit rester en dernier */}
-      <Route path="*" element={<NotFound />} /> {/* 🆕 */}
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }

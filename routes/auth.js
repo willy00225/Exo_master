@@ -118,20 +118,66 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ error: "Email ou mot de passe incorrect." });
     }
 
-    // 3. Générer un token JWT
+    // 3. Vérifier si l'email est vérifié
+    if (!user.rows[0].email_verified) {
+      return res.status(403).json({
+        error: "Email non vérifié. Veuillez consulter votre boîte mail.",
+        code: "EMAIL_NOT_VERIFIED"
+      });
+    }
+
+    // 4. Générer un token JWT
     const token = jwt.sign(
       { id: user.rows[0].id, email: user.rows[0].email, role: user.rows[0].role },
       process.env.JWT_SECRET,
       { expiresIn: "24h" }
     );
 
-    // 4. Retourner les informations utilisateur (sans le mot de passe)
+    // 5. Retourner les informations utilisateur (sans le mot de passe)
     const { password: _, ...userWithoutPassword } = user.rows[0];
 
     res.json({ user: userWithoutPassword, token });
   } catch (error) {
     console.error(error.message);
     res.status(500).json({ error: "Erreur lors de la connexion." });
+  }
+});
+
+// ------------------------------------------------------------
+// 📧 RENVOYER L'EMAIL DE VÉRIFICATION
+// ------------------------------------------------------------
+router.post("/resend-verification", async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: "Email requis." });
+
+    const user = await pool.query("SELECT id, name, email, email_verified FROM users WHERE email = $1", [email]);
+    if (user.rows.length === 0) {
+      // Par sécurité, ne pas divulguer si l'email existe ou non
+      return res.json({ message: "Si un compte existe avec cet email, un nouveau lien de vérification a été envoyé." });
+    }
+
+    if (user.rows[0].email_verified) {
+      return res.status(400).json({ error: "Cet email est déjà vérifié." });
+    }
+
+    // Générer un nouveau token et l'enregistrer (écrase l'ancien)
+    const newToken = crypto.randomBytes(32).toString('hex');
+    await pool.query("UPDATE users SET verification_token = $1 WHERE id = $2", [newToken, user.rows[0].id]);
+
+    const verificationLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${newToken}`;
+    await sendMail({
+      to: email,
+      subject: 'Vérification de votre adresse email - EXO MASTER',
+      html: `<h1>Vérification de votre compte</h1>
+             <p>Cliquez sur le lien ci-dessous pour activer votre compte :</p>
+             <a href="${verificationLink}">${verificationLink}</a>`
+    });
+
+    res.json({ message: "Un nouveau lien de vérification a été envoyé à votre adresse email." });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erreur lors de l'envoi du lien." });
   }
 });
 
