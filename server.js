@@ -225,6 +225,17 @@ app.get("/api/public/groups", async (req, res) => {
   }
 });
 
+// Route publique pour récupérer le numéro WhatsApp
+app.get("/api/public/settings/whatsapp", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT value FROM settings WHERE key = 'whatsapp_number'");
+    res.json({ whatsapp_number: result.rows[0]?.value || '' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
 // Import et utilisation des routes d'authentification
 const authRoutes = require("./routes/auth");
 app.use("/api/auth", authRoutes);
@@ -283,6 +294,9 @@ app.use("/api/student/stats", studentStatsRoutes);
 
 // Import et utilisation des routes de notifications
 app.use("/api/notifications", require("./routes/notifications"));
+
+// Import et utilisation des routes de classmates(lancer un défi à son ami)
+app.use("/api/student/classmates", require("./routes/student/classmates"));
 
 // Port
 const PORT = process.env.PORT || 5000;
