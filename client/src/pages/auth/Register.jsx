@@ -47,7 +47,7 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0B0E1A] flex items-center justify-center p-4 font-sans relative overflow-x-hidden">
+    <div className="min-h-screen bg-[#0B0E1A] flex items-start justify-center p-4 font-sans relative overflow-y-auto overflow-x-hidden">
       {/* Fond décoratif */}
       <div className="absolute inset-0 -z-10">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl" />
@@ -58,17 +58,17 @@ const Register = () => {
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: 'easeOut' }}
-        className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl w-full max-w-md p-8"
+        className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl w-full max-w-md p-6 my-8"
       >
-        {/* Logo */}
-        <div className="flex flex-col items-center mb-6">
-          <img src={logo} alt="EXO MASTER" className="h-14 w-auto mb-2" />
+        {/* Logo – taille réduite et marges ajustées */}
+        <div className="flex flex-col items-center mb-4">
+          <img src={logo} alt="EXO MASTER" className="h-12 w-auto mb-1" />
           <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">
             DEVENEZ LE MEILLEUR
           </p>
         </div>
 
-        <h1 className="text-2xl font-bold text-white text-center mb-6 font-space-grotesk">
+        <h1 className="text-2xl font-bold text-white text-center mb-4 font-space-grotesk">
           Inscription
         </h1>
 
@@ -78,7 +78,7 @@ const Register = () => {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-3">
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-1">
               <User size={16} className="inline mr-1" />
@@ -89,7 +89,7 @@ const Register = () => {
               name="name"
               value={formData.name}
               onChange={handleChange}
-              className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              className="w-full px-4 py-2.5 bg-white/5 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
               placeholder="Votre nom"
               required
             />
@@ -105,7 +105,7 @@ const Register = () => {
               name="email"
               value={formData.email}
               onChange={handleChange}
-              className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              className="w-full px-4 py-2.5 bg-white/5 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
               placeholder="exemple@email.com"
               required
             />
@@ -121,7 +121,7 @@ const Register = () => {
               name="password"
               value={formData.password}
               onChange={handleChange}
-              className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              className="w-full px-4 py-2.5 bg-white/5 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
               placeholder="6 caractères minimum"
               minLength={6}
               required
@@ -138,7 +138,7 @@ const Register = () => {
               name="group_id"
               value={formData.group_id}
               onChange={handleChange}
-              className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all appearance-none"
+              className="w-full px-4 py-2.5 bg-white/5 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all appearance-none"
               required
             >
               <option value="" disabled className="bg-slate-800 text-slate-400">
@@ -155,14 +155,14 @@ const Register = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white py-3 rounded-lg font-semibold hover:from-violet-700 hover:to-cyan-700 transition-all disabled:opacity-50 shadow-lg hover:shadow-xl"
+            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white py-2.5 rounded-lg font-semibold hover:from-violet-700 hover:to-cyan-700 transition-all disabled:opacity-50 shadow-lg hover:shadow-xl"
           >
             <UserPlus size={20} />
             {loading ? 'Inscription...' : 'Créer mon compte'}
           </button>
         </form>
 
-        <p className="text-slate-400 text-sm text-center mt-6">
+        <p className="text-slate-400 text-sm text-center mt-4">
           Déjà un compte ?{' '}
           <Link to="/login" className="text-violet-400 hover:text-violet-300 font-medium transition-colors">
             Connectez-vous
@@ -170,7 +170,7 @@ const Register = () => {
         </p>
 
         {/* Retour à l'accueil */}
-        <div className="mt-4 text-center">
+        <div className="mt-3 text-center">
           <Link
             to="/"
             className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 transition-colors"

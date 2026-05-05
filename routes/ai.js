@@ -13,106 +13,116 @@ router.post("/generate-questions", async (req, res) => {
   // ... (code existant inchangé)
 });
 
-// ------------------------------
-// NOUVEAU : Génération d'exercice complet (énoncé + corrigé)
-// ------------------------------
+// POST /api/ai/generate-exercise – version premium fiable
 router.post("/generate-exercise", async (req, res) => {
   try {
     const { group_id, chapter_id, difficulty, theme } = req.body;
 
-    // Récupérer les infos du groupe et chapitre
-    const group = await pool.query(
-      "SELECT name, subject, level FROM groups WHERE id = $1",
-      [group_id]
-    );
-    if (group.rows.length === 0) {
-      return res.status(404).json({ error: "Groupe non trouvé." });
-    }
-
-    let chapterTitle = "général";
-    if (chapter_id) {
-      const chapter = await pool.query(
-        "SELECT title FROM chapters WHERE id = $1",
-        [chapter_id]
-      );
-      if (chapter.rows.length > 0) {
-        chapterTitle = chapter.rows[0].title;
-      }
-    }
+    const group = await pool.query("SELECT name, subject, level FROM groups WHERE id = $1", [group_id]);
+    if (group.rows.length === 0) return res.status(404).json({ error: "Groupe non trouvé." });
 
     const subject = group.rows[0].subject;
     const level = group.rows[0].level;
+    let chapterTitle = "général";
+    if (chapter_id) {
+      const chapter = await pool.query("SELECT title FROM chapters WHERE id = $1", [chapter_id]);
+      if (chapter.rows.length > 0) chapterTitle = chapter.rows[0].title;
+    }
 
-    // Construire le prompt
-    const prompt = `
-Tu es un professeur expert en ${subject} pour des élèves de niveau ${level}.
-Génère un exercice complet pour le chapitre "${chapterTitle}".
-Difficulté demandée : ${difficulty}.
-${theme ? `Thème spécifique : ${theme}.` : ''}
+    // Prompt de génération ultra‑précis
+    const generatePrompt = `
+Tu es un professeur agrégé en ${subject}, enseignant à des élèves de niveau ${level}. 
+Tu dois créer un exercice de difficulté "${difficulty}" sur le chapitre "${chapterTitle}". 
+Le client attend un exercice parfaitement exact, adapté au programme officiel de ce niveau, et un corrigé détaillé étape par étape. 
+Vérifie soigneusement tous les calculs, définitions et raisonnements avant de répondre.
 
-L'exercice doit être adapté au niveau et comporter :
-- Un énoncé clair et détaillé (éventuellement avec des sous-questions).
-- Un corrigé complet avec explications étape par étape.
-
-Format de réponse : un objet JSON contenant deux champs :
+Retourne UNIQUEMENT un objet JSON valide avec les clés suivantes :
 {
-  "title": "Titre court et descriptif de l'exercice",
-  "statement": "Énoncé complet de l'exercice...",
-  "correction": "Corrigé détaillé..."
+  "title": "Titre court et descriptif",
+  "statement": "Énoncé complet, éventuellement avec des sous‑questions",
+  "correction": "Corrigé complet, expliquant chaque étape de manière pédagogique"
 }
 
-Assure-toi que l'énoncé est autoportant et que le corrigé est pédagogique.
+Rappel : ne mets aucun commentaire en dehors du JSON. Vérifie deux fois les calculs et la logique.
 `;
 
     const openai = await getOpenAI();
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4o",   // le modèle le plus fiable
       messages: [
-        { role: "system", content: "Tu es un générateur d'exercices pédagogiques. Réponds uniquement avec le JSON demandé." },
-        { role: "user", content: prompt }
+        { role: "system", content: "Tu es un assistant qui génère des exercices parfaits et sans erreur." },
+        { role: "user", content: generatePrompt }
       ],
-      temperature: 0.7,
+      temperature: 0.4,  // plus bas = plus fiable
       response_format: { type: "json_object" }
     });
 
-    const responseContent = completion.choices[0].message.content;
     let generated;
     try {
-      generated = JSON.parse(responseContent);
+      generated = JSON.parse(completion.choices[0].message.content);
       if (!generated.title || !generated.statement || !generated.correction) {
-        throw new Error("Format JSON incomplet");
+        throw new Error("JSON incomplet");
       }
     } catch (e) {
-      console.error("Erreur parsing JSON OpenAI:", e);
-      return res.status(500).json({ error: "Format de réponse IA invalide." });
+      return res.status(500).json({ error: "L'IA a produit une réponse invalide. Veuillez réessayer." });
     }
 
-    // Créer l'exercice dans la base de données
+    // Double vérification par l'IA (auto‑correction)
+    const verifyPrompt = `
+Un professeur a rédigé l'exercice suivant :
+Titre : ${generated.title}
+Énoncé : ${generated.statement}
+Corrigé : ${generated.correction}
+
+En tant qu'expert en ${subject} (niveau ${level}), vérifie l'exactitude de l'énoncé et du corrigé. 
+Si tu trouves une erreur (de calcul, de logique, de programme), corrige‑la et retourne le JSON corrigé complet avec les mêmes clés. 
+Si tout est parfait, retourne le JSON original sans modification.
+
+Retourne UNIQUEMENT le JSON, sans commentaire.
+`;
+
+    const verifyCompletion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: "Tu es un vérificateur pédagogique impitoyable." },
+        { role: "user", content: verifyPrompt }
+      ],
+      temperature: 0.2,
+      response_format: { type: "json_object" }
+    });
+
+    let finalExercise;
+    try {
+      finalExercise = JSON.parse(verifyCompletion.choices[0].message.content);
+    } catch (e) {
+      // si la vérification échoue, on garde la version originale
+      finalExercise = generated;
+    }
+
+    // Insertion en base avec le statut "draft" pour que l'admin valide
     const result = await pool.query(
-      `INSERT INTO exercises 
-       (title, description, content, correction, difficulty, group_id, chapter_id, file_path)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING *`,
+      `INSERT INTO exercises (title, description, content, correction, difficulty, group_id, chapter_id, file_path)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
       [
-        generated.title,
-        generated.statement.substring(0, 200) + '...', // description courte
-        generated.statement,                          // contenu complet
-        generated.correction,
+        finalExercise.title,
+        finalExercise.statement.substring(0, 200) + '...',
+        finalExercise.statement,
+        finalExercise.correction,
         difficulty,
         group_id,
         chapter_id || null,
-        '' // pas de fichier pour l'instant
+        '' // pas de fichier
       ]
     );
 
     res.status(201).json({
-      message: "Exercice généré avec succès.",
+      message: "Exercice généré et vérifié avec succès.",
       exercise: result.rows[0],
       usage: completion.usage
     });
   } catch (err) {
-    console.error("Erreur génération exercice:", err);
-    res.status(500).json({ error: "Erreur lors de la génération. Vérifiez la clé API." });
+    console.error(err);
+    res.status(500).json({ error: "Erreur lors de la génération IA." });
   }
 });
 

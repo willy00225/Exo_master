@@ -2,11 +2,11 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { motion } from 'framer-motion';
 import { 
-  LayoutDashboard, Users, BookOpen, FileText, HelpCircle, CreditCard, Settings, LogOut, ChevronRight, Swords
+  LayoutDashboard, Users, BookOpen, FileText, HelpCircle, CreditCard, Settings, LogOut, ChevronRight, Swords, Ticket
 } from 'lucide-react';
 import logo from '../../assets/exo_master_logo.png';
 import NotificationBell from '../../components/common/NotificationBell';
-import WhatsAppButton from '../../components/common/WhatsAppButton'; // 🆕
+import AdminSupportButton from '../../components/common/AdminSupportButton';
 
 const AdminLayout = () => {
   const { user, logout } = useAuth();
@@ -27,6 +27,7 @@ const AdminLayout = () => {
     { path: '/admin/challenges', icon: Swords, label: 'Challenges' },
     { path: '/admin/payments', icon: CreditCard, label: 'Paiements' },
     { path: '/admin/settings', icon: Settings, label: 'Paramètres' },
+    { path: '/admin/support', icon: Ticket, label: 'Support' }, // 🆕
   ];
 
   return (
@@ -112,8 +113,8 @@ const AdminLayout = () => {
         </footer>
       </div>
 
-      {/* Bouton WhatsApp flottant */}
-      <WhatsAppButton />
+      {/* Support technique admin */}
+      <AdminSupportButton />
     </div>
   );
 };

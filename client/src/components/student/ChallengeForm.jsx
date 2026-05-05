@@ -1,72 +1,129 @@
 import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { Swords, Loader, CheckCircle, AlertCircle, Send } from 'lucide-react';
 import api from '../../services/api';
-import Button from '../common/Button';
-import Card from '../common/Card';
-import { Swords } from 'lucide-react';
 
 const ChallengeForm = () => {
   const [quizzes, setQuizzes] = useState([]);
   const [users, setUsers] = useState([]);
   const [selectedQuiz, setSelectedQuiz] = useState('');
   const [selectedUser, setSelectedUser] = useState('');
-  const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState({ type: '', text: '' });
 
   useEffect(() => {
-    // Récupérer les quiz disponibles et les élèves du même groupe
-    const fetchData = async () => {
-      try {
-        const [quizRes, userRes] = await Promise.all([
-          api.get('/quizzes/available'),
-          api.get('/student/classmates')   // À créer côté backend
-        ]);
-        setQuizzes(quizRes.data);
-        setUsers(userRes.data);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-    fetchData();
+    api.get('/quizzes/available')
+      .then(res => setQuizzes(res.data))
+      .catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    // Remplacer par l'API qui retourne les élèves du même groupe
+    api.get('/student/users')
+      .then(res => setUsers(res.data))
+      .catch(console.error);
   }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!selectedQuiz || !selectedUser) {
+      setMessage({ type: 'error', text: 'Veuillez choisir un quiz et un adversaire.' });
+      return;
+    }
+    setLoading(true);
+    setMessage({ type: '', text: '' });
     try {
       await api.post('/challenges', {
+        quiz_id: selectedQuiz,
         challenged_id: selectedUser,
-        quiz_id: selectedQuiz
       });
-      setMessage('Défi envoyé avec succès !');
+      setMessage({ type: 'success', text: 'Défi lancé avec succès !' });
+      setSelectedQuiz('');
+      setSelectedUser('');
     } catch (err) {
-      setMessage(err.response?.data?.error || 'Erreur lors de l\'envoi du défi');
+      setMessage({
+        type: 'error',
+        text: err.response?.data?.error || 'Erreur lors du lancement du défi.',
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <Card>
-      <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-        <Swords size={20} /> Défier un camarade
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-slate-800/40 backdrop-blur-md border border-amber-500/30 rounded-2xl p-6 shadow-lg"
+    >
+      <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2 font-space-grotesk">
+        <Swords className="text-amber-400" size={24} />
+        Lancer un nouveau défi
       </h2>
-      {message && <div className="mb-3 text-sm text-blue-700 bg-blue-50 p-2 rounded">{message}</div>}
-      <form onSubmit={handleSubmit} className="space-y-3">
+
+      {message.text && (
+        <div
+          className={`flex items-center gap-2 p-3 rounded-lg mb-4 ${
+            message.type === 'success'
+              ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-300'
+              : 'bg-red-500/20 border border-red-500/30 text-red-300'
+          }`}
+        >
+          {message.type === 'success' ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
+          {message.text}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium">Quiz</label>
-          <select value={selectedQuiz} onChange={e => setSelectedQuiz(e.target.value)}
-                  className="w-full border rounded px-3 py-2" required>
-            <option value="">Sélectionner un quiz</option>
-            {quizzes.map(q => <option key={q.id} value={q.id}>{q.title}</option>)}
+          <label className="block text-sm font-medium text-slate-300 mb-1">Choisir un quiz</label>
+          <select
+            value={selectedQuiz}
+            onChange={(e) => setSelectedQuiz(e.target.value)}
+            className="w-full px-4 py-3 bg-slate-700/60 border border-amber-400/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all"
+          >
+            <option value="">Sélectionnez un quiz</option>
+            {quizzes.map((q) => (
+              <option key={q.id} value={q.id}>
+                {q.title}
+              </option>
+            ))}
           </select>
         </div>
+
         <div>
-          <label className="block text-sm font-medium">Adversaire</label>
-          <select value={selectedUser} onChange={e => setSelectedUser(e.target.value)}
-                  className="w-full border rounded px-3 py-2" required>
-            <option value="">Sélectionner un camarade</option>
-            {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+          <label className="block text-sm font-medium text-slate-300 mb-1">Adversaire</label>
+          <select
+            value={selectedUser}
+            onChange={(e) => setSelectedUser(e.target.value)}
+            className="w-full px-4 py-3 bg-slate-700/60 border border-amber-400/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all"
+          >
+            <option value="">Sélectionnez un élève</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name}
+              </option>
+            ))}
           </select>
         </div>
-        <Button type="submit">Envoyer le défi</Button>
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white py-3 rounded-lg font-semibold hover:from-amber-600 hover:to-orange-600 transition-all disabled:opacity-50 shadow-lg"
+        >
+          {loading ? (
+            <>
+              <Loader size={18} className="animate-spin" /> Lancement...
+            </>
+          ) : (
+            <>
+              <Send size={18} /> Lancer le défi
+            </>
+          )}
+        </button>
       </form>
-    </Card>
+    </motion.div>
   );
 };
 

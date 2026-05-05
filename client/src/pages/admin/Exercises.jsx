@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Sparkles, Edit, Trash2, FileText, Download, Filter, Loader,
+  BarChart3, X, Save, AlertCircle, CheckCircle, Zap, Brain, BookOpen
 } from 'lucide-react';
 import api from '../../services/api';
 import ExerciseUploadModal from '../../components/admin/ExerciseUploadModal';
@@ -23,6 +24,14 @@ const Exercises = () => {
   const [generateModalOpen, setGenerateModalOpen] = useState(false);
   const [editingExercise, setEditingExercise] = useState(null);
   const [filters, setFilters] = useState({ group_id: '', chapter_id: '', difficulty: '' });
+
+  // Stats
+  const stats = {
+    total: exercises.length,
+    easy: exercises.filter(e => e.difficulty === 'easy').length,
+    medium: exercises.filter(e => e.difficulty === 'medium').length,
+    hard: exercises.filter(e => e.difficulty === 'hard' || e.difficulty === 'very_hard').length,
+  };
 
   const fetchExercises = async () => {
     setLoading(true);
@@ -98,7 +107,7 @@ const Exercises = () => {
 
   return (
     <div className="space-y-6">
-      {/* En-tête */}
+      {/* En-tête avec stats */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -111,7 +120,7 @@ const Exercises = () => {
         <div className="flex flex-wrap gap-3">
           <button
             onClick={() => setGenerateModalOpen(true)}
-            className="flex items-center gap-2 bg-white/10 text-white border border-white/20 px-4 py-2.5 rounded-lg font-medium hover:bg-white/20 transition-all"
+            className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white px-4 py-2.5 rounded-lg font-medium hover:from-violet-700 hover:to-fuchsia-700 transition-all shadow-lg"
           >
             <Sparkles size={18} />
             Générer par IA
@@ -124,6 +133,30 @@ const Exercises = () => {
             Nouvel exercice
           </button>
         </div>
+      </motion.div>
+
+      {/* Mini stats */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="grid grid-cols-2 md:grid-cols-4 gap-3"
+      >
+        {[
+          { label: 'Total', value: stats.total, icon: FileText, color: 'bg-violet-500/20 text-violet-300' },
+          { label: 'Faciles', value: stats.easy, icon: BookOpen, color: 'bg-emerald-500/20 text-emerald-300' },
+          { label: 'Moyens', value: stats.medium, icon: BarChart3, color: 'bg-amber-500/20 text-amber-300' },
+          { label: 'Difficiles', value: stats.hard, icon: Brain, color: 'bg-red-500/20 text-red-300' },
+        ].map((item, idx) => (
+          <div key={idx} className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl p-4 flex items-center gap-3">
+            <div className={`p-2 rounded-lg ${item.color}`}>
+              <item.icon size={20} />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-white">{item.value}</p>
+              <p className="text-xs text-slate-400">{item.label}</p>
+            </div>
+          </div>
+        ))}
       </motion.div>
 
       {/* Filtres */}
@@ -168,7 +201,7 @@ const Exercises = () => {
         </select>
       </motion.div>
 
-      {/* Liste des exercices */}
+      {/* Tableau */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

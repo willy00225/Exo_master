@@ -17,6 +17,7 @@ import Challenges from './pages/admin/Challenges';
 import Settings from './pages/admin/Settings';
 import Students from './pages/admin/Students';
 import Chapters from './pages/admin/Chapters';
+import Support from './pages/admin/Support';
 
 // Pages Élève (alias pour éviter les conflits)
 import StudentExercises from './pages/student/Exercises';
@@ -26,6 +27,7 @@ import StudentProfile from './pages/student/Profile';
 import Subscription from './pages/student/Subscription';
 import StudentPayments from './pages/student/Payments';
 import ChangePassword from './pages/student/ChangePassword';
+import StudentSupport from './pages/student/Support'; // 🆕
 
 // Landing page
 import LandingPage from './pages/LandingPage';
@@ -35,7 +37,7 @@ import EmailVerified from './pages/EmailVerified';
 
 // Mot de passe oublié
 import ForgotPassword from './pages/auth/ForgotPassword';
-import ResetPassword from './pages/auth/ResetPassword'; // 🆕
+import ResetPassword from './pages/auth/ResetPassword';
 
 // Page 404
 import NotFound from './pages/NotFound';
@@ -69,7 +71,7 @@ function AppContent() {
       <Route path="/forgot-password" element={<ForgotPassword />} />
 
       {/* Route réinitialisation de mot de passe (publique) */}
-      <Route path="/reset-password" element={<ResetPassword />} /> {/* 🆕 */}
+      <Route path="/reset-password" element={<ResetPassword />} />
 
       {/* Route email vérifié (publique) */}
       <Route path="/email-verified" element={<EmailVerified />} />
@@ -104,6 +106,7 @@ function AppContent() {
         <Route path="quizzes" element={<Quizzes />} />
         <Route path="challenges" element={<Challenges />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="support" element={<Support />} />
       </Route>
 
       {/* Routes Student avec Layout */}
@@ -123,6 +126,7 @@ function AppContent() {
         <Route path="payments" element={<StudentPayments />} />
         <Route path="subscription" element={<Subscription />} />
         <Route path="change-password" element={<ChangePassword />} />
+        <Route path="support" element={<StudentSupport />} /> {/* 🆕 */}
       </Route>
 
       {/* Route 404 - doit rester en dernier */}

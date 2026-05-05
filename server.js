@@ -298,6 +298,12 @@ app.use("/api/notifications", require("./routes/notifications"));
 // Import et utilisation des routes de classmates(lancer un défi à son ami)
 app.use("/api/student/classmates", require("./routes/student/classmates"));
 
+// Import et utilisation des routes de support
+app.use('/api/support', require('./routes/support'));
+
+// Import et utilisation des routes de users
+app.use("/api/student", require("./routes/student/users"));
+
 // Port
 const PORT = process.env.PORT || 5000;
 

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Swords, Clock, Trophy, UserPlus, Loader, Check, X } from 'lucide-react';
 import api from '../../services/api';
-import ChallengeForm from '../../components/student/ChallengeForm'; // 🆕
+import ChallengeForm from '../../components/student/ChallengeForm';
 
 const Challenges = () => {
   const [challenges, setChallenges] = useState({ received: [], sent: [] });
@@ -46,7 +46,7 @@ const Challenges = () => {
         <p className="text-slate-400 mt-1">Affrontez vos camarades et mesurez votre niveau</p>
       </motion.div>
 
-      {/* Formulaire de lancement de défi */}
+      {/* Formulaire de lancement de défi – maintenant très visible */}
       <ChallengeForm />
 
       {/* Défis reçus */}
