@@ -11,7 +11,7 @@ const pool = require("./config/db");
     await pool.query("SELECT 1");
     console.log("Base de données connectée");
 
-    // Création des tables dans l'ordre des dépendances
+    // Création des tables de base
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -23,11 +23,22 @@ const pool = require("./config/db");
         created_at TIMESTAMP DEFAULT NOW()
       )
     `);
-    // Ajout de la colonne email_verified si elle n'existe pas
+
+    // Ajout des colonnes récentes si elles n'existent pas déjà
     await pool.query(`
       ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT false
     `);
+    await pool.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_token VARCHAR(255)
+    `);
+    await pool.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token VARCHAR(255)
+    `);
+    await pool.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expires TIMESTAMP
+    `);
 
+    // Autres tables (inchangées)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS groups (
         id SERIAL PRIMARY KEY,
@@ -153,7 +164,7 @@ const pool = require("./config/db");
       )
     `);
 
-    // Insertions par défaut (ignorées si existent)
+    // Insertions par défaut
     await pool.query(`
       INSERT INTO groups (name, subject, level) VALUES
       ('6ème', 'Toutes matières', '6e'),
@@ -170,7 +181,8 @@ const pool = require("./config/db");
       ('Terminale A', 'Toutes matières', 'Term')
       ON CONFLICT (name, subject, level) DO NOTHING
     `);
-    // Admin avec email vérifié
+
+    // Compte admin avec email vérifié
     await pool.query(`
       INSERT INTO users (name, email, password, role, email_verified) VALUES
       ('Admin', 'admin@exomaster.com', '$2b$10$8K1p/a0dL1LXMIgoEDFrwOfMQkf9O5mZ0V9P1VDg6j5zqBxRJxZq.', 'admin', true)
@@ -204,7 +216,7 @@ app.get("/", (req, res) => {
   res.send("API OK 🚀");
 });
 
-// 🔥 Test connexion PostgreSQL
+// Test connexion PostgreSQL
 app.get("/test-db", async (req, res) => {
   try {
     const result = await pool.query("SELECT NOW()");
