@@ -118,13 +118,13 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ error: "Email ou mot de passe incorrect." });
     }
 
-    // 3. Vérifier si l'email est vérifié
-    if (!user.rows[0].email_verified) {
-      return res.status(403).json({
-        error: "Email non vérifié. Veuillez consulter votre boîte mail.",
-        code: "EMAIL_NOT_VERIFIED"
-      });
-    }
+    // 3. Vérifier si l'email est vérifié (désactivé temporairement)
+    // if (!user.rows[0].email_verified) {
+    //   return res.status(403).json({
+    //     error: "Email non vérifié. Veuillez consulter votre boîte mail.",
+    //     code: "EMAIL_NOT_VERIFIED"
+    //   });
+    // }
 
     // 4. Générer un token JWT
     const token = jwt.sign(

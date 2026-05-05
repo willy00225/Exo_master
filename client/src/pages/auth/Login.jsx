@@ -40,13 +40,15 @@ const Login = () => {
       navigate('/');
     } catch (err) {
       const data = err.response?.data;
-      if (data?.code === 'EMAIL_NOT_VERIFIED' || data?.error?.includes('Email non vérifié')) {
-        setError(
-          'Votre adresse email n’est pas encore vérifiée. Veuillez consulter votre boîte de réception ou renvoyer un lien de vérification.'
-        );
-      } else {
-        setError(data?.error || 'Erreur de connexion');
-      }
+      // La vérification email est temporairement désactivée, donc ce bloc est commenté
+      // if (data?.code === 'EMAIL_NOT_VERIFIED' || data?.error?.includes('Email non vérifié')) {
+      //   setError(
+      //     'Votre adresse email n’est pas encore vérifiée. Veuillez consulter votre boîte de réception ou renvoyer un lien de vérification.'
+      //   );
+      // } else {
+      //   setError(data?.error || 'Erreur de connexion');
+      // }
+      setError(data?.error || 'Erreur de connexion');
     } finally {
       setLoading(false);
     }
@@ -81,15 +83,6 @@ const Login = () => {
         {error && (
           <div className="bg-red-500/20 border border-red-500/50 text-red-200 p-3 rounded-lg mb-4 text-sm">
             {error}
-            {error.includes('non vérifiée') && (
-              <button
-                onClick={handleResendVerification}
-                disabled={resending}
-                className="ml-2 underline text-violet-300 hover:text-violet-200 disabled:opacity-50"
-              >
-                {resending ? 'Envoi...' : 'Renvoyer le lien'}
-              </button>
-            )}
           </div>
         )}
 
