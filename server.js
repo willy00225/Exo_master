@@ -23,6 +23,11 @@ const pool = require("./config/db");
         created_at TIMESTAMP DEFAULT NOW()
       )
     `);
+    // Ajout de la colonne email_verified si elle n'existe pas
+    await pool.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT false
+    `);
+
     await pool.query(`
       CREATE TABLE IF NOT EXISTS groups (
         id SERIAL PRIMARY KEY,
@@ -165,9 +170,10 @@ const pool = require("./config/db");
       ('Terminale A', 'Toutes matières', 'Term')
       ON CONFLICT (name, subject, level) DO NOTHING
     `);
+    // Admin avec email vérifié
     await pool.query(`
-      INSERT INTO users (name, email, password, role) VALUES
-      ('Admin', 'admin@exomaster.com', '$2b$10$8K1p/a0dL1LXMIgoEDFrwOfMQkf9O5mZ0V9P1VDg6j5zqBxRJxZq.', 'admin')
+      INSERT INTO users (name, email, password, role, email_verified) VALUES
+      ('Admin', 'admin@exomaster.com', '$2b$10$8K1p/a0dL1LXMIgoEDFrwOfMQkf9O5mZ0V9P1VDg6j5zqBxRJxZq.', 'admin', true)
       ON CONFLICT (email) DO NOTHING
     `);
     await pool.query(`
