@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import {
   LineChart, Line, BarChart, Bar, PieChart as RePieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   RadialBarChart, RadialBar,
 } from 'recharts';
 import api from '../../services/api';
@@ -91,36 +91,11 @@ const AdminDashboard = () => {
 
       {/* Cartes statistiques – responsive grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
-        <StatCard
-          title="Élèves"
-          value={stats.students}
-          icon={Users}
-          gradient="from-violet-500 to-violet-700"
-        />
-        <StatCard
-          title="Groupes"
-          value={stats.groups}
-          icon={BookOpen}
-          gradient="from-cyan-500 to-cyan-700"
-        />
-        <StatCard
-          title="Paiements en attente"
-          value={stats.pendingPayments}
-          icon={CreditCard}
-          gradient="from-amber-500 to-amber-700"
-        />
-        <StatCard
-          title="Quiz"
-          value={stats.quizzes}
-          icon={HelpCircle}
-          gradient="from-emerald-500 to-emerald-700"
-        />
-        <StatCard
-          title="Challenges actifs"
-          value={stats.activeChallenges}
-          icon={Swords}
-          gradient="from-rose-500 to-rose-700"
-        />
+        <StatCard title="Élèves" value={stats.students} icon={Users} gradient="from-violet-500 to-violet-700" />
+        <StatCard title="Groupes" value={stats.groups} icon={BookOpen} gradient="from-cyan-500 to-cyan-700" />
+        <StatCard title="Paiements en attente" value={stats.pendingPayments} icon={CreditCard} gradient="from-amber-500 to-amber-700" />
+        <StatCard title="Quiz" value={stats.quizzes} icon={HelpCircle} gradient="from-emerald-500 to-emerald-700" />
+        <StatCard title="Challenges actifs" value={stats.activeChallenges} icon={Swords} gradient="from-rose-500 to-rose-700" />
       </div>
 
       {/* Graphiques – première ligne */}

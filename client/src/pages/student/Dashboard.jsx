@@ -140,21 +140,15 @@ const StudentDashboard = () => {
       {/* Cartes statistiques principales – responsive grid */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
         <StatCard
-          icon={BookOpen}
-          value={stats.exercises}
-          label="Exercices disponibles"
+          icon={BookOpen} value={stats.exercises} label="Exercices disponibles"
           gradient="from-violet-500 to-violet-700"
         />
         <StatCard
-          icon={Trophy}
-          value={stats.quizzes}
-          label="Quiz à faire"
+          icon={Trophy} value={stats.quizzes} label="Quiz à faire"
           gradient="from-cyan-500 to-cyan-700"
         />
         <StatCard
-          icon={Swords}
-          value={stats.activeChallenges}
-          label="Défis en attente"
+          icon={Swords} value={stats.activeChallenges} label="Défis en attente"
           gradient="from-amber-500 to-amber-700"
         />
       </div>
