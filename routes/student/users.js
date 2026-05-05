@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
-const pool = require("../config/db");
-const auth = require("../middleware/auth");
+const pool = require("../../config/db");
+const auth = require("../../middleware/auth");
 
 // GET /api/student/users – Élèves des mêmes groupes que moi
 router.get("/", auth, async (req, res) => {
