@@ -11,34 +11,25 @@ import {
 } from 'recharts';
 import api from '../../services/api';
 
-/* ------------------------------------------------------------------ */
-/*  Palette de couleurs                                                 */
-/* ------------------------------------------------------------------ */
 const COLORS = ['#8B5CF6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#3B82F6'];
 
-/* ------------------------------------------------------------------ */
-/*  Carte statistique individuelle                                      */
-/* ------------------------------------------------------------------ */
 const StatCard = ({ title, value, icon: Icon, gradient }) => (
   <motion.div
     initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.4 }}
-    className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6 flex items-center gap-4 hover:bg-white/10 transition-all"
+    className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-4 md:p-6 flex items-center gap-4 hover:bg-white/10 transition-all"
   >
-    <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center shadow-lg`}>
-      <Icon size={28} className="text-white" />
+    <div className={`w-12 h-12 md:w-14 md:h-14 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center shadow-lg`}>
+      <Icon size={24} className="text-white" />
     </div>
     <div>
       <p className="text-sm text-slate-400">{title}</p>
-      <p className="text-2xl font-bold text-white">{value}</p>
+      <p className="text-xl md:text-2xl font-bold text-white">{value}</p>
     </div>
   </motion.div>
 );
 
-/* ------------------------------------------------------------------ */
-/*  Composant principal                                                 */
-/* ------------------------------------------------------------------ */
 const AdminDashboard = () => {
   const [stats, setStats] = useState({
     students: 0,
@@ -46,6 +37,8 @@ const AdminDashboard = () => {
     pendingPayments: 0,
     quizzes: 0,
     activeChallenges: 0,
+    activeSubscriptions: 0,
+    totalSubscriptions: 0,
   });
   const [monthly, setMonthly] = useState([]);
   const [paymentsByMethod, setPaymentsByMethod] = useState([]);
@@ -83,21 +76,21 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 md:space-y-8">
       {/* En-tête */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <h1 className="text-3xl font-bold text-white font-space-grotesk">
+        <h1 className="text-2xl md:text-3xl font-bold text-white font-space-grotesk">
           Tableau de bord administrateur
         </h1>
         <p className="text-slate-400 mt-1">Vue d’ensemble de votre plateforme</p>
       </motion.div>
 
-      {/* Cartes statistiques */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      {/* Cartes statistiques – responsive grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
         <StatCard
           title="Élèves"
           value={stats.students}
@@ -131,29 +124,25 @@ const AdminDashboard = () => {
       </div>
 
       {/* Graphiques – première ligne */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         {/* Inscriptions mensuelles (ligne) */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6"
+          className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-4 md:p-6"
         >
           <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2 font-space-grotesk">
             <TrendingUp className="text-violet-400" size={22} />
-            Inscriptions (12 derniers mois)
+            Inscriptions (12 mois)
           </h2>
-          <ResponsiveContainer width="100%" height={280}>
+          <ResponsiveContainer width="100%" height={250}>
             <LineChart data={monthly}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
               <XAxis dataKey="month" stroke="#9CA3AF" />
               <YAxis allowDecimals={false} stroke="#9CA3AF" />
               <Tooltip
-                contentStyle={{
-                  backgroundColor: '#1F2937',
-                  border: '1px solid #4B5563',
-                  borderRadius: '8px',
-                }}
+                contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #4B5563', borderRadius: '8px' }}
               />
               <Line
                 type="monotone"
@@ -172,13 +161,13 @@ const AdminDashboard = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
-          className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6"
+          className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-4 md:p-6"
         >
           <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2 font-space-grotesk">
             <PieChart className="text-cyan-400" size={22} />
             Paiements par méthode
           </h2>
-          <ResponsiveContainer width="100%" height={280}>
+          <ResponsiveContainer width="100%" height={250}>
             <RePieChart>
               <Pie
                 data={paymentsByMethod}
@@ -186,8 +175,8 @@ const AdminDashboard = () => {
                 nameKey="name"
                 cx="50%"
                 cy="50%"
-                outerRadius={90}
-                innerRadius={50}
+                outerRadius={80}
+                innerRadius={40}
                 paddingAngle={5}
                 label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
               >
@@ -202,31 +191,27 @@ const AdminDashboard = () => {
       </div>
 
       {/* Graphiques – deuxième ligne */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         {/* Élèves par groupe (barres) */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6"
+          className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-4 md:p-6"
         >
           <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2 font-space-grotesk">
             <Users className="text-emerald-400" size={22} />
             Élèves par groupe
           </h2>
-          <ResponsiveContainer width="100%" height={280}>
+          <ResponsiveContainer width="100%" height={250}>
             <BarChart data={studentsByGroup}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
               <XAxis dataKey="name" stroke="#9CA3AF" />
               <YAxis allowDecimals={false} stroke="#9CA3AF" />
               <Tooltip
-                contentStyle={{
-                  backgroundColor: '#1F2937',
-                  border: '1px solid #4B5563',
-                  borderRadius: '8px',
-                }}
+                contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #4B5563', borderRadius: '8px' }}
               />
-              <Bar dataKey="count" fill="#10B981" radius={[6, 6, 0, 0]} barSize={40} />
+              <Bar dataKey="count" fill="#10B981" radius={[6, 6, 0, 0]} barSize={30} />
             </BarChart>
           </ResponsiveContainer>
         </motion.div>
@@ -236,19 +221,19 @@ const AdminDashboard = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25 }}
-          className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6 flex flex-col items-center"
+          className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-4 md:p-6 flex flex-col items-center"
         >
           <h2 className="text-lg font-semibold text-white mb-6 font-space-grotesk self-start">
             Abonnements actifs
           </h2>
-          <ResponsiveContainer width="100%" height={240}>
+          <ResponsiveContainer width="100%" height={220}>
             <RadialBarChart
               cx="50%"
               cy="50%"
               innerRadius="60%"
-              outerRadius="90%"
+              outerRadius="85%"
               barSize={20}
-              data={[{ name: 'Actifs', value: stats.activeSubscriptions || 0 }]}
+              data={[{ name: 'Actifs', value: stats.activeSubscriptions }]}
               startAngle={90}
               endAngle={-270}
             >
@@ -256,7 +241,7 @@ const AdminDashboard = () => {
                 dataKey="value"
                 fill="url(#gradient)"
                 cornerRadius={10}
-                label={{ position: 'insideStart', fill: '#fff', fontSize: 24, fontWeight: 'bold' }}
+                label={{ position: 'insideStart', fill: '#fff', fontSize: 20, fontWeight: 'bold' }}
               />
               <defs>
                 <linearGradient id="gradient" x1="0" y1="0" x2="0" y2="1">

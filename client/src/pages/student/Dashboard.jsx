@@ -18,13 +18,13 @@ const StatCard = ({ icon: Icon, value, label, gradient }) => (
     initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.3 }}
-    className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6 flex items-center gap-4 hover:bg-white/10 transition-all"
+    className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-4 md:p-6 flex items-center gap-4 hover:bg-white/10 transition-all"
   >
-    <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center shadow-lg`}>
-      <Icon size={28} className="text-white" />
+    <div className={`w-12 h-12 md:w-14 md:h-14 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center shadow-lg`}>
+      <Icon size={24} className="text-white" />
     </div>
     <div>
-      <p className="text-3xl font-bold text-white">{value}</p>
+      <p className="text-xl md:text-2xl font-bold text-white">{value}</p>
       <p className="text-sm text-slate-400">{label}</p>
     </div>
   </motion.div>
@@ -76,14 +76,14 @@ const StudentDashboard = () => {
   const daysRemaining = subscription?.days_remaining || 0;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 md:space-y-8">
       {/* En-tête */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <h1 className="text-3xl font-bold text-white font-space-grotesk">
+        <h1 className="text-2xl md:text-3xl font-bold text-white font-space-grotesk">
           Bonjour, bienvenue sur EXO MASTER
         </h1>
         <p className="text-slate-400 mt-1">Votre espace d’apprentissage personnalisé</p>
@@ -94,7 +94,7 @@ const StudentDashboard = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className={`bg-white/5 backdrop-blur-lg border rounded-2xl p-6 ${
+        className={`bg-white/5 backdrop-blur-lg border rounded-2xl p-4 md:p-6 ${
           isActive ? 'border-emerald-500/30' : 'border-red-500/30'
         }`}
       >
@@ -128,7 +128,7 @@ const StudentDashboard = () => {
           {!isActive && (
             <Link
               to="/student/subscription"
-              className="inline-flex items-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-violet-700 hover:to-cyan-700 transition-all shadow-lg self-start"
+              className="inline-flex items-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-5 py-2.5 rounded-xl font-semibold hover:from-violet-700 hover:to-cyan-700 transition-all shadow-lg self-start"
             >
               <CreditCard size={18} />
               Souscrire maintenant
@@ -137,8 +137,8 @@ const StudentDashboard = () => {
         </div>
       </motion.div>
 
-      {/* Cartes statistiques principales */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Cartes statistiques principales – responsive grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
         <StatCard
           icon={BookOpen}
           value={stats.exercises}
@@ -165,15 +165,15 @@ const StudentDashboard = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+          className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6"
         >
           {/* Résumé chiffré */}
-          <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6">
+          <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-4 md:p-6">
             <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2 font-space-grotesk">
               <TrendingUp className="text-violet-400" size={22} />
               Vos performances
             </h2>
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div className="flex justify-between bg-white/5 p-3 rounded-xl">
                 <span className="text-slate-300">Quiz complétés</span>
                 <span className="font-bold text-white">{studentStats.total_attempts}</span>
@@ -191,7 +191,7 @@ const StudentDashboard = () => {
 
           {/* Graphique par chapitre (barres) */}
           {studentStats.per_chapter?.length > 0 && (
-            <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6">
+            <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-4 md:p-6">
               <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2 font-space-grotesk">
                 <BarChart3 className="text-cyan-400" size={22} />
                 Par chapitre
@@ -202,17 +202,13 @@ const StudentDashboard = () => {
                   <XAxis dataKey="chapter_title" tick={{ fontSize: 12, fill: '#9CA3AF' }} />
                   <YAxis unit="%" domain={[0, 100]} tick={{ fill: '#9CA3AF' }} />
                   <Tooltip
-                    contentStyle={{
-                      backgroundColor: '#1F2937',
-                      border: '1px solid #4B5563',
-                      borderRadius: '8px',
-                    }}
+                    contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #4B5563', borderRadius: '8px' }}
                   />
                   <Bar
                     dataKey="average_score"
                     fill="#8B5CF6"
                     radius={[6, 6, 0, 0]}
-                    barSize={40}
+                    barSize={30}
                   />
                 </BarChart>
               </ResponsiveContainer>
@@ -221,15 +217,15 @@ const StudentDashboard = () => {
         </motion.div>
       )}
 
-      {/* Défis en attente + graphique circulaire de répartition des matières */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Défis en attente + graphique circulaire */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         {/* Défis */}
         {pendingChallenges.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6"
+            className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-4 md:p-6"
           >
             <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2 font-space-grotesk">
               <Swords className="text-amber-400" size={22} />
@@ -272,13 +268,13 @@ const StudentDashboard = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.35 }}
-            className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6"
+            className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-4 md:p-6"
           >
             <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2 font-space-grotesk">
               <Star className="text-amber-400" size={22} />
               Quiz par matière
             </h2>
-            <ResponsiveContainer width="100%" height={250}>
+            <ResponsiveContainer width="100%" height={220}>
               <PieChart>
                 <Pie
                   data={studentStats.quizzes_by_subject}
@@ -308,12 +304,12 @@ const StudentDashboard = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6 flex flex-col items-center"
+          className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-4 md:p-6 flex flex-col items-center"
         >
           <h2 className="text-lg font-semibold text-white mb-6 font-space-grotesk self-start">
             Progression globale
           </h2>
-          <ResponsiveContainer width="100%" height={200}>
+          <ResponsiveContainer width="100%" height={180}>
             <RadialBarChart
               cx="50%"
               cy="50%"
@@ -328,7 +324,7 @@ const StudentDashboard = () => {
                 dataKey="value"
                 fill="url(#studentGradient)"
                 cornerRadius={10}
-                label={{ position: 'insideStart', fill: '#fff', fontSize: 22, fontWeight: 'bold' }}
+                label={{ position: 'insideStart', fill: '#fff', fontSize: 18, fontWeight: 'bold' }}
               />
               <defs>
                 <linearGradient id="studentGradient" x1="0" y1="0" x2="0" y2="1">
