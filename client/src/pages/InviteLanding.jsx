@@ -1,10 +1,10 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { useAuth } from '../../context/AuthContext';
-import api from '../../services/api';
+import { useAuth } from '../context/AuthContext';          // ✅ corrigé
+import api from '../services/api';                        // ✅ corrigé
 import { Swords, Loader, ArrowRight, AlertCircle } from 'lucide-react';
-import logo from '../../assets/exo_master_logo.png';
+import logo from '../assets/exo_master_logo.png';         // ✅ corrigé
 
 const InviteLanding = () => {
   const { token } = useParams();
@@ -65,7 +65,6 @@ const InviteLanding = () => {
 
   return (
     <div className="min-h-screen bg-[#0B0E1A] flex items-center justify-center p-4 font-sans relative overflow-hidden">
-      {/* Fond décoratif */}
       <div className="absolute inset-0 -z-10">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl" />
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl" />
@@ -77,7 +76,6 @@ const InviteLanding = () => {
         transition={{ duration: 0.6, ease: 'easeOut' }}
         className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-8 max-w-md w-full text-center"
       >
-        {/* Logo */}
         <div className="flex flex-col items-center mb-6">
           <img src={logo} alt="EXO MASTER" className="h-14 w-auto mb-2" />
           <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">
@@ -85,7 +83,6 @@ const InviteLanding = () => {
           </p>
         </div>
 
-        {/* Icône de défi */}
         <div className="w-16 h-16 rounded-full bg-amber-500/20 flex items-center justify-center mx-auto mb-4">
           <Swords size={32} className="text-amber-400" />
         </div>
