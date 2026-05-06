@@ -164,7 +164,32 @@ const pool = require("./config/db");
       )
     `);
 
-    // Insertions par défaut
+    // Nouvelles tables pour les astuces et les invitations
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS tips (
+        id SERIAL PRIMARY KEY,
+        group_id INT REFERENCES groups(id) ON DELETE CASCADE,
+        category VARCHAR(50),
+        content TEXT,
+        title VARCHAR(255),
+        difficulty VARCHAR(20) CHECK (difficulty IN ('easy','medium','hard','very_hard')),
+        generated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS invitations (
+        id SERIAL PRIMARY KEY,
+        token VARCHAR(32) UNIQUE NOT NULL,
+        challenger_id INT REFERENCES users(id) ON DELETE CASCADE,
+        quiz_id INT REFERENCES quizzes(id) ON DELETE CASCADE,
+        group_id INT REFERENCES groups(id) ON DELETE CASCADE,
+        status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending','accepted','expired')),
+        expires_at TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    // Insertions par défaut (ignorées si existent)
     await pool.query(`
       INSERT INTO groups (name, subject, level) VALUES
       ('6ème', 'Toutes matières', '6e'),
@@ -216,7 +241,7 @@ app.get("/", (req, res) => {
   res.send("API OK 🚀");
 });
 
-// Test connexion PostgreSQL
+// 🔥 Test connexion PostgreSQL
 app.get("/test-db", async (req, res) => {
   try {
     const result = await pool.query("SELECT NOW()");
@@ -248,6 +273,23 @@ app.get("/api/public/settings/whatsapp", async (req, res) => {
   try {
     const result = await pool.query("SELECT value FROM settings WHERE key = 'whatsapp_number'");
     res.json({ whatsapp_number: result.rows[0]?.value || '' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// Route publique pour les astuces des élèves (sans authentification)
+app.get("/api/student/tips", async (req, res) => {
+  try {
+    const { group_id, category } = req.query;
+    let query = "SELECT * FROM tips WHERE 1=1";
+    const params = [];
+    if (group_id) { params.push(group_id); query += ` AND group_id = $${params.length}`; }
+    if (category) { params.push(category); query += ` AND category = $${params.length}`; }
+    query += " ORDER BY generated_at DESC";
+    const result = await pool.query(query, params);
+    res.json(result.rows);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Erreur serveur" });
@@ -313,7 +355,7 @@ app.use("/api/student/stats", studentStatsRoutes);
 // Import et utilisation des routes de notifications
 app.use("/api/notifications", require("./routes/notifications"));
 
-// Import et utilisation des routes de classmates(lancer un défi à son ami)
+// Import et utilisation des routes de classmates (lancer un défi à son ami)
 app.use("/api/student/classmates", require("./routes/student/classmates"));
 
 // Import et utilisation des routes de support

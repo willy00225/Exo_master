@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Lightbulb, BookOpen, GraduationCap, PenTool, Loader, Sparkles } from 'lucide-react';
-import api from '../services/api';
+import api from '../../services/api';   // ✅ chemin corrigé
 
 const categories = [
   { key: 'exercises', label: 'Exercices', icon: PenTool, color: 'text-violet-400 border-violet-500/30 bg-violet-500/10' },
@@ -17,7 +17,7 @@ const Tips = () => {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    api.get(`/tips?category=${category}`)
+    api.get(`/student/tips?category=${category}`)   // ✅ route publique pour les élèves
       .then(res => {
         if (!cancelled) setTips(res.data);
       })
