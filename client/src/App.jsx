@@ -18,6 +18,8 @@ import Settings from './pages/admin/Settings';
 import Students from './pages/admin/Students';
 import Chapters from './pages/admin/Chapters';
 import Support from './pages/admin/Support';
+import Invitations from './pages/admin/Invitations'; // 🆕
+import Tips from './pages/admin/Tips';               // 🆕 Astuces (admin)
 
 // Pages Élève (alias pour éviter les conflits)
 import StudentExercises from './pages/student/Exercises';
@@ -27,7 +29,8 @@ import StudentProfile from './pages/student/Profile';
 import Subscription from './pages/student/Subscription';
 import StudentPayments from './pages/student/Payments';
 import ChangePassword from './pages/student/ChangePassword';
-import StudentSupport from './pages/student/Support'; // 🆕
+import StudentSupport from './pages/student/Support';
+import StudentTips from './pages/student/Tips';       // Astuces (élève)
 
 // Landing page
 import LandingPage from './pages/LandingPage';
@@ -38,6 +41,9 @@ import EmailVerified from './pages/EmailVerified';
 // Mot de passe oublié
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
+
+// Invitation à un défi
+import InviteLanding from './pages/InviteLanding';
 
 // Page 404
 import NotFound from './pages/NotFound';
@@ -66,6 +72,9 @@ function AppContent() {
         path="/register"
         element={!user ? <Register /> : <Navigate to="/" />}
       />
+
+      {/* Route invitation (publique) */}
+      <Route path="/invite/:token" element={<InviteLanding />} />
 
       {/* Route mot de passe oublié (publique) */}
       <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -107,6 +116,8 @@ function AppContent() {
         <Route path="challenges" element={<Challenges />} />
         <Route path="settings" element={<Settings />} />
         <Route path="support" element={<Support />} />
+        <Route path="invitations" element={<Invitations />} />  {/* 🆕 */}
+        <Route path="tips" element={<Tips />} />                {/* 🆕 Astuces admin */}
       </Route>
 
       {/* Routes Student avec Layout */}
@@ -126,7 +137,8 @@ function AppContent() {
         <Route path="payments" element={<StudentPayments />} />
         <Route path="subscription" element={<Subscription />} />
         <Route path="change-password" element={<ChangePassword />} />
-        <Route path="support" element={<StudentSupport />} /> {/* 🆕 */}
+        <Route path="support" element={<StudentSupport />} />
+        <Route path="tips" element={<StudentTips />} />         {/* Astuces élève */}
       </Route>
 
       {/* Route 404 - doit rester en dernier */}

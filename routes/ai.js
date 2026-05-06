@@ -5,6 +5,7 @@ const auth = require("../middleware/auth");
 const admin = require("../middleware/admin");
 const { getOpenAI } = require("../config/openai");
 
+// Toutes les routes ci-dessous nécessitent d'être admin
 router.use(auth);
 router.use(admin);
 
@@ -99,7 +100,7 @@ Retourne UNIQUEMENT le JSON, sans commentaire.
       finalExercise = generated;
     }
 
-    // Insertion en base avec le statut "draft" pour que l'admin valide
+    // Insertion en base
     const result = await pool.query(
       `INSERT INTO exercises (title, description, content, correction, difficulty, group_id, chapter_id, file_path)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
@@ -123,6 +124,61 @@ Retourne UNIQUEMENT le JSON, sans commentaire.
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Erreur lors de la génération IA." });
+  }
+});
+
+// ------------------------------------------------------------
+// 🆕 POST /api/ai/generate-tips – Générer des astuces par l'IA
+// ------------------------------------------------------------
+router.post("/generate-tips", async (req, res) => {
+  try {
+    const { group_id, category } = req.body; // category: 'exercises','homework','exams'
+    const group = await pool.query("SELECT name, subject, level FROM groups WHERE id = $1", [group_id]);
+    if (group.rows.length === 0) return res.status(404).json({ error: "Groupe introuvable." });
+
+    const prompt = `Tu es un conseiller pédagogique expert. Rédige 3 astuces claires et pratiques pour aider des élèves de niveau ${group.rows[0].level} en ${group.rows[0].subject} à réussir leurs ${category}. Sois concis, chaque astuce doit être d'environ 3 phrases. Réponds avec un tableau JSON contenant les astuces : { "tips": ["astuce 1", "astuce 2", "astuce 3"] }`;
+
+    const openai = await getOpenAI();
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.5,
+      response_format: { type: "json_object" }
+    });
+
+    const generated = JSON.parse(completion.choices[0].message.content);
+    const tips = generated.tips || [];
+
+    // Sauvegarder en base
+    for (const tip of tips) {
+      await pool.query("INSERT INTO tips (group_id, category, content) VALUES ($1, $2, $3)", [group_id, category, tip]);
+    }
+
+    res.json({ message: `${tips.length} astuces générées`, tips });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erreur génération astuces." });
+  }
+});
+
+// ------------------------------------------------------------
+// 🆕 GET /api/ai/tips – Récupérer les astuces (admin ou élève ?)
+// ------------------------------------------------------------
+// NOTE : cette route est montée après auth+admin, donc seuls les admins y ont accès.
+// Si vous voulez que les élèves puissent voir les astuces, il faut la déplacer avant router.use(admin).
+router.get("/tips", async (req, res) => {
+  try {
+    const { group_id, category } = req.query;
+    let query = "SELECT * FROM tips WHERE 1=1";
+    const params = [];
+    if (group_id) { params.push(group_id); query += ` AND group_id = $${params.length}`; }
+    if (category) { params.push(category); query += ` AND category = $${params.length}`; }
+    query += " ORDER BY generated_at DESC";
+    const result = await pool.query(query, params);
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erreur récupération." });
   }
 });
 

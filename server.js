@@ -322,6 +322,15 @@ app.use('/api/support', require('./routes/support'));
 // Import et utilisation des routes de users
 app.use("/api/student", require("./routes/student/users"));
 
+// Import et utilisation des routes de invitations
+app.use("/api/invitations", require("./routes/invitations"));
+
+// Import et utilisation des routes de admin Tips
+app.use("/api/admin/tips", require("./routes/admin/tips"));
+
+// Import et utilisation des routes de admin invitations
+app.use("/api/admin/invitations", require("./routes/admin/invitations"));
+
 // Port
 const PORT = process.env.PORT || 5000;
 
