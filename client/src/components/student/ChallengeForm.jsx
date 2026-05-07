@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Swords, Loader, CheckCircle, AlertCircle, Send } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Swords, Loader, CheckCircle, AlertCircle, Send, Copy, Link } from 'lucide-react';
 import api from '../../services/api';
 
 const ChallengeForm = () => {
@@ -11,6 +11,10 @@ const ChallengeForm = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
 
+  // État pour le lien d'invitation
+  const [inviteLink, setInviteLink] = useState('');
+  const [generatingLink, setGeneratingLink] = useState(false);
+
   useEffect(() => {
     api.get('/quizzes/available')
       .then(res => setQuizzes(res.data))
@@ -18,12 +22,12 @@ const ChallengeForm = () => {
   }, []);
 
   useEffect(() => {
-    // Remplacer par l'API qui retourne les élèves du même groupe
-    api.get('/student/users')
+    api.get('/student/users')   // ou /student/classmates
       .then(res => setUsers(res.data))
       .catch(console.error);
   }, []);
 
+  // --- Lancement d'un défi direct (existant) ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!selectedQuiz || !selectedUser) {
@@ -50,6 +54,33 @@ const ChallengeForm = () => {
     }
   };
 
+  // --- Génération du lien d'invitation ---
+  const handleGenerateLink = async () => {
+    if (!selectedQuiz) {
+      setMessage({ type: 'error', text: 'Veuillez sélectionner un quiz.' });
+      return;
+    }
+    setGeneratingLink(true);
+    setMessage({ type: '', text: '' });
+    try {
+      const res = await api.post('/invitations', { quiz_id: selectedQuiz });
+      setInviteLink(res.data.link);
+      setMessage({ type: 'success', text: 'Lien généré ! Copiez-le et partagez-le.' });
+    } catch (err) {
+      setMessage({
+        type: 'error',
+        text: err.response?.data?.error || 'Erreur lors de la génération du lien.',
+      });
+    } finally {
+      setGeneratingLink(false);
+    }
+  };
+
+  const handleCopyLink = async () => {
+    await navigator.clipboard.writeText(inviteLink);
+    setMessage({ type: 'success', text: 'Lien copié dans le presse‑papier !' });
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -71,6 +102,26 @@ const ChallengeForm = () => {
         >
           {message.type === 'success' ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
           {message.text}
+        </div>
+      )}
+
+      {/* Lien d'invitation généré */}
+      {inviteLink && (
+        <div className="mb-4 p-3 bg-violet-500/10 border border-violet-500/30 rounded-lg flex items-center gap-2">
+          <Link size={16} className="text-violet-400" />
+          <input
+            type="text"
+            readOnly
+            value={inviteLink}
+            className="flex-1 bg-transparent text-white text-sm truncate border-none outline-none"
+          />
+          <button
+            onClick={handleCopyLink}
+            className="p-1.5 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-all"
+            title="Copier le lien"
+          >
+            <Copy size={16} />
+          </button>
         </div>
       )}
 
@@ -98,7 +149,7 @@ const ChallengeForm = () => {
             onChange={(e) => setSelectedUser(e.target.value)}
             className="w-full px-4 py-3 bg-slate-700/60 border border-amber-400/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all"
           >
-            <option value="">Sélectionnez un élève</option>
+            <option value="">Sélectionnez un élève (pour défi direct)</option>
             {users.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.name}
@@ -107,21 +158,26 @@ const ChallengeForm = () => {
           </select>
         </div>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white py-3 rounded-lg font-semibold hover:from-amber-600 hover:to-orange-600 transition-all disabled:opacity-50 shadow-lg"
-        >
-          {loading ? (
-            <>
-              <Loader size={18} className="animate-spin" /> Lancement...
-            </>
-          ) : (
-            <>
-              <Send size={18} /> Lancer le défi
-            </>
-          )}
-        </button>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            type="submit"
+            disabled={loading}
+            className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white py-3 rounded-lg font-semibold hover:from-amber-600 hover:to-orange-600 transition-all disabled:opacity-50 shadow-lg"
+          >
+            {loading ? <Loader size={18} className="animate-spin" /> : <Send size={18} />}
+            {loading ? 'Lancement...' : 'Lancer le défi'}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleGenerateLink}
+            disabled={generatingLink}
+            className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white py-3 rounded-lg font-semibold hover:from-violet-700 hover:to-fuchsia-700 transition-all disabled:opacity-50 shadow-lg"
+          >
+            {generatingLink ? <Loader size={18} className="animate-spin" /> : <Link size={18} />}
+            {generatingLink ? 'Génération...' : 'Obtenir un lien d\'invitation'}
+          </button>
+        </div>
       </form>
     </motion.div>
   );
