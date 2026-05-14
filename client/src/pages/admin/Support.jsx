@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Ticket, Loader, Edit3, X, Save, AlertCircle, CheckCircle,
-  Search, Filter,
+  Filter, AlertTriangle,
 } from 'lucide-react';
 import api from '../../services/api';
 
@@ -15,6 +15,7 @@ const statusLabels = {
 const Support = () => {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);                 // 🆕 état d'erreur
   const [filterStatus, setFilterStatus] = useState('');
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [editingNotes, setEditingNotes] = useState('');
@@ -23,12 +24,14 @@ const Support = () => {
 
   const fetchTickets = async () => {
     setLoading(true);
+    setError(null);
     try {
       const params = filterStatus ? `?status=${filterStatus}` : '';
       const res = await api.get(`/support${params}`);
       setTickets(res.data);
     } catch (err) {
       console.error(err);
+      setError('Impossible de charger les tickets. Veuillez réessayer.');
     } finally {
       setLoading(false);
     }
@@ -67,6 +70,22 @@ const Support = () => {
     if (!selectedTicket) return;
     setSelectedTicket({ ...selectedTicket, status: newStatus });
   };
+
+  // 🔥 Affichage en cas d'erreur de chargement
+  if (error && !loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <AlertTriangle size={48} className="text-red-400" />
+        <p className="text-slate-400 text-lg">{error}</p>
+        <button
+          onClick={fetchTickets}
+          className="bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-5 py-2.5 rounded-lg font-medium hover:shadow-lg transition-all"
+        >
+          Réessayer
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

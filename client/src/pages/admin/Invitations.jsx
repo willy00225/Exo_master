@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Mail, Trash2, Filter, Loader, XCircle, CheckCircle, Clock,
-  User, BookOpen, Swords,
+  User, AlertTriangle,
 } from 'lucide-react';
 import api from '../../services/api';
 
@@ -15,6 +15,7 @@ const statusLabels = {
 const Invitations = () => {
   const [invitations, setInvitations] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);                 // 🆕 état d'erreur
   const [filterStatus, setFilterStatus] = useState('');
   const [filterGroup, setFilterGroup] = useState('');
   const [groups, setGroups] = useState([]);
@@ -27,6 +28,7 @@ const Invitations = () => {
 
   const fetchInvitations = async () => {
     setLoading(true);
+    setError(null);
     try {
       const params = new URLSearchParams();
       if (filterStatus) params.append('status', filterStatus);
@@ -35,6 +37,7 @@ const Invitations = () => {
       setInvitations(res.data);
     } catch (err) {
       console.error(err);
+      setError('Impossible de charger les invitations. Veuillez réessayer.');
     } finally {
       setLoading(false);
     }
@@ -53,6 +56,22 @@ const Invitations = () => {
       alert('Erreur lors de la suppression.');
     }
   };
+
+  // 🔥 Affichage en cas d'erreur de chargement
+  if (error && !loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <AlertTriangle size={48} className="text-red-400" />
+        <p className="text-slate-400 text-lg">{error}</p>
+        <button
+          onClick={fetchInvitations}
+          className="bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-5 py-2.5 rounded-lg font-medium hover:shadow-lg transition-all"
+        >
+          Réessayer
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

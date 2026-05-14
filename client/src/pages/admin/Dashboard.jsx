@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Users, BookOpen, CreditCard, HelpCircle, Swords, TrendingUp,
-  PieChart, DollarSign,
+  PieChart, DollarSign, AlertTriangle,
 } from 'lucide-react';
 import {
   LineChart, Line, BarChart, Bar, PieChart as RePieChart, Pie, Cell,
@@ -44,6 +44,7 @@ const AdminDashboard = () => {
   const [paymentsByMethod, setPaymentsByMethod] = useState([]);
   const [studentsByGroup, setStudentsByGroup] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);               // 🆕 état d'erreur
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -58,8 +59,10 @@ const AdminDashboard = () => {
         setMonthly(monthlyRes.data);
         setPaymentsByMethod(paymentsRes.data);
         setStudentsByGroup(groupsRes.data);
+        setError(null); // efface toute erreur précédente
       } catch (err) {
         console.error('Erreur chargement des statistiques', err);
+        setError('Impossible de charger les statistiques. Veuillez réessayer.');
       } finally {
         setLoading(false);
       }
@@ -67,10 +70,27 @@ const AdminDashboard = () => {
     fetchAll();
   }, []);
 
+  // ---- affichage pendant le chargement ----
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
         <p className="text-slate-400 text-lg">Chargement du tableau de bord…</p>
+      </div>
+    );
+  }
+
+  // ---- affichage en cas d'erreur ----
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <AlertTriangle size={48} className="text-red-400" />
+        <p className="text-slate-400 text-lg">{error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-5 py-2.5 rounded-lg font-medium hover:shadow-lg transition-all"
+        >
+          Rafraîchir la page
+        </button>
       </div>
     );
   }

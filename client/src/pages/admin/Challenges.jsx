@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Swords, Clock, CheckCircle, XCircle, Trophy, User, Filter, Loader,
-  ListFilter, BarChart3
+  AlertTriangle
 } from 'lucide-react';
 import api from '../../services/api';
 
@@ -13,7 +13,6 @@ const statusLabels = {
   completed: { label: 'Terminé', color: 'text-emerald-400 bg-emerald-500/20 border-emerald-500/30', icon: Trophy },
 };
 
-// Petit résumé des défis par statut (optionnel)
 const SummaryCards = ({ challenges }) => {
   const counts = {
     pending: challenges.filter(c => c.status === 'pending').length,
@@ -51,16 +50,19 @@ const SummaryCards = ({ challenges }) => {
 const Challenges = () => {
   const [challenges, setChallenges] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [statusFilter, setStatusFilter] = useState('');
 
   const fetchChallenges = async () => {
     setLoading(true);
+    setError(null);
     try {
       const params = statusFilter ? `?status=${statusFilter}` : '';
       const res = await api.get(`/challenges/all${params}`);
       setChallenges(res.data);
     } catch (err) {
       console.error(err);
+      setError('Impossible de charger les challenges. Veuillez réessayer.');
     } finally {
       setLoading(false);
     }
@@ -77,9 +79,23 @@ const Challenges = () => {
       : challenge.challenged_name;
   };
 
+  if (error && !loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <AlertTriangle size={48} className="text-red-400" />
+        <p className="text-slate-400 text-lg">{error}</p>
+        <button
+          onClick={fetchChallenges}
+          className="bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-5 py-2.5 rounded-lg font-medium hover:shadow-lg transition-all"
+        >
+          Réessayer
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* En-tête */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -94,10 +110,8 @@ const Challenges = () => {
         </div>
       </motion.div>
 
-      {/* Cartes de résumé */}
       <SummaryCards challenges={challenges} />
 
-      {/* Filtre */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -125,7 +139,6 @@ const Challenges = () => {
         </div>
       </motion.div>
 
-      {/* Tableau des challenges */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

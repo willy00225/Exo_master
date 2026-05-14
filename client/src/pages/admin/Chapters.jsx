@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  BookOpen, Plus, Edit, Trash2, Save, X, Loader, Filter, CheckCircle, AlertCircle,
+  BookOpen, Plus, Edit, Trash2, Save, X, Loader, Filter, CheckCircle, AlertCircle, AlertTriangle,
 } from 'lucide-react';
 import api from '../../services/api';
 
@@ -9,6 +9,7 @@ const Chapters = () => {
   const [chapters, setChapters] = useState([]);
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);                 // 🆕 état d'erreur
   const [filterGroup, setFilterGroup] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingChapter, setEditingChapter] = useState(null);
@@ -21,9 +22,9 @@ const Chapters = () => {
     order_index: 0,
   });
 
-  // Charger les chapitres et les groupes
   const fetchData = async () => {
     setLoading(true);
+    setError(null);
     try {
       const [chaptersRes, groupsRes] = await Promise.all([
         api.get('/chapters'),
@@ -33,6 +34,7 @@ const Chapters = () => {
       setGroups(groupsRes.data);
     } catch (err) {
       console.error(err);
+      setError('Impossible de charger les chapitres. Veuillez réessayer.');
     } finally {
       setLoading(false);
     }
@@ -42,14 +44,12 @@ const Chapters = () => {
     fetchData();
   }, []);
 
-  // Filtrage
   const filtered = filterGroup
     ? chapters.filter((ch) => ch.group_id == filterGroup)
     : chapters;
 
   const getGroupName = (groupId) => groups.find((g) => g.id === groupId)?.name || '—';
 
-  // Ouvrir la modale pour créer
   const handleCreate = () => {
     setEditingChapter(null);
     setFormData({ title: '', description: '', group_id: '', order_index: 0 });
@@ -57,7 +57,6 @@ const Chapters = () => {
     setModalOpen(true);
   };
 
-  // Ouvrir la modale pour éditer
   const handleEdit = (chapter) => {
     setEditingChapter(chapter);
     setFormData({
@@ -70,12 +69,10 @@ const Chapters = () => {
     setModalOpen(true);
   };
 
-  // Gérer les changements dans le formulaire
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // Soumettre le formulaire (création ou mise à jour)
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -89,7 +86,6 @@ const Chapters = () => {
         setMessage({ type: 'success', text: 'Chapitre créé.' });
       }
       await fetchData();
-      // Fermer la modale après un bref délai pour voir le message
       setTimeout(() => {
         setModalOpen(false);
         setMessage({ type: '', text: '' });
@@ -101,7 +97,6 @@ const Chapters = () => {
     }
   };
 
-  // Supprimer un chapitre
   const handleDelete = async (id) => {
     if (!window.confirm('Supprimer ce chapitre ? Cette action est irréversible.')) return;
     try {
@@ -113,6 +108,22 @@ const Chapters = () => {
       setMessage({ type: 'error', text: 'Erreur lors de la suppression.' });
     }
   };
+
+  // 🔥 Affichage en cas d'erreur de chargement initial
+  if (error && !loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <AlertTriangle size={48} className="text-red-400" />
+        <p className="text-slate-400 text-lg">{error}</p>
+        <button
+          onClick={fetchData}
+          className="bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-5 py-2.5 rounded-lg font-medium hover:shadow-lg transition-all"
+        >
+          Réessayer
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

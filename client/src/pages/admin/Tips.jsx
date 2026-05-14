@@ -2,18 +2,16 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Sparkles, Edit, Trash2, Save, X, Loader, Filter,
-  CheckCircle, AlertCircle, Lightbulb, BookOpen, GraduationCap, PenTool
+  CheckCircle, AlertCircle, Lightbulb, BookOpen, GraduationCap, PenTool, AlertTriangle
 } from 'lucide-react';
 import api from '../../services/api';
 
-// Catégories disponibles (doivent correspondre à celles utilisées par l'IA)
 const CATEGORIES = [
   { key: 'exercises', label: 'Exercices', icon: PenTool },
   { key: 'homework', label: 'Devoirs', icon: BookOpen },
   { key: 'exams', label: 'Examens', icon: GraduationCap },
 ];
 
-// Labels de difficulté (cohort avec le reste de l'app)
 const difficultyLabels = {
   easy: { label: 'Facile', color: 'text-emerald-400 bg-emerald-500/20 border-emerald-500/30' },
   medium: { label: 'Moyen', color: 'text-amber-400 bg-amber-500/20 border-amber-500/30' },
@@ -22,20 +20,18 @@ const difficultyLabels = {
 };
 
 const Tips = () => {
-  // État des astuces
   const [tips, setTips] = useState([]);
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);       // 🆕 erreur de chargement
   const [filterGroup, setFilterGroup] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
 
-  // Gestion de la modale d'édition/création
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTip, setEditingTip] = useState(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
 
-  // Formulaire local pour la modale
   const [form, setForm] = useState({
     title: '',
     content: '',
@@ -44,22 +40,26 @@ const Tips = () => {
     difficulty: '',
   });
 
-  // Modale de génération IA
   const [aiModalOpen, setAiModalOpen] = useState(false);
   const [aiForm, setAiForm] = useState({ group_id: '', category: 'exercises' });
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiMessage, setAiMessage] = useState({ type: '', text: '' });
 
-  // Charger les groupes pour les sélecteurs
-  useEffect(() => {
-    api.get('/groups')
-      .then(res => setGroups(res.data))
-      .catch(console.error);
-  }, []);
+  const fetchGroups = async () => {
+    try {
+      const res = await api.get('/groups');
+      setGroups(res.data);
+      return true;
+    } catch (err) {
+      console.error(err);
+      setLoadError('Impossible de charger les groupes. Veuillez réessayer.');
+      return false;
+    }
+  };
 
-  // Récupérer les astuces avec filtres
   const fetchTips = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const params = new URLSearchParams();
       if (filterGroup) params.append('group_id', filterGroup);
@@ -68,29 +68,42 @@ const Tips = () => {
       setTips(res.data);
     } catch (err) {
       console.error(err);
+      setLoadError('Impossible de charger les astuces. Veuillez réessayer.');
     } finally {
       setLoading(false);
     }
   };
 
+  const fetchAllData = async () => {
+    setLoading(true);
+    setLoadError(null);
+    const groupsOk = await fetchGroups();
+    if (groupsOk) {
+      await fetchTips();
+    } else {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAllData();
+  }, []);
+
   useEffect(() => {
     fetchTips();
   }, [filterGroup, filterCategory]);
 
-  // Réinitialiser le formulaire
   const resetForm = () => {
     setForm({ title: '', content: '', group_id: '', category: 'exercises', difficulty: '' });
     setMessage({ type: '', text: '' });
   };
 
-  // Ouvrir la modale pour créer
   const handleCreate = () => {
     setEditingTip(null);
     resetForm();
     setModalOpen(true);
   };
 
-  // Ouvrir la modale pour éditer
   const handleEdit = (tip) => {
     setEditingTip(tip);
     setForm({
@@ -104,7 +117,6 @@ const Tips = () => {
     setModalOpen(true);
   };
 
-  // Soumettre le formulaire (création ou mise à jour)
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.group_id || !form.category || !form.content) {
@@ -133,7 +145,6 @@ const Tips = () => {
     }
   };
 
-  // Supprimer une astuce
   const handleDelete = async (id) => {
     if (!window.confirm('Supprimer cette astuce ?')) return;
     try {
@@ -146,7 +157,6 @@ const Tips = () => {
     }
   };
 
-  // Génération IA
   const handleAiGenerate = async (e) => {
     e.preventDefault();
     if (!aiForm.group_id) {
@@ -170,7 +180,6 @@ const Tips = () => {
     }
   };
 
-  // Rendu de la catégorie avec icône
   const categoryBadge = (cat) => {
     const config = CATEGORIES.find(c => c.key === cat);
     if (!config) return <span className="text-slate-400">{cat}</span>;
@@ -181,6 +190,22 @@ const Tips = () => {
       </span>
     );
   };
+
+  // 🔥 Affichage en cas d'erreur de chargement
+  if (loadError && !loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <AlertTriangle size={48} className="text-red-400" />
+        <p className="text-slate-400 text-lg">{loadError}</p>
+        <button
+          onClick={fetchAllData}
+          className="bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-5 py-2.5 rounded-lg font-medium hover:shadow-lg transition-all"
+        >
+          Réessayer
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

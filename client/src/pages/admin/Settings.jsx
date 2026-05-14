@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Save, Key, MessageCircle, Clock, AlertCircle, CheckCircle, Loader,
-  Building2, Quote,
+  Building2, Quote, AlertTriangle,
 } from 'lucide-react';
 import api from '../../services/api';
 
@@ -16,29 +16,33 @@ const Settings = () => {
     trial_days: '7',
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);                   // 🆕 état d'erreur de chargement
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
 
-  useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const res = await api.get('/settings');
-        // L'API renvoie un tableau de {key, value} ou un objet ? On s'adapte.
-        let settingsObj = {};
-        if (Array.isArray(res.data)) {
-          res.data.forEach((s) => {
-            settingsObj[s.key] = s.value;
-          });
-        } else if (typeof res.data === 'object') {
-          settingsObj = res.data;
-        }
-        setSettings((prev) => ({ ...prev, ...settingsObj }));
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
+  const fetchSettings = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.get('/settings');
+      let settingsObj = {};
+      if (Array.isArray(res.data)) {
+        res.data.forEach((s) => {
+          settingsObj[s.key] = s.value;
+        });
+      } else if (typeof res.data === 'object') {
+        settingsObj = res.data;
       }
-    };
+      setSettings((prev) => ({ ...prev, ...settingsObj }));
+    } catch (err) {
+      console.error(err);
+      setError('Impossible de charger les paramètres. Veuillez réessayer.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchSettings();
   }, []);
 
@@ -61,6 +65,23 @@ const Settings = () => {
     }
   };
 
+  // 🔥 Affichage en cas d'erreur de chargement
+  if (error && !loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <AlertTriangle size={48} className="text-red-400" />
+        <p className="text-slate-400 text-lg">{error}</p>
+        <button
+          onClick={fetchSettings}
+          className="bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-5 py-2.5 rounded-lg font-medium hover:shadow-lg transition-all"
+        >
+          Réessayer
+        </button>
+      </div>
+    );
+  }
+
+  // Spinner de chargement initial
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -151,13 +172,13 @@ const Settings = () => {
             Intelligence Artificielle
           </h2>
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1">Clé API OpenAI</label>
+            <label className="block text-sm font-medium text-slate-300 mb-1">Clé API Gemini</label>
             <input
               type="password"
               name="openai_api_key"
               value={settings.openai_api_key}
               onChange={handleChange}
-              placeholder="sk-..."
+              placeholder="..."
               className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
             />
             <p className="text-sm text-slate-500 mt-2">

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Edit, Trash2, Users, BookOpen, GraduationCap, Loader } from 'lucide-react';
+import { Plus, Edit, Trash2, Users, BookOpen, GraduationCap, Loader, AlertTriangle } from 'lucide-react';
 import api from '../../services/api';
 import GroupModal from '../../components/admin/GroupModal';
 
@@ -9,18 +9,18 @@ const Groups = () => {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);               // 🆕 état d'erreur unifié
 
-  // Charger les groupes
   const fetchGroups = async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await api.get('/groups');
       setGroups(res.data);
-      setError('');
     } catch (err) {
-      setError('Erreur lors du chargement des groupes.');
       console.error(err);
+      setError('Erreur lors du chargement des groupes. Veuillez réessayer.');
+      setGroups([]); // vide le tableau pour éviter d'afficher d'anciennes données
     } finally {
       setLoading(false);
     }
@@ -30,19 +30,16 @@ const Groups = () => {
     fetchGroups();
   }, []);
 
-  // Ouvrir la modale pour création
   const handleCreate = () => {
     setEditingGroup(null);
     setModalOpen(true);
   };
 
-  // Ouvrir la modale pour édition
   const handleEdit = (group) => {
     setEditingGroup(group);
     setModalOpen(true);
   };
 
-  // Supprimer un groupe
   const handleDelete = async (id) => {
     if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce groupe ?')) return;
     try {
@@ -53,12 +50,27 @@ const Groups = () => {
     }
   };
 
-  // Après création ou mise à jour
   const handleSave = () => {
     fetchGroups();
     setModalOpen(false);
     setEditingGroup(null);
   };
+
+  // 🔥 Affichage en cas d'erreur de chargement
+  if (error && !loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <AlertTriangle size={48} className="text-red-400" />
+        <p className="text-slate-400 text-lg">{error}</p>
+        <button
+          onClick={fetchGroups}
+          className="bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-5 py-2.5 rounded-lg font-medium hover:shadow-lg transition-all"
+        >
+          Réessayer
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -80,13 +92,6 @@ const Groups = () => {
           Nouveau groupe
         </button>
       </motion.div>
-
-      {/* Message d'erreur */}
-      {error && (
-        <div className="bg-red-500/20 border border-red-500/30 text-red-200 p-4 rounded-xl flex items-center gap-2">
-          {error}
-        </div>
-      )}
 
       {/* Tableau des groupes */}
       <motion.div

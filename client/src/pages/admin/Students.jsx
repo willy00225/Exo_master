@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Users, Loader, X, AlertCircle, PlusCircle, MinusCircle,
+  Users, Loader, X, AlertCircle, PlusCircle, MinusCircle, AlertTriangle,
 } from 'lucide-react';
 import api from '../../services/api';
 
@@ -9,6 +9,7 @@ const Students = () => {
   const [students, setStudents] = useState([]);
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);          // 🆕 erreur centralisée
   const [groupsLoading, setGroupsLoading] = useState(true);
   const [groupsError, setGroupsError] = useState('');
   const [filter, setFilter] = useState({ group_id: '', subscription_status: '' });
@@ -17,29 +18,28 @@ const Students = () => {
   const [showPayments, setShowPayments] = useState(false);
   const [extendDays] = useState(30);
 
-  // Charger les groupes avec log
+  // Charger les groupes
   useEffect(() => {
     const fetchGroups = async () => {
       setGroupsLoading(true);
+      setGroupsError('');
       try {
         const res = await api.get('/groups');
-        console.log('Réponse API /groups :', res.data);
         if (Array.isArray(res.data)) {
           setGroups(res.data);
           if (res.data.length === 0) {
             setGroupsError('Aucun groupe trouvé dans la base.');
-          } else {
-            setGroupsError('');
           }
         } else if (res.data && Array.isArray(res.data.groups)) {
           setGroups(res.data.groups);
         } else {
-          setGroupsError('Format de données inattendu. Voir console.');
+          setGroupsError('Format de données inattendu.');
           console.error('Format attendu : un tableau ou { groups: [...] }', res.data);
         }
       } catch (err) {
         console.error('Erreur chargement groupes', err);
         setGroupsError('Erreur réseau ou API injoignable.');
+        setLoadError('Impossible de charger les groupes. Veuillez réessayer.');
       } finally {
         setGroupsLoading(false);
       }
@@ -49,6 +49,7 @@ const Students = () => {
 
   const fetchStudents = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const params = new URLSearchParams();
       if (filter.group_id) params.append('group_id', filter.group_id);
@@ -57,6 +58,8 @@ const Students = () => {
       setStudents(res.data);
     } catch (err) {
       console.error(err);
+      setLoadError('Impossible de charger la liste des élèves. Veuillez réessayer.');
+      setStudents([]);
     } finally {
       setLoading(false);
     }
@@ -98,6 +101,22 @@ const Students = () => {
   };
 
   const isActive = (expires) => expires && new Date(expires) > new Date();
+
+  // 🔥 Affichage en cas d'erreur de chargement
+  if (loadError && !loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <AlertTriangle size={48} className="text-red-400" />
+        <p className="text-slate-400 text-lg">{loadError}</p>
+        <button
+          onClick={() => { fetchStudents(); }}
+          className="bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-5 py-2.5 rounded-lg font-medium hover:shadow-lg transition-all"
+        >
+          Réessayer
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -142,7 +161,7 @@ const Students = () => {
           )}
         </div>
 
-        {/* Sélecteur de statut – CORRIGÉ avec classes explicites */}
+        {/* Sélecteur de statut */}
         <select
           className="bg-white/5 border border-white/20 rounded-lg text-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
           value={filter.subscription_status}

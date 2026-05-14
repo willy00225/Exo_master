@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Plus, Edit, Trash2, HelpCircle, Clock, Layers, Loader,
+  Plus, Edit, Trash2, HelpCircle, Clock, Layers, Loader, AlertTriangle,
 } from 'lucide-react';
 import api from '../../services/api';
 import QuizModal from '../../components/admin/QuizModal';
@@ -17,50 +17,63 @@ const Quizzes = () => {
   const [quizzes, setQuizzes] = useState([]);
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);                 // 🆕 état d'erreur
   const [modalOpen, setModalOpen] = useState(false);
   const [editingQuiz, setEditingQuiz] = useState(null);
 
-  const fetchQuizzes = async () => {
+  const fetchData = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const res = await api.get('/quizzes');
-      setQuizzes(res.data);
+      const [quizzesRes, groupsRes] = await Promise.all([
+        api.get('/quizzes'),
+        api.get('/groups'),
+      ]);
+      setQuizzes(quizzesRes.data);
+      setGroups(groupsRes.data);
     } catch (err) {
       console.error(err);
+      setError('Impossible de charger les quiz. Veuillez réessayer.');
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchGroups = async () => {
-    try {
-      const res = await api.get('/groups');
-      setGroups(res.data);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
   useEffect(() => {
-    fetchGroups();
-    fetchQuizzes();
+    fetchData();
   }, []);
 
   const handleDelete = async (id) => {
     if (!window.confirm('Supprimer ce quiz ?')) return;
     try {
       await api.delete(`/quizzes/${id}`);
-      fetchQuizzes();
+      fetchData();
     } catch (err) {
       alert('Erreur lors de la suppression.');
     }
   };
 
   const handleSave = () => {
-    fetchQuizzes();
+    fetchData();
     setModalOpen(false);
     setEditingQuiz(null);
   };
+
+  // 🔥 Affichage en cas d'erreur de chargement
+  if (error && !loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <AlertTriangle size={48} className="text-red-400" />
+        <p className="text-slate-400 text-lg">{error}</p>
+        <button
+          onClick={fetchData}
+          className="bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-5 py-2.5 rounded-lg font-medium hover:shadow-lg transition-all"
+        >
+          Réessayer
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

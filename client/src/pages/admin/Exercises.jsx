@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Sparkles, Edit, Trash2, FileText, Download, Filter, Loader,
-  BarChart3, X, Save, AlertCircle, CheckCircle, Zap, Brain, BookOpen
+  BarChart3, X, Save, AlertCircle, CheckCircle, Zap, Brain, BookOpen, AlertTriangle
 } from 'lucide-react';
 import api from '../../services/api';
 import ExerciseUploadModal from '../../components/admin/ExerciseUploadModal';
@@ -20,6 +20,8 @@ const Exercises = () => {
   const [groups, setGroups] = useState([]);
   const [chapters, setChapters] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);          // 🆕 erreur de chargement
+  const [operationMessage, setOperationMessage] = useState({ type: '', text: '' }); // 🆕 messages d'opération
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [generateModalOpen, setGenerateModalOpen] = useState(false);
   const [editingExercise, setEditingExercise] = useState(null);
@@ -35,6 +37,7 @@ const Exercises = () => {
 
   const fetchExercises = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const params = new URLSearchParams();
       if (filters.group_id) params.append('group_id', filters.group_id);
@@ -44,6 +47,7 @@ const Exercises = () => {
       setExercises(res.data);
     } catch (err) {
       console.error(err);
+      setLoadError('Impossible de charger les exercices. Veuillez réessayer.');
     } finally {
       setLoading(false);
     }
@@ -55,6 +59,7 @@ const Exercises = () => {
       setGroups(res.data);
     } catch (err) {
       console.error(err);
+      setLoadError('Impossible de charger les groupes. Veuillez réessayer.');
     }
   };
 
@@ -68,6 +73,7 @@ const Exercises = () => {
       setChapters(res.data);
     } catch (err) {
       console.error(err);
+      // Ne bloque pas l'interface, on laisse une erreur silencieuse
     }
   };
 
@@ -87,9 +93,11 @@ const Exercises = () => {
     if (!window.confirm('Supprimer cet exercice ?')) return;
     try {
       await api.delete(`/exercises/${id}`);
-      fetchExercises();
+      setOperationMessage({ type: 'success', text: 'Exercice supprimé.' });
+      await fetchExercises();
+      setTimeout(() => setOperationMessage({ type: '', text: '' }), 2000);
     } catch (err) {
-      alert('Erreur lors de la suppression.');
+      setOperationMessage({ type: 'error', text: 'Erreur lors de la suppression.' });
     }
   };
 
@@ -105,9 +113,25 @@ const Exercises = () => {
     setEditingExercise(null);
   };
 
+  // 🔥 Affichage en cas d'erreur de chargement
+  if (loadError && !loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <AlertTriangle size={48} className="text-red-400" />
+        <p className="text-slate-400 text-lg">{loadError}</p>
+        <button
+          onClick={() => { fetchGroups(); fetchExercises(); }}
+          className="bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-5 py-2.5 rounded-lg font-medium hover:shadow-lg transition-all"
+        >
+          Réessayer
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* En-tête avec stats */}
+      {/* En-tête */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -134,6 +158,22 @@ const Exercises = () => {
           </button>
         </div>
       </motion.div>
+
+      {/* Message d'opération */}
+      {operationMessage.text && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`flex items-center gap-2 p-4 rounded-xl ${
+            operationMessage.type === 'success'
+              ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-300'
+              : 'bg-red-500/20 border border-red-500/30 text-red-300'
+          }`}
+        >
+          {operationMessage.type === 'success' ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
+          {operationMessage.text}
+        </motion.div>
+      )}
 
       {/* Mini stats */}
       <motion.div
