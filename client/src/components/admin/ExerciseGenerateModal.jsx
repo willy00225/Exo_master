@@ -31,10 +31,11 @@ const ExerciseGenerateModal = ({ isOpen, onClose, onSave, groups }) => {
     setGenerating(true);
     setMessage({ type: '', text: '' });
     try {
-      await api.post('/exercises/generate', form);
+      // ✅ Correction : utilisation de la bonne route IA
+      await api.post('/ai/generate-exercise', form);
       setMessage({ type: 'success', text: `${form.count} exercice(s) généré(s) avec succès !` });
       setTimeout(() => {
-        onSave(); // ferme la modale et recharge la liste
+        onSave();
       }, 1200);
     } catch (err) {
       setMessage({ type: 'error', text: err.response?.data?.error || 'Erreur lors de la génération.' });
