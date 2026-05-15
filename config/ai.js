@@ -1,34 +1,29 @@
-const OpenAI = require("openai");
+const Groq = require("groq-sdk");
 
-const apiKey = process.env.OPENROUTER_API_KEY;
+const apiKey = process.env.GROQ_API_KEY;
 
-let openai = null;
+let groq = null;
 
 if (apiKey) {
-  openai = new OpenAI({
-    baseURL: "https://openrouter.ai/api/v1",
-    apiKey: apiKey,
-    defaultHeaders: {
-      "HTTP-Referer": process.env.SITE_URL || "https://exomaster.com",
-      "X-Title": "Exo Master",
-    },
-  });
-  console.log("✅ OpenRouter initialisé avec succès.");
+  groq = new Groq({ apiKey });
+  console.log("✅ Groq initialisé avec succès.");
 } else {
-  console.warn("⚠️ Aucune clé OPENROUTER_API_KEY trouvée. L'IA ne fonctionnera pas.");
+  console.warn("⚠️ Aucune clé GROQ_API_KEY trouvée. L'IA ne fonctionnera pas.");
 }
 
 async function generateWithAI(prompt, systemInstruction = "Tu es un assistant pédagogique.") {
-  if (!openai) {
-    throw new Error("Clé AI non configurée.");
+  if (!groq) {
+    throw new Error("Clé Groq non configurée.");
   }
 
-  const completion = await openai.chat.completions.create({
-    model: "mistralai/mistral-7b-instruct:free",
+  const completion = await groq.chat.completions.create({
+    model: "llama-3.1-8b-instant",
     messages: [
       { role: "system", content: systemInstruction },
       { role: "user", content: prompt },
     ],
+    temperature: 0.7,
+    response_format: { type: "json_object" },
   });
 
   return completion.choices[0].message.content;
