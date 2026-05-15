@@ -58,7 +58,7 @@ const Challenges = () => {
     setError(null);
     try {
       const params = statusFilter ? `?status=${statusFilter}` : '';
-      const res = await api.get(`/challenges/all${params}`);
+      const res = await api.get(`/admin/challenges${params}`);
       setChallenges(res.data);
     } catch (err) {
       console.error(err);

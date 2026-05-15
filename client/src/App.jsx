@@ -18,8 +18,9 @@ import Settings from './pages/admin/Settings';
 import Students from './pages/admin/Students';
 import Chapters from './pages/admin/Chapters';
 import Support from './pages/admin/Support';
-import Invitations from './pages/admin/Invitations'; // 🆕
-import Tips from './pages/admin/Tips';               // 🆕 Astuces (admin)
+import Invitations from './pages/admin/Invitations';
+import Tips from './pages/admin/Tips';
+import QuestionBank from './pages/admin/QuestionBank'; // 🆕 Banque de questions
 
 // Pages Élève (alias pour éviter les conflits)
 import StudentExercises from './pages/student/Exercises';
@@ -30,7 +31,7 @@ import Subscription from './pages/student/Subscription';
 import StudentPayments from './pages/student/Payments';
 import ChangePassword from './pages/student/ChangePassword';
 import StudentSupport from './pages/student/Support';
-import StudentTips from './pages/student/Tips';       // Astuces (élève)
+import StudentTips from './pages/student/Tips';
 
 // Landing page
 import LandingPage from './pages/LandingPage';
@@ -116,8 +117,9 @@ function AppContent() {
         <Route path="challenges" element={<Challenges />} />
         <Route path="settings" element={<Settings />} />
         <Route path="support" element={<Support />} />
-        <Route path="invitations" element={<Invitations />} />  {/* 🆕 */}
-        <Route path="tips" element={<Tips />} />                {/* 🆕 Astuces admin */}
+        <Route path="invitations" element={<Invitations />} />
+        <Route path="tips" element={<Tips />} />
+        <Route path="question-bank" element={<QuestionBank />} /> {/* 🆕 */}
       </Route>
 
       {/* Routes Student avec Layout */}
@@ -138,7 +140,7 @@ function AppContent() {
         <Route path="subscription" element={<Subscription />} />
         <Route path="change-password" element={<ChangePassword />} />
         <Route path="support" element={<StudentSupport />} />
-        <Route path="tips" element={<StudentTips />} />         {/* Astuces élève */}
+        <Route path="tips" element={<StudentTips />} />
       </Route>
 
       {/* Route 404 - doit rester en dernier */}

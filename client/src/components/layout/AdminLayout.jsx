@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  LayoutDashboard, Users, BookOpen, FileText, HelpCircle, CreditCard, Settings, LogOut, ChevronRight, Swords, Ticket, Menu, X, Mail, Lightbulb
+  LayoutDashboard, Users, BookOpen, FileText, HelpCircle, CreditCard, Settings, LogOut, ChevronRight, Swords, Ticket, Menu, X, Mail, Lightbulb, Database
 } from 'lucide-react';
 import logo from '../../assets/exo_master_logo.png';
 import NotificationBell from '../../components/common/NotificationBell';
@@ -26,9 +26,10 @@ const AdminLayout = () => {
     { path: '/admin/chapters', icon: BookOpen, label: 'Chapitres' },
     { path: '/admin/exercises', icon: FileText, label: 'Exercices' },
     { path: '/admin/quizzes', icon: HelpCircle, label: 'Quiz' },
+    { path: '/admin/question-bank', icon: Database, label: 'Banque de questions' }, // 🆕
     { path: '/admin/challenges', icon: Swords, label: 'Challenges' },
-    { path: '/admin/invitations', icon: Mail, label: 'Invitations' },   // 🆕
-    { path: '/admin/tips', icon: Lightbulb, label: 'Astuces' },        // 🆕
+    { path: '/admin/invitations', icon: Mail, label: 'Invitations' },
+    { path: '/admin/tips', icon: Lightbulb, label: 'Astuces' },
     { path: '/admin/payments', icon: CreditCard, label: 'Paiements' },
     { path: '/admin/settings', icon: Settings, label: 'Paramètres' },
     { path: '/admin/support', icon: Ticket, label: 'Support' },
