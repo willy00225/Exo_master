@@ -24,12 +24,11 @@ async function generateWithAI(prompt, systemInstruction = "Tu es un assistant p√
   }
 
   const completion = await openai.chat.completions.create({
-    model: "google/gemini-2.5-flash-exp:free",
+    model: "mistralai/mistral-7b-instruct:free",
     messages: [
       { role: "system", content: systemInstruction },
       { role: "user", content: prompt },
     ],
-    response_format: { type: "json_object" },
   });
 
   return completion.choices[0].message.content;
