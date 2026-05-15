@@ -172,8 +172,8 @@ Retourne UNIQUEMENT le JSON, sans commentaire.
       exercise: result.rows[0],
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Erreur lors de la génération IA." });
+    console.error("Erreur dans generate-exercise:", err);
+    res.status(500).json({ error: "Erreur lors de la génération IA.", detail: err.message });
   }
 });
 
@@ -182,7 +182,7 @@ Retourne UNIQUEMENT le JSON, sans commentaire.
 // ------------------------------------------------------------------
 router.post("/generate-tips", async (req, res) => {
   try {
-    const { group_id, category } = req.body; // category: 'exercises','homework','exams'
+    const { group_id, category } = req.body;
     const group = await pool.query("SELECT name, subject, level FROM groups WHERE id = $1", [group_id]);
     if (group.rows.length === 0) return res.status(404).json({ error: "Groupe introuvable." });
 
@@ -195,7 +195,6 @@ router.post("/generate-tips", async (req, res) => {
     const parsed = parseAIResponse(raw);
     const tips = parsed?.tips || [];
 
-    // Sauvegarder en base
     for (const tip of tips) {
       await pool.query("INSERT INTO tips (group_id, category, content) VALUES ($1, $2, $3)", [group_id, category, tip]);
     }
