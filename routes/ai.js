@@ -3,7 +3,7 @@ const router = express.Router();
 const pool = require("../config/db");
 const auth = require("../middleware/auth");
 const admin = require("../middleware/admin");
-const { generateWithGemini } = require("../config/ai");
+const { generateWithAI } = require("../config/ai");
 
 // ------------------------------------------------------------------
 // 🔄 Utilitaire : nettoie la réponse brute de l'IA pour en extraire un JSON
@@ -71,7 +71,7 @@ router.post("/generate-questions", async (req, res) => {
     Difficulté : ${difficulty || 'moyen'}.
     Format JSON attendu : { "questions": [ { "text": "énoncé", "options": ["A","B","C","D"], "correct": 0 } ] }`;
 
-    const raw = await generateWithGemini(prompt, systemInstruction);
+    const raw = await generateWithAI(prompt, systemInstruction);
     const parsed = parseAIResponse(raw);
 
     if (!parsed || !Array.isArray(parsed.questions) || parsed.questions.length === 0) {
@@ -127,7 +127,7 @@ Retourne UNIQUEMENT un objet JSON valide avec les clés suivantes :
 }
 `;
 
-    const raw = await generateWithGemini(prompt, systemInstruction);
+    const raw = await generateWithAI(prompt, systemInstruction);
     let generated = parseAIResponse(raw);
 
     if (!generated || !generated.title || !generated.statement || !generated.correction) {
@@ -148,7 +148,7 @@ Si tout est parfait, retourne le JSON original sans modification.
 Retourne UNIQUEMENT le JSON, sans commentaire.
 `;
 
-    const raw2 = await generateWithGemini(verifyPrompt, "Tu es un vérificateur pédagogique impitoyable.");
+    const raw2 = await generateWithAI(verifyPrompt, "Tu es un vérificateur pédagogique impitoyable.");
     const finalExercise = parseAIResponse(raw2) || generated;
 
     // Insertion en base
@@ -191,7 +191,7 @@ router.post("/generate-tips", async (req, res) => {
     Chaque astuce doit faire environ 3 phrases. 
     Réponds avec un tableau JSON : { "tips": ["astuce 1", "astuce 2", "astuce 3"] }`;
 
-    const raw = await generateWithGemini(prompt, systemInstruction);
+    const raw = await generateWithAI(prompt, systemInstruction);
     const parsed = parseAIResponse(raw);
     const tips = parsed?.tips || [];
 
