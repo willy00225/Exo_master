@@ -19,14 +19,20 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Intercepteur pour gérer les erreurs 401/403
+// Intercepteur de réponse enrichi
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+    if (error.response) {
+      const status = error.response.status;
+      // Token expiré ou invalide (401) ou token absent/malformé (400 avec message spécifique)
+      if (status === 401 || (status === 400 && error.response.data?.error === 'Token invalide.')) {
+        // Supprimer les anciennes données
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        // Rediriger vers la page de connexion avec un paramètre pour informer l'utilisateur
+        window.location.href = '/login?expired=true';
+      }
     }
     return Promise.reject(error);
   }

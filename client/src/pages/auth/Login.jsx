@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
@@ -15,6 +15,10 @@ const Login = () => {
   const [resending, setResending] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  // 🔥 Lecture du paramètre expired
+  const [searchParams] = useSearchParams();
+  const expired = searchParams.get('expired');
 
   const handleResendVerification = async () => {
     if (!email) return;
@@ -40,14 +44,8 @@ const Login = () => {
       navigate('/');
     } catch (err) {
       const data = err.response?.data;
-      // La vérification email est temporairement désactivée, donc ce bloc est commenté
-      // if (data?.code === 'EMAIL_NOT_VERIFIED' || data?.error?.includes('Email non vérifié')) {
-      //   setError(
-      //     'Votre adresse email n’est pas encore vérifiée. Veuillez consulter votre boîte de réception ou renvoyer un lien de vérification.'
-      //   );
-      // } else {
-      //   setError(data?.error || 'Erreur de connexion');
-      // }
+      // La vérification email est temporairement désactivée
+      // if (data?.code === 'EMAIL_NOT_VERIFIED' || data?.error?.includes('Email non vérifié')) { ... }
       setError(data?.error || 'Erreur de connexion');
     } finally {
       setLoading(false);
@@ -79,6 +77,13 @@ const Login = () => {
         <h1 className="text-2xl font-bold text-white text-center mb-6 font-space-grotesk">
           Connexion
         </h1>
+
+        {/* 🔥 Message session expirée */}
+        {expired && (
+          <div className="bg-amber-500/20 border border-amber-500/30 text-amber-300 p-3 rounded-lg mb-4 text-sm">
+            Votre session a expiré. Veuillez vous reconnecter.
+          </div>
+        )}
 
         {error && (
           <div className="bg-red-500/20 border border-red-500/50 text-red-200 p-3 rounded-lg mb-4 text-sm">
