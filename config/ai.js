@@ -5,14 +5,14 @@ let geminiClient = null;
 
 /**
  * Initialise et retourne le client Gemini (singleton).
- * Récupère la clé API depuis la table `settings` ou la variable d'environnement `GEMINI_API_KEY`.
+ * Récupère la clé API depuis la variable d'environnement `GEMINI_API_KEY` ou la table `settings`.
  */
 const getGemini = async () => {
   if (geminiClient) return geminiClient;
 
-  // Récupère la clé depuis settings ou variable d'env
+  // Récupère la clé depuis la variable d'environnement ou la table settings
   const result = await pool.query("SELECT value FROM settings WHERE key = 'gemini_api_key'");
-  const apiKey = result.rows[0]?.value || process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY || result.rows[0]?.value;
 
   if (!apiKey) {
     console.warn('Aucune clé API Gemini trouvée.');
