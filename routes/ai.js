@@ -48,7 +48,7 @@ router.use(auth);
 router.use(admin);
 
 // ------------------------------------------------------------------
-// 📝 POST /api/ai/generate-questions – Génération de questions via Gemini
+// 📝 POST /api/ai/generate-questions – Génération de questions via IA
 // ------------------------------------------------------------------
 router.post("/generate-questions", async (req, res) => {
   try {
@@ -95,7 +95,7 @@ router.post("/generate-questions", async (req, res) => {
 });
 
 // ------------------------------------------------------------------
-// 📝 POST /api/ai/generate-exercise – Génération d'exercice via Gemini
+// 📝 POST /api/ai/generate-exercise – Génération d'exercice via IA (avec double vérification sécurisée)
 // ------------------------------------------------------------------
 router.post("/generate-exercise", async (req, res) => {
   try {
@@ -112,6 +112,7 @@ router.post("/generate-exercise", async (req, res) => {
       if (chapter.rows.length > 0) chapterTitle = chapter.rows[0].title;
     }
 
+    // --- PREMIÈRE GÉNÉRATION ---
     const systemInstruction = "Tu es un professeur certifié. Réponds UNIQUEMENT avec un objet JSON valide contenant 'title', 'statement', 'correction'.";
     const prompt = `
 Tu es un professeur agrégé en ${subject}, enseignant à des élèves de niveau ${level}. 
@@ -128,14 +129,16 @@ Retourne UNIQUEMENT un objet JSON valide avec les clés suivantes :
 `;
 
     const raw = await generateWithAI(prompt, systemInstruction);
-    let generated = parseAIResponse(raw);
+    const generated = parseAIResponse(raw);
 
     if (!generated || !generated.title || !generated.statement || !generated.correction) {
       return res.status(500).json({ error: "L'IA n'a pas pu produire un exercice valide." });
     }
 
-    // Double vérification par l'IA (auto‑correction)
-    const verifyPrompt = `
+    // --- DOUBLE VÉRIFICATION (sécurisée) ---
+    let finalExercise = generated;
+    try {
+      const verifyPrompt = `
 Un professeur a rédigé l'exercice suivant :
 Titre : ${generated.title}
 Énoncé : ${generated.statement}
@@ -147,11 +150,19 @@ Si tout est parfait, retourne le JSON original sans modification.
 
 Retourne UNIQUEMENT le JSON, sans commentaire.
 `;
+      const raw2 = await generateWithAI(verifyPrompt, "Tu es un vérificateur pédagogique impitoyable.");
+      const verified = parseAIResponse(raw2);
+      if (verified && verified.title && verified.statement && verified.correction) {
+        finalExercise = verified;
+        console.log("✅ Double vérification réussie, exercice corrigé.");
+      } else {
+        console.warn("⚠️ Double vérification a échoué, utilisation de l'exercice original.");
+      }
+    } catch (verifyErr) {
+      console.warn("⚠️ Erreur lors de la double vérification, utilisation de l'exercice original :", verifyErr.message);
+    }
 
-    const raw2 = await generateWithAI(verifyPrompt, "Tu es un vérificateur pédagogique impitoyable.");
-    const finalExercise = parseAIResponse(raw2) || generated;
-
-    // Insertion en base
+    // --- INSERTION EN BASE ---
     const result = await pool.query(
       `INSERT INTO exercises (title, description, content, correction, difficulty, group_id, chapter_id, file_path)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
@@ -163,12 +174,12 @@ Retourne UNIQUEMENT le JSON, sans commentaire.
         difficulty,
         group_id,
         chapter_id || null,
-        '' // pas de fichier
+        ''
       ]
     );
 
     res.status(201).json({
-      message: "Exercice généré et vérifié avec succès.",
+      message: "Exercice généré avec succès.",
       exercise: result.rows[0],
     });
   } catch (err) {
@@ -178,7 +189,7 @@ Retourne UNIQUEMENT le JSON, sans commentaire.
 });
 
 // ------------------------------------------------------------------
-// 📝 POST /api/ai/generate-tips – Générer des astuces via Gemini
+// 📝 POST /api/ai/generate-tips – Générer des astuces via IA
 // ------------------------------------------------------------------
 router.post("/generate-tips", async (req, res) => {
   try {
