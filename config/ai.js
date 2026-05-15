@@ -23,7 +23,7 @@ async function generateWithGemini(prompt, systemInstruction = "Tu es un assistan
   }
 
   const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-pro",
+    model: "gemini-2.0-flash",   // ← Modèle à jour (remplacez par "gemini-2.5-flash" si souhaité)
     systemInstruction: systemInstruction,
   });
 
