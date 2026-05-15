@@ -10,7 +10,7 @@ router.post("/contact", async (req, res) => {
     if (!message) return res.status(400).json({ error: "Message requis." });
 
     await pool.query(
-      `INSERT INTO support_tickets (email, subject, message, status)
+      `INSERT INTO support_messages (email, subject, message, status)
        VALUES ($1, $2, $3, 'open')`,
       [email || null, subject || 'Demande de support', message]
     );
@@ -27,7 +27,7 @@ router.get("/my", auth, async (req, res) => {
     const userId = req.user.id;
     const tickets = await pool.query(
       `SELECT id, subject, message, status, admin_notes, created_at, updated_at
-       FROM support_tickets
+       FROM support_messages
        WHERE user_id = $1
        ORDER BY created_at DESC`,
       [userId]
@@ -48,7 +48,7 @@ router.get("/", auth, async (req, res) => {
 
     const { status } = req.query;
     let query = `SELECT s.*, u.name as user_name, u.email as user_email
-                 FROM support_tickets s
+                 FROM support_messages s
                  LEFT JOIN users u ON s.user_id = u.id`;
     const params = [];
     if (status) {
@@ -76,7 +76,7 @@ router.put("/:id", auth, async (req, res) => {
     const { status, admin_notes } = req.body;
 
     await pool.query(
-      `UPDATE support_tickets SET status = COALESCE($1, status), admin_notes = COALESCE($2, admin_notes), updated_at = NOW()
+      `UPDATE support_messages SET status = COALESCE($1, status), admin_notes = COALESCE($2, admin_notes), updated_at = NOW()
        WHERE id = $3`,
       [status, admin_notes, id]
     );

@@ -31,7 +31,7 @@ router.get("/", async (req, res) => {
     if (conditions.length > 0) {
       query += " WHERE " + conditions.join(" AND ");
     }
-    query += " ORDER BY t.created_at DESC";
+    query += " ORDER BY t.generated_at DESC";
 
     const result = await pool.query(query, params);
     res.json(result.rows);
