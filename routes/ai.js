@@ -90,6 +90,9 @@ router.post("/generate-questions", async (req, res) => {
     res.status(201).json({ message: `${parsed.questions.length} questions générées et enregistrées.` });
   } catch (err) {
     console.error(err);
+    if (err.status === 429 || err.code === 429 || (err.message && err.message.includes('429'))) {
+      return res.status(429).json({ error: "Limite de génération atteinte. Veuillez réessayer dans quelques minutes." });
+    }
     res.status(500).json({ error: "Erreur lors de la génération des questions." });
   }
 });
@@ -184,6 +187,9 @@ Retourne UNIQUEMENT le JSON, sans commentaire.
     });
   } catch (err) {
     console.error("Erreur dans generate-exercise:", err);
+    if (err.status === 429 || err.code === 429 || (err.message && err.message.includes('429'))) {
+      return res.status(429).json({ error: "Limite de génération atteinte. Veuillez réessayer dans quelques minutes." });
+    }
     res.status(500).json({ error: "Erreur lors de la génération IA.", detail: err.message });
   }
 });
@@ -213,6 +219,9 @@ router.post("/generate-tips", async (req, res) => {
     res.json({ message: `${tips.length} astuces générées`, tips });
   } catch (err) {
     console.error(err);
+    if (err.status === 429 || err.code === 429 || (err.message && err.message.includes('429'))) {
+      return res.status(429).json({ error: "Limite de génération atteinte. Veuillez réessayer dans quelques minutes." });
+    }
     res.status(500).json({ error: "Erreur génération astuces." });
   }
 });

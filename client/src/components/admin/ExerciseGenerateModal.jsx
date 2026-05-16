@@ -23,7 +23,8 @@ const ExerciseGenerateModal = ({ isOpen, onClose, onSave, groups }) => {
   // ---- États de la modale -------------------------------------
   const [chapters, setChapters] = useState([]);
   const [generating, setGenerating] = useState(false);
-  const [message, setMessage] = useState({ type: '', text: '' });
+  const [message, setMessage] = useState({ type: '', text: '' }); // pour les succès
+  const [error, setError] = useState(''); // pour les erreurs
 
   // ---- Charger les chapitres lorsqu'un groupe est sélectionné --
   const fetchChapters = async (groupId) => {
@@ -51,7 +52,8 @@ const ExerciseGenerateModal = ({ isOpen, onClose, onSave, groups }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setGenerating(true);
-    setMessage({ type: '', text: '' });
+    setMessage({ type: '', text: '' }); // reset succès
+    setError(''); // reset erreur
 
     // Préparer le corps de la requête
     const body = {
@@ -62,12 +64,10 @@ const ExerciseGenerateModal = ({ isOpen, onClose, onSave, groups }) => {
 
     try {
       if (mode === 'exercise') {
-        // Génération d'un exercice complet
-        body.count = count; // nombre d'exercices (peut être utilisé côté backend)
+        body.count = count;
         await api.post('/ai/generate-exercise', body);
         setMessage({ type: 'success', text: `${count} exercice(s) généré(s) avec succès !` });
       } else {
-        // Génération de questions QCM
         body.count = questionCount;
         await api.post('/ai/generate-questions', body);
         setMessage({ type: 'success', text: `${questionCount} question(s) générée(s) avec succès !` });
@@ -77,10 +77,9 @@ const ExerciseGenerateModal = ({ isOpen, onClose, onSave, groups }) => {
         onSave(); // ferme la modale et recharge la liste
       }, 1200);
     } catch (err) {
-      setMessage({
-        type: 'error',
-        text: err.response?.data?.error || 'Erreur lors de la génération.',
-      });
+      const msg = err.response?.data?.error || "Erreur lors de la génération. Veuillez réessayer.";
+      setError(msg);
+      console.error(err);
     } finally {
       setGenerating(false);
     }
@@ -141,17 +140,18 @@ const ExerciseGenerateModal = ({ isOpen, onClose, onSave, groups }) => {
             </button>
           </div>
 
-          {/* Message de feedback */}
-          {message.text && (
-            <div
-              className={`flex items-center gap-2 p-3 rounded-lg mb-4 ${
-                message.type === 'success'
-                  ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-300'
-                  : 'bg-red-500/20 border border-red-500/30 text-red-300'
-              }`}
-            >
-              {message.type === 'success' ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
+          {/* Message de succès */}
+          {message.text && message.type === 'success' && (
+            <div className="flex items-center gap-2 p-3 rounded-lg mb-4 bg-emerald-500/20 border border-emerald-500/30 text-emerald-300">
+              <CheckCircle size={16} />
               {message.text}
+            </div>
+          )}
+
+          {/* Message d'erreur */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+              {error}
             </div>
           )}
 
