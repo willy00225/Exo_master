@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Loader, X, CheckCircle, AlertCircle, Zap, HelpCircle } from 'lucide-react';
 import api from '../../services/api';
@@ -23,8 +23,20 @@ const ExerciseGenerateModal = ({ isOpen, onClose, onSave, groups }) => {
   // ---- États de la modale -------------------------------------
   const [chapters, setChapters] = useState([]);
   const [generating, setGenerating] = useState(false);
-  const [message, setMessage] = useState({ type: '', text: '' }); // pour les succès
-  const [error, setError] = useState(''); // pour les erreurs
+  const [message, setMessage] = useState({ type: '', text: '' });
+  const [error, setError] = useState('');
+
+  // ---- Référence pour annuler le timeout ----------------------
+  const mountedRef = useRef(true);
+  const successTimerRef = useRef(null);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (successTimerRef.current) clearTimeout(successTimerRef.current);
+    };
+  }, []);
 
   // ---- Charger les chapitres lorsqu'un groupe est sélectionné --
   const fetchChapters = async (groupId) => {
@@ -52,10 +64,9 @@ const ExerciseGenerateModal = ({ isOpen, onClose, onSave, groups }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setGenerating(true);
-    setMessage({ type: '', text: '' }); // reset succès
-    setError(''); // reset erreur
+    setMessage({ type: '', text: '' });
+    setError('');
 
-    // Préparer le corps de la requête
     const body = {
       group_id: form.group_id,
       chapter_id: form.chapter_id || undefined,
@@ -73,11 +84,14 @@ const ExerciseGenerateModal = ({ isOpen, onClose, onSave, groups }) => {
         setMessage({ type: 'success', text: `${questionCount} question(s) générée(s) avec succès !` });
       }
 
-      setTimeout(() => {
-        onSave(); // ferme la modale et recharge la liste
-      }, 1200);
+      // Attendre un peu avant de fermer, SAUF si la modale est déjà fermée
+      successTimerRef.current = setTimeout(() => {
+        if (mountedRef.current) {
+          onSave();
+        }
+      }, 1500);
     } catch (err) {
-      const msg = err.response?.data?.error || "Erreur lors de la génération. Veuillez réessayer.";
+      const msg = err.response?.data?.error || err.message || "Erreur réseau. Vérifiez votre connexion ou réessayez plus tard.";
       setError(msg);
       console.error(err);
     } finally {
@@ -150,7 +164,8 @@ const ExerciseGenerateModal = ({ isOpen, onClose, onSave, groups }) => {
 
           {/* Message d'erreur */}
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+            <div className="flex items-center gap-2 p-3 rounded-lg mb-4 bg-red-500/20 border border-red-500/30 text-red-300">
+              <AlertCircle size={16} />
               {error}
             </div>
           )}
