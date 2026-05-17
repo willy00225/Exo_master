@@ -83,13 +83,15 @@ const ExerciseGenerateModal = ({ isOpen, onClose, onSave, groups }) => {
   if (!isOpen) return null;
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
       onClick={onClose}
     >
       <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
+        initial={{ scale: 0.95 }}
+        animate={{ scale: 1 }}
         className="bg-slate-900 border border-white/10 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6"
         onClick={(e) => e.stopPropagation()}
       >
@@ -181,7 +183,7 @@ const ExerciseGenerateModal = ({ isOpen, onClose, onSave, groups }) => {
           </button>
         </form>
       </motion.div>
-    </div>
+    </motion.div>
   );
 };
 

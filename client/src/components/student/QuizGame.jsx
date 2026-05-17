@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import api from '../../services/api';
 import Button from '../../components/common/Button';
+import Card from '../common/Card';
 import { Timer } from 'lucide-react';
 
 const QuizGame = ({ quizId, onBack }) => {
