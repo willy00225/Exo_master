@@ -13,22 +13,29 @@ import api from '../../services/api';
 
 const COLORS = ['#8B5CF6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444'];
 
-const StatCard = ({ icon: Icon, value, label, gradient }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.3 }}
-    className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-4 md:p-6 flex items-center gap-4 hover:bg-white/10 transition-all"
-  >
-    <div className={`w-12 h-12 md:w-14 md:h-14 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center shadow-lg`}>
-      <Icon size={24} className="text-white" />
-    </div>
-    <div>
-      <p className="text-xl md:text-2xl font-bold text-white">{value}</p>
-      <p className="text-sm text-slate-400">{label}</p>
-    </div>
-  </motion.div>
-);
+const StatCard = ({ icon: Icon, value, label, gradient, to }) => {
+  const CardContent = (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-4 md:p-6 flex items-center gap-4 hover:bg-white/10 transition-all cursor-pointer"
+    >
+      <div className={`w-12 h-12 md:w-14 md:h-14 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center shadow-lg`}>
+        <Icon size={24} className="text-white" />
+      </div>
+      <div>
+        <p className="text-xl md:text-2xl font-bold text-white">{value}</p>
+        <p className="text-sm text-slate-400">{label}</p>
+      </div>
+    </motion.div>
+  );
+
+  if (to) {
+    return <Link to={to}>{CardContent}</Link>;
+  }
+  return CardContent;
+};
 
 const StudentDashboard = () => {
   const [stats, setStats] = useState({ exercises: 0, quizzes: 0, activeChallenges: 0 });
@@ -144,14 +151,17 @@ const StudentDashboard = () => {
         <StatCard
           icon={BookOpen} value={stats.exercises} label="Exercices disponibles"
           gradient="from-violet-500 to-violet-700"
+          to="/student/exercises"
         />
         <StatCard
           icon={Trophy} value={stats.quizzes} label="Quiz à faire"
           gradient="from-cyan-500 to-cyan-700"
+          to="/student/quizzes"
         />
         <StatCard
           icon={Swords} value={stats.activeChallenges} label="Défis en attente"
           gradient="from-amber-500 to-amber-700"
+          to="/student/challenges"
         />
       </div>
 
