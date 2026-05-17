@@ -3,6 +3,82 @@ import { motion } from 'framer-motion';
 import { Download, Filter, Loader, FileText } from 'lucide-react';
 import api from '../../services/api';
 
+// Style de badge de difficulté (utilisé dans le composant ExerciseItem)
+const difficultyStyle = (d) => ({
+  easy: 'bg-green-500/20 text-green-400 border-green-500/30',
+  medium: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+  hard: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+  very_hard: 'bg-red-500/20 text-red-400 border-red-500/30',
+}[d] || 'bg-gray-500/20 text-gray-400 border-gray-500/30');
+
+// Composant pour un exercice individuel
+const ExerciseItem = ({ ex, apiBaseURL }) => {
+  const [showContent, setShowContent] = useState(false);
+  const [showCorrection, setShowCorrection] = useState(false);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-5 hover:bg-white/10 transition-all"
+    >
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h3 className="font-semibold text-white">{ex.title}</h3>
+          <p className="text-sm text-slate-400">{ex.group_name}</p>
+          <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium border ${difficultyStyle(ex.difficulty)}`}>
+            {ex.difficulty}
+          </span>
+        </div>
+
+        <div className="flex gap-2">
+          {ex.content && (
+            <button
+              onClick={() => setShowContent(!showContent)}
+              className="text-blue-400 hover:underline text-sm"
+            >
+              {showContent ? 'Cacher l’énoncé' : 'Voir l’énoncé'}
+            </button>
+          )}
+          {ex.correction && (
+            <button
+              onClick={() => setShowCorrection(!showCorrection)}
+              className="text-emerald-400 hover:underline text-sm"
+            >
+              {showCorrection ? 'Cacher le corrigé' : 'Voir le corrigé'}
+            </button>
+          )}
+          {ex.file_path && (
+            <a
+              href={`${apiBaseURL}/exercises/file/${ex.file_path.split('/').pop()}`}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:from-violet-700 hover:to-cyan-700 transition-all self-end sm:self-center"
+            >
+              <Download size={16} />
+              Télécharger
+            </a>
+          )}
+        </div>
+      </div>
+
+      {/* Énoncé */}
+      {showContent && ex.content && (
+        <div className="mt-4 p-4 bg-white/5 border border-white/10 rounded-xl text-slate-300 whitespace-pre-wrap">
+          {ex.content}
+        </div>
+      )}
+
+      {/* Corrigé */}
+      {showCorrection && ex.correction && (
+        <div className="mt-4 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-slate-300 whitespace-pre-wrap">
+          {ex.correction}
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
 const Exercises = () => {
   const [data, setData] = useState({ groups: [], chapters: [] });
   const [loading, setLoading] = useState(true);
@@ -15,17 +91,9 @@ const Exercises = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  // Filtrer les chapitres par groupe sélectionné
   const filteredChapters = filterGroup
     ? data.chapters.filter(ch => ch.group_id == filterGroup)
     : data.chapters;
-
-  const difficultyStyle = (d) => ({
-    easy: 'bg-green-500/20 text-green-400 border-green-500/30',
-    medium: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-    hard: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
-    very_hard: 'bg-red-500/20 text-red-400 border-red-500/30',
-  }[d] || 'bg-gray-500/20 text-gray-400 border-gray-500/30');
 
   if (loading) {
     return (
@@ -43,7 +111,6 @@ const Exercises = () => {
         <p className="text-slate-400 mt-1">Exercices disponibles pour votre groupe</p>
       </motion.div>
 
-      {/* Filtre par groupe */}
       <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-4 flex items-center gap-4">
         <Filter className="text-slate-400" size={20} />
         <select
@@ -58,7 +125,6 @@ const Exercises = () => {
         </select>
       </div>
 
-      {/* Affichage par chapitre */}
       {filteredChapters.length === 0 ? (
         <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-12 text-center text-slate-400">
           Aucun exercice trouvé.
@@ -82,34 +148,7 @@ const Exercises = () => {
               </p>
             ) : (
               chapter.exercises.map((ex) => (
-                <motion.div
-                  key={ex.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-5 hover:bg-white/10 transition-all"
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div>
-                      <h3 className="font-semibold text-white">{ex.title}</h3>
-                      <p className="text-sm text-slate-400">{ex.group_name}</p>
-                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium border ${difficultyStyle(ex.difficulty)}`}>
-                        {ex.difficulty}
-                      </span>
-                    </div>
-
-                    {ex.file_path && (
-                      <a
-                        href={`${api.defaults.baseURL}/exercises/file/${ex.file_path.split('/').pop()}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center gap-1 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:from-violet-700 hover:to-cyan-700 transition-all self-end sm:self-center"
-                      >
-                        <Download size={16} />
-                        Télécharger
-                      </a>
-                    )}
-                  </div>
-                </motion.div>
+                <ExerciseItem key={ex.id} ex={ex} apiBaseURL={api.defaults.baseURL} />
               ))
             )}
           </motion.div>
