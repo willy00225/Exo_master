@@ -19,7 +19,10 @@ module.exports = async function (req, res, next) {
 
     const expires = user.rows[0].subscription_expires;
 
+    console.log(`[Subscription] userId=${userId}, expires=${expires}, now=${new Date().toISOString()}`);
+
     if (!expires || new Date(expires) < new Date()) {
+      console.log(`[Subscription] BLOCKED`);
       return res.status(403).json({
         error: "Abonnement expiré ou inexistant. Veuillez souscrire un abonnement.",
       });
