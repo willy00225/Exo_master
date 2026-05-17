@@ -41,7 +41,7 @@ router.get("/available", auth, subscription, async (req, res) => {
   }
 });
 
-// POST /api/quizzes/:id/start - Démarrer une tentative
+// POST /api/quizzes/:id/start – Génère les questions, les sauvegarde dans la tentative, et les renvoie sans les réponses.
 router.post("/:id/start", auth, subscription, async (req, res) => {
   try {
     const quizId = req.params.id;
@@ -51,7 +51,7 @@ router.post("/:id/start", auth, subscription, async (req, res) => {
     const quizData = quiz.rows[0];
     const { group_id, chapter_id, difficulty_filter, question_count } = quizData;
 
-    // Construire la requête pour piocher des questions aléatoires
+    // Piocher des questions aléatoires dans la banque
     let query = "SELECT * FROM question_bank WHERE group_id = $1";
     const params = [group_id];
     if (chapter_id) {
@@ -72,24 +72,24 @@ router.post("/:id/start", auth, subscription, async (req, res) => {
       return res.status(404).json({ error: "Aucune question disponible pour ce quiz." });
     }
 
-    // Préparer les questions sans les réponses
+    // Préparer les questions pour l'étudiant (sans réponses)
     const questionsForStudent = questions.map(q => ({
       id: q.id,
       text: q.question_text,
       options: q.options,
     }));
 
-    // Créer une tentative
+    // Créer la tentative en sauvegardant les questions complètes (avec réponses) pour la correction future
     const attempt = await pool.query(
-      `INSERT INTO quiz_attempts (user_id, quiz_id, score, total_questions, started_at)
-       VALUES ($1, $2, 0, $3, NOW()) RETURNING id`,
-      [req.user.id, quizId, questions.length]
+      `INSERT INTO quiz_attempts (user_id, quiz_id, score, total_questions, started_at, questions)
+       VALUES ($1, $2, 0, $3, NOW(), $4) RETURNING id`,
+      [req.user.id, quizId, questions.length, JSON.stringify(questions)]
     );
 
     res.json({
       attempt_id: attempt.rows[0].id,
       title: quizData.title,
-      time_limit: quizData.time_limit || calculateTimeLimit(quizData.difficulty_filter || 'easy', questions.length),
+      time_limit: quizData.time_limit || calculateTimeLimit(difficulty_filter || 'easy', questions.length),
       questions: questionsForStudent,
     });
   } catch (err) {
@@ -98,45 +98,37 @@ router.post("/:id/start", auth, subscription, async (req, res) => {
   }
 });
 
-// POST /api/quizzes/:id/submit - Soumettre les réponses
+// POST /api/quizzes/:id/submit – Corrige, enregistre le score, et renvoie le corrigé détaillé.
 router.post("/:id/submit", auth, subscription, async (req, res) => {
   try {
     const quizId = req.params.id;
-    const { attempt_id, answers, time_spent } = req.body; // answers: [{questionId, selectedOption}]
+    const { attempt_id, answers, time_spent } = req.body;
 
-    // Récupérer les questions de la banque (celles qui ont été piochées pour ce quiz)
-    const quiz = await pool.query("SELECT * FROM quizzes WHERE id = $1", [quizId]);
-    if (quiz.rows.length === 0) return res.status(404).json({ error: "Quiz non trouvé." });
-
-    const quizData = quiz.rows[0];
-    const { group_id, chapter_id, difficulty_filter, question_count } = quizData;
-    let query = "SELECT id, correct_option FROM question_bank WHERE group_id = $1";
-    const params = [group_id];
-    if (chapter_id) {
-      query += ` AND chapter_id = $${params.length + 1}`;
-      params.push(chapter_id);
-    }
-    if (difficulty_filter) {
-      query += ` AND difficulty = $${params.length + 1}`;
-      params.push(difficulty_filter);
-    }
-    // Récupération déterministe pour correspondre aux questions posées
-    query += ` ORDER BY id LIMIT $${params.length + 1}`;
-    params.push(question_count);
-    
-    const questionsResult = await pool.query(query, params);
-    const questions = questionsResult.rows;
-
-    if (questions.length === 0) {
-      return res.status(400).json({ error: "Impossible de récupérer les questions du quiz." });
+    // Récupérer la tentative avec les questions sauvegardées
+    const attempt = await pool.query(
+      "SELECT * FROM quiz_attempts WHERE id = $1 AND user_id = $2",
+      [attempt_id, req.user.id]
+    );
+    if (attempt.rows.length === 0) {
+      return res.status(404).json({ error: "Tentative introuvable." });
     }
 
+    const questions = attempt.rows[0].questions; // tableau JSON
     let score = 0;
-    questions.forEach((q) => {
+    const corrections = questions.map((q) => {
       const userAnswer = answers.find(a => a.questionId === q.id);
-      if (userAnswer && userAnswer.selectedOption === q.correct_option) {
-        score++;
-      }
+      const selectedOption = userAnswer ? userAnswer.selectedOption : null;
+      const correct = selectedOption === q.correct_option;
+      if (correct) score++;
+      return {
+        questionId: q.id,
+        text: q.question_text,
+        options: q.options,
+        correctOption: q.correct_option,
+        explanation: q.explanation || "",
+        selectedOption: selectedOption,
+        isCorrect: correct,
+      };
     });
 
     // Mettre à jour la tentative
@@ -149,7 +141,8 @@ router.post("/:id/submit", auth, subscription, async (req, res) => {
     res.json({
       score,
       total: questions.length,
-      percentage: Math.round((score / questions.length) * 100)
+      percentage: Math.round((score / questions.length) * 100),
+      corrections,
     });
   } catch (err) {
     console.error(err);

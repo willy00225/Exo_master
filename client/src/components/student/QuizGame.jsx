@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import api from '../../services/api';
 import Button from '../../components/common/Button';
-import { Timer } from 'lucide-react';
+import { Timer, CheckCircle, XCircle, ArrowLeft } from 'lucide-react';
 
 const QuizGame = ({ quizId, onBack }) => {
   const [attemptId, setAttemptId] = useState(null);
@@ -11,7 +11,7 @@ const QuizGame = ({ quizId, onBack }) => {
   const [timeLeft, setTimeLeft] = useState(600);
   const [answers, setAnswers] = useState({});
   const [submitted, setSubmitted] = useState(false);
-  const [score, setScore] = useState(null);
+  const [result, setResult] = useState(null); // { score, total, percentage, corrections }
   const timerRef = useRef(null);
 
   useEffect(() => {
@@ -54,7 +54,7 @@ const QuizGame = ({ quizId, onBack }) => {
         answers: ansArray,
         time_spent: timeLimit - timeLeft,
       });
-      setScore(res.data);
+      setResult(res.data);
       setSubmitted(true);
     } catch (err) {
       console.error(err);
@@ -65,30 +65,62 @@ const QuizGame = ({ quizId, onBack }) => {
   const optionClass = (qId, optIdx) =>
     `flex items-center p-3 rounded-lg cursor-pointer border transition-all ${
       answers[qId] === optIdx
-        ? 'border-violet-500 bg-violet-500/20 text-white'
-        : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:border-white/20'
+        ? 'border-violet-400 bg-violet-500/20 text-white'
+        : 'border-white/10 text-slate-300 hover:bg-white/10'
     }`;
 
-  if (submitted) {
+  if (submitted && result) {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="text-center space-y-6 bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-8"
-      >
-        <h2 className="text-3xl font-bold text-white font-space-grotesk">Résultat</h2>
-        <p className="text-5xl font-bold text-violet-400">{score?.score} / {score?.total}</p>
-        <p className="text-slate-400 text-lg">{score?.percentage}% de réussite</p>
-        <Button onClick={onBack} className="mt-4">Retour aux quiz</Button>
-      </motion.div>
+      <div className="space-y-6 text-white">
+        <div className="text-center space-y-4 bg-white/5 border border-white/10 rounded-2xl p-6">
+          <h2 className="text-2xl font-bold">Résultat</h2>
+          <p className="text-5xl font-bold text-violet-400">{result.score} / {result.total}</p>
+          <p className="text-lg text-slate-400">{result.percentage}% de réussite</p>
+        </div>
+
+        <h3 className="text-xl font-semibold">Corrigé</h3>
+        <div className="space-y-4">
+          {result.corrections.map((corr, idx) => (
+            <div key={corr.questionId} className="bg-white/5 border border-white/10 rounded-2xl p-5">
+              <div className="flex items-start gap-3">
+                <span className={`mt-1 p-1 rounded-full ${corr.isCorrect ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+                  {corr.isCorrect ? <CheckCircle size={18} /> : <XCircle size={18} />}
+                </span>
+                <div>
+                  <p className="font-medium">{idx + 1}. {corr.text}</p>
+                  <div className="mt-2 space-y-1">
+                    {corr.options.map((opt, optIdx) => (
+                      <div key={optIdx} className={`p-2 rounded-lg text-sm ${
+                        optIdx === corr.correctOption
+                          ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-300'
+                          : optIdx === corr.selectedOption && optIdx !== corr.correctOption
+                          ? 'bg-red-500/10 border border-red-500/30 text-red-300'
+                          : 'text-slate-400'
+                      }`}>
+                        {opt} {optIdx === corr.correctOption && '✓'}
+                      </div>
+                    ))}
+                  </div>
+                  {corr.explanation && (
+                    <p className="mt-2 text-sm text-slate-400 italic">{corr.explanation}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <Button onClick={onBack} className="w-full py-4">
+          <ArrowLeft size={16} /> Retour aux quiz
+        </Button>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-white">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h2 className="text-2xl font-bold text-white font-space-grotesk">Quiz en cours</h2>
-        <div className="flex items-center gap-2 text-xl font-mono text-violet-300 bg-violet-500/10 border border-violet-500/30 rounded-full px-4 py-1.5">
+        <div className={`flex items-center gap-2 text-xl font-mono ${timeLeft <= 10 ? 'text-red-400' : 'text-violet-400'}`}>
           <Timer size={20} />
           {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}
         </div>
