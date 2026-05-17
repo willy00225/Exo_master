@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import api from '../../services/api';
 import Button from '../../components/common/Button';
@@ -11,8 +11,11 @@ const QuizGame = ({ quizId, onBack }) => {
   const [timeLeft, setTimeLeft] = useState(600);
   const [answers, setAnswers] = useState({});
   const [submitted, setSubmitted] = useState(false);
-  const [result, setResult] = useState(null); // { score, total, percentage, corrections }
+  const [result, setResult] = useState(null);
   const timerRef = useRef(null);
+
+  // Ref pour garder la dernière version de handleSubmit
+  const handleSubmitRef = useRef(() => {});
 
   useEffect(() => {
     api.post(`/quizzes/${quizId}/start`).then(res => {
@@ -24,29 +27,13 @@ const QuizGame = ({ quizId, onBack }) => {
     return () => clearInterval(timerRef.current);
   }, [quizId]);
 
-  useEffect(() => {
-    timerRef.current = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          clearInterval(timerRef.current);
-          handleSubmit();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timerRef.current);
-  }, [questions]);
-
-  const selectAnswer = (questionId, optionIndex) => {
-    setAnswers(prev => ({ ...prev, [questionId]: optionIndex }));
-  };
-
-  const handleSubmit = async () => {
+  // Définition de handleSubmit avec useCallback pour qu'on puisse la stocker dans la ref
+  const handleSubmit = useCallback(async () => {
+    if (submitted) return; // Évite double soumission
     clearInterval(timerRef.current);
-    const ansArray = Object.entries(answers).map(([questionId, selectedOption]) => ({
-      questionId: parseInt(questionId),
-      selectedOption,
+    const ansArray = Object.entries(answers).map(([qId, opt]) => ({
+      questionId: parseInt(qId),
+      selectedOption: opt,
     }));
     try {
       const res = await api.post(`/quizzes/${quizId}/submit`, {
@@ -59,9 +46,33 @@ const QuizGame = ({ quizId, onBack }) => {
     } catch (err) {
       console.error(err);
     }
+  }, [answers, attemptId, timeLimit, timeLeft, quizId, submitted]);
+
+  // Met à jour la ref à chaque fois que handleSubmit change
+  useEffect(() => {
+    handleSubmitRef.current = handleSubmit;
+  }, [handleSubmit]);
+
+  // Timer indépendant, utilise la ref pour appeler la fonction à jour
+  useEffect(() => {
+    timerRef.current = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current);
+          handleSubmitRef.current(); // Appelle la dernière version
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timerRef.current);
+  }, [quizId]); // Ne dépend toujours que de quizId
+
+  const selectAnswer = (questionId, optionIndex) => {
+    setAnswers(prev => ({ ...prev, [questionId]: optionIndex }));
   };
 
-  // Thème sombre pour les options
   const optionClass = (qId, optIdx) =>
     `flex items-center p-3 rounded-lg cursor-pointer border transition-all ${
       answers[qId] === optIdx
