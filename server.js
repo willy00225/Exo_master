@@ -376,6 +376,9 @@ app.use("/api/admin/invitations", require("./routes/admin/invitations"));
 // Import et utilisation des routes de admin challenges
 app.use("/api/admin/challenges", require("./routes/admin/challenges"));
 
+// Import et utilisation des routes de admin fix-questions
+app.use("/api/admin/fix-questions", require("./routes/admin/fix-questions"));
+
 // Port
 const PORT = process.env.PORT || 5000;
 
