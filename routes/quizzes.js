@@ -98,7 +98,7 @@ router.post("/:id/start", auth, subscription, async (req, res) => {
   }
 });
 
-// POST /api/quizzes/:id/submit – Corrige avec une tolérance sur les valeurs numériques, enregistre le score, et renvoie le corrigé détaillé.
+// POST /api/quizzes/:id/submit – Corrige avec une tolérance mathématique robuste, enregistre le score, et renvoie le corrigé détaillé.
 router.post("/:id/submit", auth, subscription, async (req, res) => {
   try {
     const quizId = req.params.id;
@@ -114,31 +114,37 @@ router.post("/:id/submit", auth, subscription, async (req, res) => {
     }
 
     const questions = attempt.rows[0].questions; // tableau JSON
-    let score = 0;
 
-    // Fonction pour parser une valeur numérique depuis une chaîne (gère la virgule)
-    const parseNumeric = (str) => {
-      if (typeof str !== 'string') return Number(str);
-      return Number(str.replace(',', '.'));
+    // Fonction pour extraire une valeur numérique d'une option (ex: "4,0", "4.0", "4", 4)
+    const parseNumeric = (val) => {
+      if (typeof val === 'number') return val;
+      if (typeof val === 'string') {
+        return Number(val.replace(',', '.'));
+      }
+      return NaN;
     };
 
+    let score = 0;
     const corrections = questions.map((q) => {
       const userAnswer = answers.find(a => a.questionId === q.id);
       const selectedOption = userAnswer ? userAnswer.selectedOption : null;
+      const correctIndex = q.correct_option; // 0, 1, 2, 3
 
-      // Récupère l'index de la réponse correcte
-      const correctIndex = q.correct_option;
+      // Étape 1 : comparaison directe par index
+      let correct = (selectedOption === correctIndex);
 
-      // Compare d'abord les index
-      let correct = selectedOption === correctIndex;
-
-      // Si la comparaison par index échoue, essaie de comparer les valeurs numériques
-      if (!correct && selectedOption !== null) {
+      // Étape 2 : si différent, on tente une comparaison numérique entre les valeurs
+      if (!correct && selectedOption !== null && selectedOption !== undefined) {
         const correctValue = parseNumeric(q.options[correctIndex]);
         const selectedValue = parseNumeric(q.options[selectedOption]);
         if (!isNaN(correctValue) && !isNaN(selectedValue)) {
           correct = correctValue === selectedValue;
         }
+      }
+
+      // Renforcement : loguer les cas ambigus restants pour analyse humaine
+      if (!correct && selectedOption !== null && selectedOption !== undefined) {
+        console.warn(`[Quiz] Correction ambiguë pour la question ${q.id} : attendu ${correctIndex}, reçu ${selectedOption}`);
       }
 
       if (correct) score++;

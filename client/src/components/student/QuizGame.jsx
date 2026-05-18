@@ -4,6 +4,20 @@ import api from '../../services/api';
 import Button from '../../components/common/Button';
 import { Timer, CheckCircle, XCircle, ArrowLeft } from 'lucide-react';
 
+// Formate un texte d'explication en JSX structuré
+const formatExplanation = (text) => {
+  if (!text) return null;
+  const lines = text.split('\n').filter(line => line.trim() !== '');
+  return lines.map((line, i) => {
+    let className = "mb-1 leading-relaxed text-slate-300";
+    // Détecter les titres (ex: "Étape 1 :", "1.", "Conclusion :")
+    if (/^(Étape\s?\d+|Etape\s?\d+|\d+\.|Phase \d+|Conclusion|En conclusion|Donc|Ainsi|Résultat final)/i.test(line)) {
+      className += " font-semibold text-emerald-300 mt-2";
+    }
+    return <p key={i} className={className}>{line}</p>;
+  });
+};
+
 const QuizGame = ({ quizId, onBack }) => {
   const [attemptId, setAttemptId] = useState(null);
   const [questions, setQuestions] = useState([]);
@@ -113,7 +127,9 @@ const QuizGame = ({ quizId, onBack }) => {
                     ))}
                   </div>
                   {corr.explanation && (
-                    <p className="mt-2 text-sm text-slate-400 italic">{corr.explanation}</p>
+                    <div className="mt-2 text-sm italic border-t border-white/10 pt-2">
+                      {formatExplanation(corr.explanation)}
+                    </div>
                   )}
                 </div>
               </div>

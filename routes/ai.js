@@ -66,10 +66,15 @@ router.post("/generate-questions", async (req, res) => {
     }
 
     const systemInstruction = "Tu es un professeur certifié. Réponds UNIQUEMENT avec un objet JSON valide.";
-    const prompt = `Génère ${count} questions à choix multiples pour le chapitre "${chapterTitle}" en ${subject} (niveau ${level}).
-Chaque question doit avoir un énoncé clair, quatre propositions numérotées de 0 à 3, et l'index de la bonne réponse.
+    const prompt = `Tu es un professeur de ${subject} en Côte d'Ivoire, niveau ${level}.
+Génère ${count} questions à choix multiples pour le chapitre "${chapterTitle}".
 Difficulté : ${difficulty || 'moyen'}.
-**RÈGLE IMPÉRATIVE** : Pour toute question impliquant un calcul, effectue le calcul TOI-MÊME pour vérifier que la réponse que tu désignes comme correcte est bien la bonne.
+
+**PROCÉDURE OBLIGATOIRE :**
+1. Pour chaque question, effectue TOI-MÊME le calcul ou la résolution.
+2. Vérifie que la réponse que tu désignes comme correcte correspond EXACTEMENT à ton propre calcul.
+3. Si tu détectes une incohérence, corrige-la avant de finaliser la question.
+
 Format JSON exact : { "questions": [ { "text": "énoncé", "options": ["Option A", "Option B", "Option C", "Option D"], "correct": 0 } ] }`;
 
     const raw = await generateWithAI(prompt, systemInstruction);
@@ -79,8 +84,32 @@ Format JSON exact : { "questions": [ { "text": "énoncé", "options": ["Option A
       return res.status(500).json({ error: "L'IA n'a pas pu générer de questions valides." });
     }
 
-    // Insérer les questions dans la banque
+    // Vérification supplémentaire : demander à l'IA de résoudre chaque question et comparer
+    const verifiedQuestions = [];
     for (const q of parsed.questions) {
+      const verifyPrompt = `Voici une question à choix multiples :
+Énoncé : ${q.text}
+Options : ${JSON.stringify(q.options)}
+Index de la réponse correcte désigné : ${q.correct}
+
+En tant que professeur de ${subject}, résous cette question et indique si l'index ${q.correct} est bien la bonne réponse.
+Réponds UNIQUEMENT avec un JSON : { "isCorrect": true/false, "correctIndex": 0, "explanation": "..." }`;
+
+      try {
+        const rawVerif = await generateWithAI(verifyPrompt, "Tu es un vérificateur de QCM. Réponds uniquement en JSON.");
+        const verif = parseAIResponse(rawVerif);
+        if (verif && verif.isCorrect === false) {
+          console.warn(`Question "${q.text}" corrigée : ${q.correct} -> ${verif.correctIndex}`);
+          q.correct = verif.correctIndex; // Corrige automatiquement
+        }
+      } catch (e) {
+        console.warn("Vérification individuelle échouée, on garde la question originale.");
+      }
+      verifiedQuestions.push(q);
+    }
+
+    // Insérer les questions vérifiées dans la banque
+    for (const q of verifiedQuestions) {
       await pool.query(
         `INSERT INTO question_bank (group_id, chapter_id, difficulty, question_text, options, correct_option)
          VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -88,7 +117,7 @@ Format JSON exact : { "questions": [ { "text": "énoncé", "options": ["Option A
       );
     }
 
-    res.status(201).json({ message: `${parsed.questions.length} questions générées et enregistrées.` });
+    res.status(201).json({ message: `${verifiedQuestions.length} questions générées et enregistrées.` });
   } catch (err) {
     console.error(err);
     if (err.status === 429 || err.code === 429 || (err.message && err.message.includes('429'))) {
