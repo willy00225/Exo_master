@@ -133,28 +133,30 @@ const ExerciseItem = ({ ex, apiBaseURL }) => {
         </div>
       )}
 
-      {/* Corrigé enrichi */}
+      {/* Corrigé structuré */}
       {showCorrection && ex.correction && (
-        <div className="mt-4 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-slate-300 whitespace-pre-wrap">
+        <div className="mt-4 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-slate-300">
           <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
             <CheckCircle size={18} className="text-emerald-400" /> Corrigé
           </h4>
-          {ex.correction.split('\n').map((line, i) => {
-            let lineClass = "mb-2 leading-relaxed";
-            // Détecter les étapes numérotées (ex: "Étape 1 :", "1.")
-            if (/^(Étape\s?\d+|Etape\s?\d+|\d+\.|Phase \d+)\s?/i.test(line)) {
-              lineClass += " font-semibold text-emerald-300 mt-3 mb-1";
-            }
-            // Détecter une conclusion
-            else if (/^(Conclusion|En conclusion|Donc|Ainsi|Résultat final)/i.test(line)) {
-              lineClass += " font-bold text-amber-300 mt-3 mb-1";
-            }
-            // Ligne vide -> espacement
-            else if (line.trim() === '') {
-              return <div key={i} className="h-2"></div>;
-            }
-            return <p key={i} className={lineClass}>{line}</p>;
-          })}
+          {/* Si le corrigé est du JSON (commence par {), on le formate */}
+          {typeof ex.correction === 'string' && ex.correction.trim().startsWith('{') ? (
+            (() => {
+              try {
+                const parsed = JSON.parse(ex.correction);
+                return Object.entries(parsed).map(([step, desc]) => (
+                  <p key={step} className="mb-2">
+                    <span className="font-semibold text-emerald-300">{step} :</span>{' '}
+                    <span className="text-slate-300">{desc}</span>
+                  </p>
+                ));
+              } catch {
+                return <p className="whitespace-pre-wrap">{ex.correction}</p>;
+              }
+            })()
+          ) : (
+            <p className="whitespace-pre-wrap">{ex.correction}</p>
+          )}
         </div>
       )}
     </motion.div>

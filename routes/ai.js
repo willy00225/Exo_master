@@ -84,6 +84,40 @@ Format JSON exact : { "questions": [ { "text": "énoncé", "options": ["Option A
       return res.status(500).json({ error: "L'IA n'a pas pu générer de questions valides." });
     }
 
+    // --- Correction automatique basée sur l'évaluation mathématique ---
+    // Fonction d'évaluation mathématique sécurisée
+    function safeEvaluate(expr) {
+      let sanitized = expr.replace(/,/g, '.').replace(/\s+/g, '');
+      if (!/^[\d.+\-*\/()]+$/.test(sanitized)) return null;
+      try {
+        const result = Function('"use strict"; return (' + sanitized + ')')();
+        return Number(result);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    // Pour chaque question, on essaie de trouver le vrai résultat et de corriger l'index
+    for (const q of parsed.questions) {
+      const match = q.text.match(/(\d+[\.,]?\d*)\s*([+\-])\s*(\d+[\.,]?\d*)/);
+      if (match) {
+        const a = match[1].replace(',', '.');
+        const op = match[2];
+        const b = match[3].replace(',', '.');
+        const expr = `${a} ${op} ${b}`;
+        const result = safeEvaluate(expr);
+        if (result !== null && !isNaN(result)) {
+          const correctIndex = q.options.findIndex(opt => {
+            const optValue = parseFloat(String(opt).replace(',', '.'));
+            return Math.abs(optValue - result) < 0.001; // tolérance
+          });
+          if (correctIndex !== -1) {
+            q.correct = correctIndex; // corrige l'index
+          }
+        }
+      }
+    }
+
     // Vérification supplémentaire : demander à l'IA de résoudre chaque question et comparer
     const verifiedQuestions = [];
     for (const q of parsed.questions) {
