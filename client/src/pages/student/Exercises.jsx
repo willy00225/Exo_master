@@ -11,53 +11,51 @@ const difficultyStyle = (d) => ({
   very_hard: 'bg-red-500/20 text-red-400 border-red-500/30',
 }[d] || 'bg-gray-500/20 text-gray-400 border-gray-500/30');
 
-// Composant pour un exercice individuel (avec délai avant correction)
+// Composant pour un exercice individuel (avec chrono local)
 const ExerciseItem = ({ ex, apiBaseURL }) => {
   const [showContent, setShowContent] = useState(false);
   const [showCorrection, setShowCorrection] = useState(false);
   const [attemptStarted, setAttemptStarted] = useState(false);
-  const [canViewCorrection, setCanViewCorrection] = useState(false);
   const [remainingSeconds, setRemainingSeconds] = useState(0);
-  const [checking, setChecking] = useState(false);
+  const [canViewCorrection, setCanViewCorrection] = useState(false);
   const timerRef = useRef(null);
 
-  // Vérifie périodiquement le statut de la correction
-  const checkCorrectionStatus = async () => {
-    try {
-      const res = await api.get(`/exercises/${ex.id}/correction-status`);
-      if (res.data.canView) {
-        setCanViewCorrection(true);
-        setRemainingSeconds(0);
-        if (timerRef.current) clearInterval(timerRef.current);
-      } else {
-        setRemainingSeconds(res.data.remainingSeconds || 0);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  // Délais selon la difficulté (en minutes)
+  const requiredMinutes = {
+    easy: 5,
+    medium: 10,
+    hard: 15,
+    very_hard: 20,
+  }[ex.difficulty] || 10;
+
+  const requiredSeconds = requiredMinutes * 60;
 
   const startAttempt = async () => {
-    setChecking(true);
     try {
       await api.post(`/exercises/${ex.id}/start-attempt`);
-      setAttemptStarted(true);
-      await checkCorrectionStatus();
-      // Vérifier toutes les 10 secondes
-      timerRef.current = setInterval(checkCorrectionStatus, 10000);
     } catch (err) {
-      console.error(err);
-    } finally {
-      setChecking(false);
+      console.error("Erreur lors de la création de la tentative :", err);
+      // On continue même si la tentative échoue (l'essentiel est le chrono)
     }
+    // Lancement du chrono local
+    setAttemptStarted(true);
+    setRemainingSeconds(requiredSeconds);
   };
 
-  // Nettoyer l'intervalle
   useEffect(() => {
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, []);
+    if (!attemptStarted || remainingSeconds <= 0) return;
+    timerRef.current = setInterval(() => {
+      setRemainingSeconds(prev => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current);
+          setCanViewCorrection(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timerRef.current);
+  }, [attemptStarted, remainingSeconds]);
 
   const formatTime = (seconds) => {
     const min = Math.floor(seconds / 60);
@@ -93,10 +91,9 @@ const ExerciseItem = ({ ex, apiBaseURL }) => {
           {ex.correction && !attemptStarted && (
             <button
               onClick={startAttempt}
-              disabled={checking}
               className="text-emerald-400 hover:underline text-sm"
             >
-              {checking ? 'Préparation...' : 'Commencer l’exercice'}
+              Commencer l’exercice
             </button>
           )}
 
