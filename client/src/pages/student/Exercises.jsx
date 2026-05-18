@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Download, Filter, Loader, FileText } from 'lucide-react';
+import { Download, Filter, Loader, FileText, CheckCircle } from 'lucide-react';
 import api from '../../services/api';
 
 // Style de badge de difficulté (utilisé dans le composant ExerciseItem)
@@ -133,10 +133,28 @@ const ExerciseItem = ({ ex, apiBaseURL }) => {
         </div>
       )}
 
-      {/* Corrigé */}
+      {/* Corrigé enrichi */}
       {showCorrection && ex.correction && (
         <div className="mt-4 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-slate-300 whitespace-pre-wrap">
-          {ex.correction}
+          <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
+            <CheckCircle size={18} className="text-emerald-400" /> Corrigé
+          </h4>
+          {ex.correction.split('\n').map((line, i) => {
+            let lineClass = "mb-2 leading-relaxed";
+            // Détecter les étapes numérotées (ex: "Étape 1 :", "1.")
+            if (/^(Étape\s?\d+|Etape\s?\d+|\d+\.|Phase \d+)\s?/i.test(line)) {
+              lineClass += " font-semibold text-emerald-300 mt-3 mb-1";
+            }
+            // Détecter une conclusion
+            else if (/^(Conclusion|En conclusion|Donc|Ainsi|Résultat final)/i.test(line)) {
+              lineClass += " font-bold text-amber-300 mt-3 mb-1";
+            }
+            // Ligne vide -> espacement
+            else if (line.trim() === '') {
+              return <div key={i} className="h-2"></div>;
+            }
+            return <p key={i} className={lineClass}>{line}</p>;
+          })}
         </div>
       )}
     </motion.div>

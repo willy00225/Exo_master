@@ -66,10 +66,11 @@ router.post("/generate-questions", async (req, res) => {
     }
 
     const systemInstruction = "Tu es un professeur certifié. Réponds UNIQUEMENT avec un objet JSON valide.";
-    const prompt = `Génère ${count} questions à choix multiples pour le chapitre "${chapterTitle}" en ${subject} (niveau ${level}). 
-    Chaque question doit avoir un énoncé, quatre propositions, et l'index de la bonne réponse (0-3).
-    Difficulté : ${difficulty || 'moyen'}.
-    Format JSON attendu : { "questions": [ { "text": "énoncé", "options": ["A","B","C","D"], "correct": 0 } ] }`;
+    const prompt = `Génère ${count} questions à choix multiples pour le chapitre "${chapterTitle}" en ${subject} (niveau ${level}).
+Chaque question doit avoir un énoncé clair, quatre propositions numérotées de 0 à 3, et l'index de la bonne réponse.
+Difficulté : ${difficulty || 'moyen'}.
+**RÈGLE IMPÉRATIVE** : Pour toute question impliquant un calcul, effectue le calcul TOI-MÊME pour vérifier que la réponse que tu désignes comme correcte est bien la bonne.
+Format JSON exact : { "questions": [ { "text": "énoncé", "options": ["Option A", "Option B", "Option C", "Option D"], "correct": 0 } ] }`;
 
     const raw = await generateWithAI(prompt, systemInstruction);
     const parsed = parseAIResponse(raw);

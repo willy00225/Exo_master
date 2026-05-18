@@ -98,7 +98,7 @@ router.post("/:id/start", auth, subscription, async (req, res) => {
   }
 });
 
-// POST /api/quizzes/:id/submit – Corrige, enregistre le score, et renvoie le corrigé détaillé.
+// POST /api/quizzes/:id/submit – Corrige avec une tolérance sur les valeurs numériques, enregistre le score, et renvoie le corrigé détaillé.
 router.post("/:id/submit", auth, subscription, async (req, res) => {
   try {
     const quizId = req.params.id;
@@ -115,16 +115,39 @@ router.post("/:id/submit", auth, subscription, async (req, res) => {
 
     const questions = attempt.rows[0].questions; // tableau JSON
     let score = 0;
+
+    // Fonction pour parser une valeur numérique depuis une chaîne (gère la virgule)
+    const parseNumeric = (str) => {
+      if (typeof str !== 'string') return Number(str);
+      return Number(str.replace(',', '.'));
+    };
+
     const corrections = questions.map((q) => {
       const userAnswer = answers.find(a => a.questionId === q.id);
       const selectedOption = userAnswer ? userAnswer.selectedOption : null;
-      const correct = selectedOption === q.correct_option;
+
+      // Récupère l'index de la réponse correcte
+      const correctIndex = q.correct_option;
+
+      // Compare d'abord les index
+      let correct = selectedOption === correctIndex;
+
+      // Si la comparaison par index échoue, essaie de comparer les valeurs numériques
+      if (!correct && selectedOption !== null) {
+        const correctValue = parseNumeric(q.options[correctIndex]);
+        const selectedValue = parseNumeric(q.options[selectedOption]);
+        if (!isNaN(correctValue) && !isNaN(selectedValue)) {
+          correct = correctValue === selectedValue;
+        }
+      }
+
       if (correct) score++;
+
       return {
         questionId: q.id,
         text: q.question_text,
         options: q.options,
-        correctOption: q.correct_option,
+        correctOption: correctIndex,
         explanation: q.explanation || "",
         selectedOption: selectedOption,
         isCorrect: correct,
@@ -180,7 +203,7 @@ router.use(admin);
 router.post("/", async (req, res) => {
   try {
     const { title, description, group_id, chapter_id, difficulty, question_count = 10 } = req.body;
-    const difficulty_filter = difficulty; // on stocke la difficulté pour filtrer la banque
+    const difficulty_filter = difficulty;
     const time_limit = calculateTimeLimit(difficulty, question_count);
 
     const result = await pool.query(
