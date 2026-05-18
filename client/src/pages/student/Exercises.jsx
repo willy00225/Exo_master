@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Download, Filter, Loader, FileText } from 'lucide-react';
 import api from '../../services/api';
@@ -11,10 +11,59 @@ const difficultyStyle = (d) => ({
   very_hard: 'bg-red-500/20 text-red-400 border-red-500/30',
 }[d] || 'bg-gray-500/20 text-gray-400 border-gray-500/30');
 
-// Composant pour un exercice individuel
+// Composant pour un exercice individuel (avec délai avant correction)
 const ExerciseItem = ({ ex, apiBaseURL }) => {
   const [showContent, setShowContent] = useState(false);
   const [showCorrection, setShowCorrection] = useState(false);
+  const [attemptStarted, setAttemptStarted] = useState(false);
+  const [canViewCorrection, setCanViewCorrection] = useState(false);
+  const [remainingSeconds, setRemainingSeconds] = useState(0);
+  const [checking, setChecking] = useState(false);
+  const timerRef = useRef(null);
+
+  // Vérifie périodiquement le statut de la correction
+  const checkCorrectionStatus = async () => {
+    try {
+      const res = await api.get(`/exercises/${ex.id}/correction-status`);
+      if (res.data.canView) {
+        setCanViewCorrection(true);
+        setRemainingSeconds(0);
+        if (timerRef.current) clearInterval(timerRef.current);
+      } else {
+        setRemainingSeconds(res.data.remainingSeconds || 0);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const startAttempt = async () => {
+    setChecking(true);
+    try {
+      await api.post(`/exercises/${ex.id}/start-attempt`);
+      setAttemptStarted(true);
+      await checkCorrectionStatus();
+      // Vérifier toutes les 10 secondes
+      timerRef.current = setInterval(checkCorrectionStatus, 10000);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  // Nettoyer l'intervalle
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, []);
+
+  const formatTime = (seconds) => {
+    const min = Math.floor(seconds / 60);
+    const sec = seconds % 60;
+    return `${min}min ${sec}s`;
+  };
 
   return (
     <motion.div
@@ -40,7 +89,24 @@ const ExerciseItem = ({ ex, apiBaseURL }) => {
               {showContent ? 'Cacher l’énoncé' : 'Voir l’énoncé'}
             </button>
           )}
-          {ex.correction && (
+
+          {ex.correction && !attemptStarted && (
+            <button
+              onClick={startAttempt}
+              disabled={checking}
+              className="text-emerald-400 hover:underline text-sm"
+            >
+              {checking ? 'Préparation...' : 'Commencer l’exercice'}
+            </button>
+          )}
+
+          {ex.correction && attemptStarted && !canViewCorrection && (
+            <span className="text-amber-400 text-sm">
+              Corrigé dans {formatTime(remainingSeconds)}
+            </span>
+          )}
+
+          {ex.correction && canViewCorrection && (
             <button
               onClick={() => setShowCorrection(!showCorrection)}
               className="text-emerald-400 hover:underline text-sm"
@@ -48,6 +114,7 @@ const ExerciseItem = ({ ex, apiBaseURL }) => {
               {showCorrection ? 'Cacher le corrigé' : 'Voir le corrigé'}
             </button>
           )}
+
           {ex.file_path && (
             <a
               href={`${apiBaseURL}/exercises/file/${ex.file_path.split('/').pop()}`}
