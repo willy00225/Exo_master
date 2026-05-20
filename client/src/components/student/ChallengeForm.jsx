@@ -22,7 +22,8 @@ const ChallengeForm = () => {
   }, []);
 
   useEffect(() => {
-    api.get('/student/users')   // ou /student/classmates
+    // ✅ Correction : utilise /student/classmates pour les camarades du même groupe
+    api.get('/student/classmates')
       .then(res => setUsers(res.data))
       .catch(console.error);
   }, []);
@@ -143,19 +144,32 @@ const ChallengeForm = () => {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-1">Adversaire</label>
+          <label className="block text-sm font-medium text-slate-300 mb-1">
+            Adversaire
+            {/* ✅ Indicateur du nombre de camarades */}
+            {users.length > 0 && (
+              <span className="text-slate-400 ml-1">({users.length} disponible{users.length > 1 ? 's' : ''})</span>
+            )}
+          </label>
           <select
             value={selectedUser}
             onChange={(e) => setSelectedUser(e.target.value)}
             className="w-full px-4 py-3 bg-slate-700/60 border border-amber-400/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all"
           >
             <option value="">Sélectionnez un élève (pour défi direct)</option>
-            {users.map((u) => (
+            {/* ✅ Numérotation 1/X, 2/X, … */}
+            {users.map((u, index) => (
               <option key={u.id} value={u.id}>
-                {u.name}
+                {u.name} ({index + 1}/{users.length})
               </option>
             ))}
           </select>
+          {/* ✅ Message si liste vide */}
+          {users.length === 0 && (
+            <p className="text-xs text-slate-500 mt-1">
+              Aucun autre élève dans votre groupe. Revenez plus tard.
+            </p>
+          )}
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">
