@@ -215,8 +215,17 @@ router.post("/:id/submit", async (req, res) => {
   try {
     const userId = req.user.id;
     const challengeId = req.params.id;
-    const { attempt_id, answers, time_spent } = req.body;
+    let { attempt_id, answers, time_spent } = req.body;
 
+    // S'assurer que answers est un tableau
+    if (typeof answers === 'string') {
+      try { answers = JSON.parse(answers); } catch (e) { answers = []; }
+    }
+    if (!Array.isArray(answers)) {
+      return res.status(400).json({ error: "Format de réponses invalide." });
+    }
+
+    // Vérifier que la tentative appartient bien à ce challenge et utilisateur
     const attemptCheck = await pool.query(
       `SELECT * FROM quiz_attempts WHERE id = $1 AND user_id = $2 AND challenge_id = $3`,
       [attempt_id, userId, challengeId]
@@ -225,32 +234,42 @@ router.post("/:id/submit", async (req, res) => {
       return res.status(400).json({ error: "Tentative invalide." });
     }
 
-    const quizId = attemptCheck.rows[0].quiz_id;
-    const questionIds = answers.map(a => a.questionId);
-    const questionsData = await pool.query(
-      "SELECT id, correct_option FROM question_bank WHERE id = ANY($1::int[])",
-      [questionIds]
-    );
-    const correctMap = {};
-    questionsData.rows.forEach(q => { correctMap[q.id] = q.correct_option; });
+    // Récupérer les questions sauvegardées dans la tentative (plus fiable que question_bank)
+    const questions = attemptCheck.rows[0].questions;
+    if (!questions || questions.length === 0) {
+      return res.status(400).json({ error: "Aucune question trouvée pour cette tentative." });
+    }
+
+    // Fonction de parsing numérique tolérant
+    const parseNumeric = (val) => {
+      if (typeof val === 'number') return val;
+      if (typeof val === 'string') return Number(val.replace(',', '.'));
+      return NaN;
+    };
 
     let score = 0;
-    answers.forEach(ans => {
-      if (correctMap[ans.questionId] !== undefined && ans.selectedOption === correctMap[ans.questionId]) {
-        score++;
+    questions.forEach((q) => {
+      const userAnswer = answers.find(a => a.questionId === q.id);
+      const selectedOption = userAnswer ? userAnswer.selectedOption : null;
+      const correctIndex = q.correct_option;
+      let correct = (selectedOption === correctIndex);
+      if (!correct && selectedOption !== null && selectedOption !== undefined) {
+        const correctValue = parseNumeric(q.options[correctIndex]);
+        const selectedValue = parseNumeric(q.options[selectedOption]);
+        if (!isNaN(correctValue) && !isNaN(selectedValue)) {
+          correct = correctValue === selectedValue;
+        }
       }
+      if (correct) score++;
     });
 
     await pool.query(
-      `UPDATE quiz_attempts SET score = $1, time_spent = $2, completed_at = NOW()
-       WHERE id = $3`,
+      `UPDATE quiz_attempts SET score = $1, time_spent = $2, completed_at = NOW() WHERE id = $3`,
       [score, time_spent, attempt_id]
     );
 
-    const challenge = await pool.query(
-      "SELECT * FROM challenges WHERE id = $1",
-      [challengeId]
-    );
+    // Mettre à jour le challenge avec le score du joueur
+    const challenge = await pool.query("SELECT * FROM challenges WHERE id = $1", [challengeId]);
     const chal = challenge.rows[0];
     const isChallenger = (chal.challenger_id === userId);
     const updateField = isChallenger ? "challenger_score" : "challenged_score";
@@ -262,10 +281,7 @@ router.post("/:id/submit", async (req, res) => {
     );
 
     // Vérifier si les deux ont soumis pour clôturer le challenge
-    const updated = await pool.query(
-      "SELECT * FROM challenges WHERE id = $1",
-      [challengeId]
-    );
+    const updated = await pool.query("SELECT * FROM challenges WHERE id = $1", [challengeId]);
     const c = updated.rows[0];
     if (c.challenger_score !== null && c.challenged_score !== null) {
       let winnerId = null;
@@ -281,7 +297,7 @@ router.post("/:id/submit", async (req, res) => {
       );
     }
 
-    res.json({ score, total: questionIds.length });
+    res.json({ score, total: questions.length });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Erreur soumission." });
