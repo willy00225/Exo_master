@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Home, FileText, HelpCircle, Swords, User, CreditCard, Lock, LogOut, ChevronRight, MessageSquare, Menu, X, Lightbulb
 } from 'lucide-react';
@@ -24,7 +23,7 @@ const StudentLayout = () => {
     { path: '/student/exercises', icon: FileText, label: 'Exercices' },
     { path: '/student/quizzes', icon: HelpCircle, label: 'Quiz' },
     { path: '/student/challenges', icon: Swords, label: 'Challenges' },
-    { path: '/student/tips', icon: Lightbulb, label: 'Astuces' },           // 🆕
+    { path: '/student/tips', icon: Lightbulb, label: 'Astuces' },
     { path: '/student/payments', icon: CreditCard, label: 'Paiements' },
     { path: '/student/profile', icon: User, label: 'Profil' },
     { path: '/student/change-password', icon: Lock, label: 'Mot de passe' },
@@ -104,17 +103,12 @@ const StudentLayout = () => {
       </div>
 
       {/* Overlay mobile */}
-      <AnimatePresence>
-        {sidebarOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="lg:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
-      </AnimatePresence>
+      {sidebarOpen && (
+        <div
+          className="lg:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
       {/* Sidebar desktop */}
       <aside className="hidden lg:flex w-72 bg-white/5 backdrop-blur-xl border-r border-white/10 flex-col shadow-2xl">
@@ -122,25 +116,19 @@ const StudentLayout = () => {
       </aside>
 
       {/* Drawer mobile */}
-      <motion.aside
-        initial={{ x: '-100%' }}
-        animate={{ x: sidebarOpen ? 0 : '-100%' }}
-        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-        className="fixed inset-y-0 left-0 z-50 w-72 bg-slate-900/95 backdrop-blur-xl border-r border-white/10 flex flex-col shadow-2xl lg:hidden"
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-72 bg-slate-900/95 backdrop-blur-xl border-r border-white/10 flex flex-col shadow-2xl lg:hidden transition-transform duration-300 ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
       >
         <NavContent />
-      </motion.aside>
+      </aside>
 
       {/* Zone principale */}
       <div className="flex-1 flex flex-col min-w-0 bg-[#0B0E1A] lg:pl-0 pt-14 lg:pt-0">
-        <motion.main
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="flex-1 overflow-y-auto p-4 md:p-8"
-        >
+        <main className="flex-1 overflow-y-auto p-4 md:p-8">
           <Outlet />
-        </motion.main>
+        </main>
 
         <footer className="border-t border-white/10 bg-white/5 backdrop-blur-md px-4 md:px-8 py-4">
           <div className="flex flex-col md:flex-row md:justify-between items-center text-sm text-slate-400 gap-2">
