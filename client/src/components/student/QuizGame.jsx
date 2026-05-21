@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { motion } from 'framer-motion';
 import api from '../../services/api';
 import Button from '../../components/common/Button';
 import { Timer, CheckCircle, XCircle, ArrowLeft } from 'lucide-react';
@@ -103,7 +102,7 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
 
         <h3 className="text-xl font-semibold">Corrigé</h3>
         <div className="space-y-4">
-          {result.corrections.map((corr, idx) => (
+          {result.corrections?.map((corr, idx) => (
             <div key={corr.questionId} className="bg-white/5 border border-white/10 rounded-2xl p-5">
               <div className="flex items-start gap-3">
                 <span className={`mt-1 p-1 rounded-full ${corr.isCorrect ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
@@ -153,11 +152,8 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
 
       <div className="space-y-6">
         {questions.map((q, idx) => (
-          <motion.div
+          <div
             key={q.id}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: idx * 0.05 }}
             className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-5 md:p-6"
           >
             <p className="font-medium text-white text-lg mb-4">
@@ -180,7 +176,7 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
                 </label>
               ))}
             </div>
-          </motion.div>
+          </div>
         ))}
       </div>
 
