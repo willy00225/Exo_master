@@ -3,18 +3,25 @@ const pool = require("../config/db");
 /**
  * Middleware pour vérifier que l'utilisateur a un abonnement actif.
  * À utiliser après le middleware 'auth'.
+ * Ignore les utilisateurs qui ne sont pas des étudiants (admin, etc.).
  */
 module.exports = async function (req, res, next) {
   const userId = req.user.id;
 
   try {
+    // Récupérer le rôle et la date d'expiration
     const user = await pool.query(
-      "SELECT subscription_expires FROM users WHERE id = $1",
+      "SELECT role, subscription_expires FROM users WHERE id = $1",
       [userId]
     );
 
     if (user.rows.length === 0) {
       return res.status(404).json({ error: "Utilisateur non trouvé." });
+    }
+
+    // Si l'utilisateur n'est pas un étudiant, on laisse passer (admin, etc.)
+    if (user.rows[0].role !== 'student') {
+      return next();
     }
 
     const expires = user.rows[0].subscription_expires;
