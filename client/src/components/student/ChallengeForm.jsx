@@ -1,13 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
 import { Swords, Loader, CheckCircle, AlertCircle, Send, Copy, Link, Search, X } from 'lucide-react';
 import api from '../../services/api';
 
-const ChallengeForm = () => {
+const ChallengeForm = ({ onChallengeSent }) => {
   const [quizzes, setQuizzes] = useState([]);
   const [users, setUsers] = useState([]);
   const [selectedQuiz, setSelectedQuiz] = useState('');
-  const [selectedUser, setSelectedUser] = useState(null); // { id, name }
+  const [selectedUser, setSelectedUser] = useState(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
 
@@ -16,7 +15,7 @@ const ChallengeForm = () => {
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
 
-  // États pour le lien d'invitation
+  // Lien d'invitation
   const [inviteLink, setInviteLink] = useState('');
   const [generatingLink, setGeneratingLink] = useState(false);
 
@@ -32,7 +31,7 @@ const ChallengeForm = () => {
       .catch(console.error);
   }, []);
 
-  // Fermer le dropdown si on clique en dehors
+  // Fermer le dropdown si clic à l'extérieur
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -43,7 +42,6 @@ const ChallengeForm = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Filtrer les utilisateurs en fonction de la recherche
   const filteredUsers = users.filter(u =>
     u.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -54,7 +52,6 @@ const ChallengeForm = () => {
     setShowDropdown(false);
   };
 
-  // --- Lancement d'un défi direct ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!selectedQuiz || !selectedUser) {
@@ -72,6 +69,8 @@ const ChallengeForm = () => {
       setSelectedQuiz('');
       setSelectedUser(null);
       setSearchTerm('');
+      // Rafraîchir la liste parent
+      if (onChallengeSent) onChallengeSent();
     } catch (err) {
       setMessage({
         type: 'error',
@@ -82,7 +81,6 @@ const ChallengeForm = () => {
     }
   };
 
-  // --- Génération du lien d'invitation ---
   const handleGenerateLink = async () => {
     if (!selectedQuiz) {
       setMessage({ type: 'error', text: 'Veuillez sélectionner un quiz.' });
@@ -110,11 +108,7 @@ const ChallengeForm = () => {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-slate-800/40 backdrop-blur-md border border-amber-500/30 rounded-2xl p-6 shadow-lg"
-    >
+    <div className="bg-slate-800/40 backdrop-blur-md border border-amber-500/30 rounded-2xl p-6 shadow-lg">
       <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2 font-space-grotesk">
         <Swords className="text-amber-400" size={24} />
         Lancer un nouveau défi
@@ -203,7 +197,6 @@ const ChallengeForm = () => {
             )}
           </div>
 
-          {/* Dropdown des résultats */}
           {showDropdown && searchTerm && (
             <div className="absolute z-20 w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg max-h-48 overflow-y-auto shadow-lg">
               {filteredUsers.length === 0 ? (
@@ -247,7 +240,7 @@ const ChallengeForm = () => {
           </button>
         </div>
       </form>
-    </motion.div>
+    </div>
   );
 };
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Swords, Clock, Trophy, Loader, Check, X } from 'lucide-react';
 import api from '../../services/api';
 import ChallengeForm from '../../components/student/ChallengeForm';
@@ -7,23 +7,29 @@ const Challenges = () => {
   const [challenges, setChallenges] = useState({ received: [], sent: [] });
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    api.get('/challenges/pending')
-      .then(res => setChallenges(res.data))
-      .catch(console.error)
-      .finally(() => setLoading(false));
+  const fetchChallenges = useCallback(async () => {
+    try {
+      const res = await api.get('/challenges/pending');
+      setChallenges(res.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchChallenges();
+  }, [fetchChallenges]);
 
   const handleAccept = async (id) => {
     await api.put(`/challenges/${id}/accept`);
-    const res = await api.get('/challenges/pending');
-    setChallenges(res.data);
+    fetchChallenges();
   };
 
   const handleDecline = async (id) => {
     await api.put(`/challenges/${id}/decline`);
-    const res = await api.get('/challenges/pending');
-    setChallenges(res.data);
+    fetchChallenges();
   };
 
   if (loading) {
@@ -42,8 +48,8 @@ const Challenges = () => {
         <p className="text-slate-400 mt-1">Affrontez vos camarades et mesurez votre niveau</p>
       </div>
 
-      {/* Formulaire de lancement de défi */}
-      <ChallengeForm />
+      {/* Formulaire de lancement de défi – reçoit la fonction pour rafraîchir */}
+      <ChallengeForm onChallengeSent={fetchChallenges} />
 
       {/* Défis reçus */}
       <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6">
