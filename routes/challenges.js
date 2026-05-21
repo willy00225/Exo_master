@@ -153,12 +153,13 @@ router.put("/:id/decline", async (req, res) => {
   }
 });
 
-// POST /api/challenges/:id/start - Démarrer le quiz du défi (pour le joueur qui clique)
-router.post("/:id/start", async (req, res) => {
+// POST /api/challenges/:id/start - Démarrer le quiz du défi
+router.post("/:id/start", auth, subscription, async (req, res) => {
   try {
     const userId = req.user.id;
     const challengeId = req.params.id;
 
+    // Vérifier que le défi est accepté et que l'utilisateur est participant
     const challenge = await pool.query(
       `SELECT * FROM challenges WHERE id = $1 AND status = 'accepted' AND (challenger_id = $2 OR challenged_id = $2)`,
       [challengeId, userId]
@@ -169,14 +170,23 @@ router.post("/:id/start", async (req, res) => {
 
     const quizId = challenge.rows[0].quiz_id;
     const quiz = await pool.query("SELECT * FROM quizzes WHERE id = $1", [quizId]);
+    if (quiz.rows.length === 0) return res.status(404).json({ error: "Quiz non trouvé." });
+
     const quizData = quiz.rows[0];
     const { group_id, chapter_id, difficulty_filter, question_count } = quizData;
 
+    // Piocher des questions aléatoires dans la banque
     let query = "SELECT * FROM question_bank WHERE group_id = $1";
     const params = [group_id];
-    if (chapter_id) { query += ` AND chapter_id = $${params.length+1}`; params.push(chapter_id); }
-    if (difficulty_filter) { query += ` AND difficulty = $${params.length+1}`; params.push(difficulty_filter); }
-    query += ` ORDER BY RANDOM() LIMIT $${params.length+1}`;
+    if (chapter_id) {
+      query += ` AND chapter_id = $${params.length + 1}`;
+      params.push(chapter_id);
+    }
+    if (difficulty_filter) {
+      query += ` AND difficulty = $${params.length + 1}`;
+      params.push(difficulty_filter);
+    }
+    query += ` ORDER BY RANDOM() LIMIT $${params.length + 1}`;
     params.push(question_count);
 
     const questionsResult = await pool.query(query, params);
@@ -186,16 +196,18 @@ router.post("/:id/start", async (req, res) => {
       return res.status(404).json({ error: "Aucune question disponible." });
     }
 
+    // Préparer les questions pour l'étudiant (sans réponses)
     const questionsForStudent = questions.map(q => ({
       id: q.id,
       text: q.question_text,
       options: q.options,
     }));
 
+    // Créer la tentative en enregistrant les questions complètes pour la correction
     const attempt = await pool.query(
-      `INSERT INTO quiz_attempts (user_id, quiz_id, score, total_questions, started_at, challenge_id)
-       VALUES ($1, $2, 0, $3, NOW(), $4) RETURNING id`,
-      [userId, quizId, questions.length, challengeId]
+      `INSERT INTO quiz_attempts (user_id, quiz_id, score, total_questions, started_at, challenge_id, questions)
+       VALUES ($1, $2, 0, $3, NOW(), $4, $5) RETURNING id`,
+      [userId, quizId, questions.length, challengeId, JSON.stringify(questions)]
     );
 
     res.json({
