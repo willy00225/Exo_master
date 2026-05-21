@@ -1,17 +1,22 @@
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Swords, Loader, CheckCircle, AlertCircle, Send, Copy, Link } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { motion } from 'framer-motion';
+import { Swords, Loader, CheckCircle, AlertCircle, Send, Copy, Link, Search, X } from 'lucide-react';
 import api from '../../services/api';
 
 const ChallengeForm = () => {
   const [quizzes, setQuizzes] = useState([]);
   const [users, setUsers] = useState([]);
   const [selectedQuiz, setSelectedQuiz] = useState('');
-  const [selectedUser, setSelectedUser] = useState('');
+  const [selectedUser, setSelectedUser] = useState(null); // { id, name }
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
 
-  // État pour le lien d'invitation
+  // Recherche
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // États pour le lien d'invitation
   const [inviteLink, setInviteLink] = useState('');
   const [generatingLink, setGeneratingLink] = useState(false);
 
@@ -22,13 +27,34 @@ const ChallengeForm = () => {
   }, []);
 
   useEffect(() => {
-    // ✅ Correction : utilise /student/classmates pour les camarades du même groupe
     api.get('/student/classmates')
       .then(res => setUsers(res.data))
       .catch(console.error);
   }, []);
 
-  // --- Lancement d'un défi direct (existant) ---
+  // Fermer le dropdown si on clique en dehors
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Filtrer les utilisateurs en fonction de la recherche
+  const filteredUsers = users.filter(u =>
+    u.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleSelectUser = (user) => {
+    setSelectedUser(user);
+    setSearchTerm(user.name);
+    setShowDropdown(false);
+  };
+
+  // --- Lancement d'un défi direct ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!selectedQuiz || !selectedUser) {
@@ -40,11 +66,12 @@ const ChallengeForm = () => {
     try {
       await api.post('/challenges', {
         quiz_id: selectedQuiz,
-        challenged_id: selectedUser,
+        challenged_id: selectedUser.id,
       });
       setMessage({ type: 'success', text: 'Défi lancé avec succès !' });
       setSelectedQuiz('');
-      setSelectedUser('');
+      setSelectedUser(null);
+      setSearchTerm('');
     } catch (err) {
       setMessage({
         type: 'error',
@@ -143,32 +170,59 @@ const ChallengeForm = () => {
           </select>
         </div>
 
-        <div>
+        {/* Adversaire avec recherche */}
+        <div ref={dropdownRef} className="relative">
           <label className="block text-sm font-medium text-slate-300 mb-1">
             Adversaire
-            {/* ✅ Indicateur du nombre de camarades */}
             {users.length > 0 && (
               <span className="text-slate-400 ml-1">({users.length} disponible{users.length > 1 ? 's' : ''})</span>
             )}
           </label>
-          <select
-            value={selectedUser}
-            onChange={(e) => setSelectedUser(e.target.value)}
-            className="w-full px-4 py-3 bg-slate-700/60 border border-amber-400/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all"
-          >
-            <option value="">Sélectionnez un élève (pour défi direct)</option>
-            {/* ✅ Numérotation 1/X, 2/X, … */}
-            {users.map((u, index) => (
-              <option key={u.id} value={u.id}>
-                {u.name} ({index + 1}/{users.length})
-              </option>
-            ))}
-          </select>
-          {/* ✅ Message si liste vide */}
-          {users.length === 0 && (
-            <p className="text-xs text-slate-500 mt-1">
-              Aucun autre élève dans votre groupe. Revenez plus tard.
-            </p>
+          <div className="relative">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setShowDropdown(true);
+                setSelectedUser(null);
+              }}
+              onFocus={() => setShowDropdown(true)}
+              placeholder="Rechercher un élève..."
+              className="w-full px-4 py-3 bg-slate-700/60 border border-amber-400/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all pl-10"
+            />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => { setSearchTerm(''); setSelectedUser(null); }}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white"
+              >
+                <X size={18} />
+              </button>
+            )}
+          </div>
+
+          {/* Dropdown des résultats */}
+          {showDropdown && searchTerm && (
+            <div className="absolute z-20 w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg max-h-48 overflow-y-auto shadow-lg">
+              {filteredUsers.length === 0 ? (
+                <div className="px-4 py-3 text-sm text-slate-400">Aucun élève trouvé.</div>
+              ) : (
+                filteredUsers.map((u) => (
+                  <button
+                    key={u.id}
+                    type="button"
+                    onClick={() => handleSelectUser(u)}
+                    className={`w-full text-left px-4 py-3 text-sm text-white hover:bg-amber-500/20 transition-all ${
+                      selectedUser?.id === u.id ? 'bg-amber-500/30' : ''
+                    }`}
+                  >
+                    {u.name}
+                  </button>
+                ))
+              )}
+            </div>
           )}
         </div>
 
