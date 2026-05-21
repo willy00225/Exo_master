@@ -48,8 +48,8 @@ router.post("/", async (req, res) => {
     }
 
     const result = await pool.query(
-      `INSERT INTO challenges (challenger_id, challenged_id, quiz_id)
-       VALUES ($1, $2, $3) RETURNING *`,
+      `INSERT INTO challenges (challenger_id, challenged_id, quiz_id, status)
+       VALUES ($1, $2, $3, 'pending') RETURNING *`,
       [challengerId, challenged_id, quiz_id]
     );
 
