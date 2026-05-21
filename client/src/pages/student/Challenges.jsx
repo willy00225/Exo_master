@@ -9,6 +9,7 @@ const Challenges = () => {
   const [loading, setLoading] = useState(true);
   const [activeChallenge, setActiveChallenge] = useState(null);
 
+  // Fonction pour récupérer les défis (appelée à chaque action)
   const fetchChallenges = useCallback(async () => {
     try {
       const res = await api.get('/challenges/pending');
@@ -20,13 +21,14 @@ const Challenges = () => {
     }
   }, []);
 
+  // Charger les défis au montage
   useEffect(() => {
     fetchChallenges();
   }, [fetchChallenges]);
 
   const handleAccept = async (id) => {
     await api.put(`/challenges/${id}/accept`);
-    fetchChallenges();
+    fetchChallenges(); // Rafraîchit immédiatement
   };
 
   const handleDecline = async (id) => {
@@ -41,7 +43,7 @@ const Challenges = () => {
         challengeId={activeChallenge}
         onBack={() => {
           setActiveChallenge(null);
-          fetchChallenges();
+          fetchChallenges(); // Rafraîchit après avoir joué
         }}
       />
     );
@@ -63,6 +65,7 @@ const Challenges = () => {
         <p className="text-slate-400 mt-1">Affrontez vos camarades et mesurez votre niveau</p>
       </div>
 
+      {/* Passe la fonction fetchChallenges pour rafraîchir après envoi */}
       <ChallengeForm onChallengeSent={fetchChallenges} />
 
       {/* Défis reçus */}
@@ -87,14 +90,12 @@ const Challenges = () => {
                 <div className="flex gap-2 self-end sm:self-center">
                   {c.status === 'pending' && (
                     <>
-                      <button
-                        onClick={() => handleAccept(c.id)}
+                      <button onClick={() => handleAccept(c.id)}
                         className="flex items-center gap-1 bg-gradient-to-r from-emerald-600 to-green-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:shadow-md transition-all"
                       >
                         <Check size={16} /> Accepter
                       </button>
-                      <button
-                        onClick={() => handleDecline(c.id)}
+                      <button onClick={() => handleDecline(c.id)}
                         className="flex items-center gap-1 bg-white/10 text-slate-300 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-red-500/20 hover:text-red-300 transition-all"
                       >
                         <X size={16} /> Refuser
@@ -102,8 +103,7 @@ const Challenges = () => {
                     </>
                   )}
                   {c.status === 'accepted' && (
-                    <button
-                      onClick={() => setActiveChallenge(c.id)}
+                    <button onClick={() => setActiveChallenge(c.id)}
                       className="flex items-center gap-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:shadow-md transition-all"
                     >
                       <Play size={16} /> Jouer
@@ -127,8 +127,7 @@ const Challenges = () => {
         ) : (
           <div className="space-y-3">
             {challenges.sent.map((c) => (
-              <div
-                key={c.id}
+              <div key={c.id}
                 className="flex items-center justify-between bg-white/5 p-4 rounded-xl border border-white/5 hover:border-violet-500/30 transition-all"
               >
                 <div>
