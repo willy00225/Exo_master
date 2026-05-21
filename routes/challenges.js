@@ -82,18 +82,20 @@ router.post("/", async (req, res) => {
 router.get("/pending", async (req, res) => {
   try {
     const userId = req.user.id;
-    // Défis reçus (pending ou accepted)
+    // Défis reçus (pending ou accepted) avec indicateur has_played
     const received = await pool.query(
-      `SELECT c.*, u.name as challenger_name, q.title as quiz_title
+      `SELECT c.*, u.name as challenger_name, q.title as quiz_title,
+         (SELECT COUNT(*) FROM quiz_attempts qa WHERE qa.challenge_id = c.id AND qa.user_id = $1) > 0 AS has_played
        FROM challenges c
        JOIN users u ON c.challenger_id = u.id
        JOIN quizzes q ON c.quiz_id = q.id
        WHERE c.challenged_id = $1 AND c.status IN ('pending', 'accepted')`,
       [userId]
     );
-    // Défis envoyés (pending ou accepted)
+    // Défis envoyés (pending ou accepted) avec indicateur has_played
     const sent = await pool.query(
-      `SELECT c.*, u.name as challenged_name, q.title as quiz_title
+      `SELECT c.*, u.name as challenged_name, q.title as quiz_title,
+         (SELECT COUNT(*) FROM quiz_attempts qa WHERE qa.challenge_id = c.id AND qa.user_id = $1) > 0 AS has_played
        FROM challenges c
        JOIN users u ON c.challenged_id = u.id
        JOIN quizzes q ON c.quiz_id = q.id
@@ -222,7 +224,7 @@ router.post("/:id/start", auth, subscription, async (req, res) => {
   }
 });
 
-// POST /api/challenges/:id/submit - Soumettre les réponses pour un défi
+// POST /api/challenges/:id/submit - Soumettre les réponses pour un défi (avec corrections)
 router.post("/:id/submit", async (req, res) => {
   try {
     const userId = req.user.id;
@@ -246,7 +248,7 @@ router.post("/:id/submit", async (req, res) => {
       return res.status(400).json({ error: "Tentative invalide." });
     }
 
-    // Récupérer les questions sauvegardées dans la tentative (plus fiable que question_bank)
+    // Récupérer les questions sauvegardées dans la tentative
     const questions = attemptCheck.rows[0].questions;
     if (!questions || questions.length === 0) {
       return res.status(400).json({ error: "Aucune question trouvée pour cette tentative." });
@@ -260,7 +262,8 @@ router.post("/:id/submit", async (req, res) => {
     };
 
     let score = 0;
-    questions.forEach((q) => {
+    // Construire les corrections (identique à /quizzes/:id/submit)
+    const corrections = questions.map((q) => {
       const userAnswer = answers.find(a => a.questionId === q.id);
       const selectedOption = userAnswer ? userAnswer.selectedOption : null;
       const correctIndex = q.correct_option;
@@ -273,8 +276,18 @@ router.post("/:id/submit", async (req, res) => {
         }
       }
       if (correct) score++;
+      return {
+        questionId: q.id,
+        text: q.question_text,
+        options: q.options,
+        correctOption: correctIndex,
+        explanation: q.explanation || "",
+        selectedOption: selectedOption,
+        isCorrect: correct,
+      };
     });
 
+    // Mettre à jour la tentative
     await pool.query(
       `UPDATE quiz_attempts SET score = $1, time_spent = $2, completed_at = NOW() WHERE id = $3`,
       [score, time_spent, attempt_id]
@@ -309,7 +322,7 @@ router.post("/:id/submit", async (req, res) => {
       );
     }
 
-    res.json({ score, total: questions.length });
+    res.json({ score, total: questions.length, corrections });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Erreur soumission." });
@@ -356,6 +369,27 @@ router.get("/leaderboard", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Erreur classement." });
+  }
+});
+
+// GET /api/challenges/history - Historique des défis terminés
+router.get("/history", async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const result = await pool.query(
+      `SELECT c.*, u1.name as challenger_name, u2.name as challenged_name, q.title as quiz_title
+       FROM challenges c
+       JOIN users u1 ON c.challenger_id = u1.id
+       JOIN users u2 ON c.challenged_id = u2.id
+       JOIN quizzes q ON c.quiz_id = q.id
+       WHERE (c.challenger_id = $1 OR c.challenged_id = $1) AND c.status = 'completed'
+       ORDER BY c.completed_at DESC`,
+      [userId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erreur historique." });
   }
 });
 
