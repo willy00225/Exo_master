@@ -1,245 +1,118 @@
-import { useState, useEffect, useRef } from 'react';
-import { Swords, Loader, CheckCircle, AlertCircle, Send, Copy, Link, Search, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Swords, Clock, Trophy, Loader, Check, X } from 'lucide-react';
 import api from '../../services/api';
+import ChallengeForm from '../../components/student/ChallengeForm';
 
-const ChallengeForm = () => {
-  const [quizzes, setQuizzes] = useState([]);
-  const [users, setUsers] = useState([]);
-  const [selectedQuiz, setSelectedQuiz] = useState('');
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState({ type: '', text: '' });
-
-  // Recherche
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showDropdown, setShowDropdown] = useState(false);
-  const dropdownRef = useRef(null);
-
-  // Lien d'invitation
-  const [inviteLink, setInviteLink] = useState('');
-  const [generatingLink, setGeneratingLink] = useState(false);
+const Challenges = () => {
+  const [challenges, setChallenges] = useState({ received: [], sent: [] });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get('/quizzes/available')
-      .then(res => setQuizzes(res.data))
-      .catch(console.error);
+    api.get('/challenges/pending')
+      .then(res => setChallenges(res.data))
+      .catch(console.error)
+      .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => {
-    api.get('/student/classmates')
-      .then(res => setUsers(res.data))
-      .catch(console.error);
-  }, []);
-
-  // Fermer le dropdown si clic à l'extérieur
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setShowDropdown(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const filteredUsers = users.filter(u =>
-    u.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const handleSelectUser = (user) => {
-    setSelectedUser(user);
-    setSearchTerm(user.name);
-    setShowDropdown(false);
+  const handleAccept = async (id) => {
+    await api.put(`/challenges/${id}/accept`);
+    const res = await api.get('/challenges/pending');
+    setChallenges(res.data);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!selectedQuiz || !selectedUser) {
-      setMessage({ type: 'error', text: 'Veuillez choisir un quiz et un adversaire.' });
-      return;
-    }
-    setLoading(true);
-    setMessage({ type: '', text: '' });
-    try {
-      await api.post('/challenges', {
-        quiz_id: selectedQuiz,
-        challenged_id: selectedUser.id,
-      });
-      setMessage({ type: 'success', text: 'Défi lancé avec succès !' });
-      setSelectedQuiz('');
-      setSelectedUser(null);
-      setSearchTerm('');
-    } catch (err) {
-      setMessage({
-        type: 'error',
-        text: err.response?.data?.error || 'Erreur lors du lancement du défi.',
-      });
-    } finally {
-      setLoading(false);
-    }
+  const handleDecline = async (id) => {
+    await api.put(`/challenges/${id}/decline`);
+    const res = await api.get('/challenges/pending');
+    setChallenges(res.data);
   };
 
-  const handleGenerateLink = async () => {
-    if (!selectedQuiz) {
-      setMessage({ type: 'error', text: 'Veuillez sélectionner un quiz.' });
-      return;
-    }
-    setGeneratingLink(true);
-    setMessage({ type: '', text: '' });
-    try {
-      const res = await api.post('/invitations', { quiz_id: selectedQuiz });
-      setInviteLink(res.data.link);
-      setMessage({ type: 'success', text: 'Lien généré ! Copiez-le et partagez-le.' });
-    } catch (err) {
-      setMessage({
-        type: 'error',
-        text: err.response?.data?.error || 'Erreur lors de la génération du lien.',
-      });
-    } finally {
-      setGeneratingLink(false);
-    }
-  };
-
-  const handleCopyLink = async () => {
-    await navigator.clipboard.writeText(inviteLink);
-    setMessage({ type: 'success', text: 'Lien copié dans le presse‑papier !' });
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader className="animate-spin text-violet-400" size={32} />
+        <span className="ml-3 text-slate-400 text-lg">Chargement des défis…</span>
+      </div>
+    );
+  }
 
   return (
-    <div className="bg-slate-800/40 backdrop-blur-md border border-amber-500/30 rounded-2xl p-6 shadow-lg">
-      <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2 font-space-grotesk">
-        <Swords className="text-amber-400" size={24} />
-        Lancer un nouveau défi
-      </h2>
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-3xl font-bold text-white font-space-grotesk">Challenges</h1>
+        <p className="text-slate-400 mt-1">Affrontez vos camarades et mesurez votre niveau</p>
+      </div>
 
-      {message.text && (
-        <div
-          className={`flex items-center gap-2 p-3 rounded-lg mb-4 ${
-            message.type === 'success'
-              ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-300'
-              : 'bg-red-500/20 border border-red-500/30 text-red-300'
-          }`}
-        >
-          {message.type === 'success' ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
-          {message.text}
-        </div>
-      )}
+      {/* Formulaire de lancement de défi */}
+      <ChallengeForm />
 
-      {/* Lien d'invitation généré */}
-      {inviteLink && (
-        <div className="mb-4 p-3 bg-violet-500/10 border border-violet-500/30 rounded-lg flex items-center gap-2">
-          <Link size={16} className="text-violet-400" />
-          <input
-            type="text"
-            readOnly
-            value={inviteLink}
-            className="flex-1 bg-transparent text-white text-sm truncate border-none outline-none"
-          />
-          <button
-            onClick={handleCopyLink}
-            className="p-1.5 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-all"
-            title="Copier le lien"
-          >
-            <Copy size={16} />
-          </button>
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-slate-300 mb-1">Choisir un quiz</label>
-          <select
-            value={selectedQuiz}
-            onChange={(e) => setSelectedQuiz(e.target.value)}
-            className="w-full px-4 py-3 bg-slate-700/60 border border-amber-400/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all"
-          >
-            <option value="">Sélectionnez un quiz</option>
-            {quizzes.map((q) => (
-              <option key={q.id} value={q.id}>
-                {q.title}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Adversaire avec recherche */}
-        <div ref={dropdownRef} className="relative">
-          <label className="block text-sm font-medium text-slate-300 mb-1">
-            Adversaire
-            {users.length > 0 && (
-              <span className="text-slate-400 ml-1">({users.length} disponible{users.length > 1 ? 's' : ''})</span>
-            )}
-          </label>
-          <div className="relative">
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setShowDropdown(true);
-                setSelectedUser(null);
-              }}
-              onFocus={() => setShowDropdown(true)}
-              placeholder="Rechercher un élève..."
-              className="w-full px-4 py-3 bg-slate-700/60 border border-amber-400/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all pl-10"
-            />
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
-            {searchTerm && (
-              <button
-                type="button"
-                onClick={() => { setSearchTerm(''); setSelectedUser(null); }}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white"
+      {/* Défis reçus */}
+      <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6">
+        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2 font-space-grotesk">
+          <Swords size={20} className="text-amber-400" />
+          Défis reçus ({challenges.received?.length || 0})
+        </h2>
+        {challenges.received?.length === 0 ? (
+          <p className="text-slate-500 text-center py-4">Aucun défi reçu pour le moment.</p>
+        ) : (
+          <div className="space-y-3">
+            {challenges.received.map((c) => (
+              <div
+                key={c.id}
+                className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white/5 p-4 rounded-xl border border-white/5 hover:border-amber-500/30 transition-all"
               >
-                <X size={18} />
-              </button>
-            )}
-          </div>
-
-          {showDropdown && searchTerm && (
-            <div className="absolute z-20 w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg max-h-48 overflow-y-auto shadow-lg">
-              {filteredUsers.length === 0 ? (
-                <div className="px-4 py-3 text-sm text-slate-400">Aucun élève trouvé.</div>
-              ) : (
-                filteredUsers.map((u) => (
+                <div className="mb-2 sm:mb-0">
+                  <p className="text-white font-medium">{c.challenger_name}</p>
+                  <p className="text-sm text-slate-400">{c.quiz_title}</p>
+                </div>
+                <div className="flex gap-2 self-end sm:self-center">
                   <button
-                    key={u.id}
-                    type="button"
-                    onClick={() => handleSelectUser(u)}
-                    className={`w-full text-left px-4 py-3 text-sm text-white hover:bg-amber-500/20 transition-all ${
-                      selectedUser?.id === u.id ? 'bg-amber-500/30' : ''
-                    }`}
+                    onClick={() => handleAccept(c.id)}
+                    className="flex items-center gap-1 bg-gradient-to-r from-emerald-600 to-green-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:shadow-md transition-all"
                   >
-                    {u.name}
+                    <Check size={16} /> Accepter
                   </button>
-                ))
-              )}
-            </div>
-          )}
-        </div>
+                  <button
+                    onClick={() => handleDecline(c.id)}
+                    className="flex items-center gap-1 bg-white/10 text-slate-300 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-red-500/20 hover:text-red-300 transition-all"
+                  >
+                    <X size={16} /> Refuser
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
-        <div className="flex flex-col sm:flex-row gap-3">
-          <button
-            type="submit"
-            disabled={loading}
-            className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white py-3 rounded-lg font-semibold hover:from-amber-600 hover:to-orange-600 transition-all disabled:opacity-50 shadow-lg"
-          >
-            {loading ? <Loader size={18} className="animate-spin" /> : <Send size={18} />}
-            {loading ? 'Lancement...' : 'Lancer le défi'}
-          </button>
-
-          <button
-            type="button"
-            onClick={handleGenerateLink}
-            disabled={generatingLink}
-            className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white py-3 rounded-lg font-semibold hover:from-violet-700 hover:to-fuchsia-700 transition-all disabled:opacity-50 shadow-lg"
-          >
-            {generatingLink ? <Loader size={18} className="animate-spin" /> : <Link size={18} />}
-            {generatingLink ? 'Génération...' : 'Obtenir un lien d\'invitation'}
-          </button>
-        </div>
-      </form>
+      {/* Défis envoyés */}
+      <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6">
+        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2 font-space-grotesk">
+          <Trophy size={20} className="text-violet-400" />
+          Défis envoyés ({challenges.sent?.length || 0})
+        </h2>
+        {challenges.sent?.length === 0 ? (
+          <p className="text-slate-500 text-center py-4">Aucun défi envoyé.</p>
+        ) : (
+          <div className="space-y-3">
+            {challenges.sent.map((c) => (
+              <div
+                key={c.id}
+                className="flex items-center justify-between bg-white/5 p-4 rounded-xl border border-white/5 hover:border-violet-500/30 transition-all"
+              >
+                <div>
+                  <p className="text-white font-medium">{c.challenged_name}</p>
+                  <p className="text-sm text-slate-400">{c.quiz_title}</p>
+                </div>
+                <span className="flex items-center gap-1 text-sm text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full">
+                  <Clock size={14} /> En attente
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
 
-export default ChallengeForm;
+export default Challenges;
