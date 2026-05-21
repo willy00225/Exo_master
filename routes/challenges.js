@@ -78,26 +78,26 @@ router.post("/", async (req, res) => {
   }
 });
 
-// GET /api/challenges/pending - Défis en attente (reçus ou envoyés)
+// GET /api/challenges/pending - Défis en attente ou acceptés (reçus ou envoyés)
 router.get("/pending", async (req, res) => {
   try {
     const userId = req.user.id;
-    // Défis reçus en attente
+    // Défis reçus (pending ou accepted)
     const received = await pool.query(
       `SELECT c.*, u.name as challenger_name, q.title as quiz_title
        FROM challenges c
        JOIN users u ON c.challenger_id = u.id
        JOIN quizzes q ON c.quiz_id = q.id
-       WHERE c.challenged_id = $1 AND c.status = 'pending'`,
+       WHERE c.challenged_id = $1 AND c.status IN ('pending', 'accepted')`,
       [userId]
     );
-    // Défis envoyés en attente
+    // Défis envoyés (pending ou accepted)
     const sent = await pool.query(
       `SELECT c.*, u.name as challenged_name, q.title as quiz_title
        FROM challenges c
        JOIN users u ON c.challenged_id = u.id
        JOIN quizzes q ON c.quiz_id = q.id
-       WHERE c.challenger_id = $1 AND c.status = 'pending'`,
+       WHERE c.challenger_id = $1 AND c.status IN ('pending', 'accepted')`,
       [userId]
     );
     res.json({ received: received.rows, sent: sent.rows });
