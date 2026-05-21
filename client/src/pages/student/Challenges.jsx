@@ -174,9 +174,18 @@ const Challenges = () => {
                         <span className="text-xs text-slate-500">Vous avez déjà joué</span>
                       )}
                     </div>
-                    <span className="flex items-center gap-1 text-sm text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full">
-                      <Clock size={14} /> {c.has_played ? 'En attente' : 'En attente'}
-                    </span>
+                    {!c.has_played && c.status === 'accepted' ? (
+                      <button
+                        onClick={() => setActiveChallenge(c.id)}
+                        className="flex items-center gap-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:shadow-md transition-all"
+                      >
+                        <Play size={16} /> Jouer
+                      </button>
+                    ) : (
+                      <span className="flex items-center gap-1 text-sm text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full">
+                        <Clock size={14} /> {c.has_played ? 'En attente adverse' : 'En attente'}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
