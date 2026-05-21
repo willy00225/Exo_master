@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Swords, Clock, Trophy, Loader, Check, X } from 'lucide-react';
+import { Swords, Clock, Trophy, Loader, Check, X, Play } from 'lucide-react';
 import api from '../../services/api';
 import ChallengeForm from '../../components/student/ChallengeForm';
+import QuizGame from '../../components/student/QuizGame';
 
 const Challenges = () => {
   const [challenges, setChallenges] = useState({ received: [], sent: [] });
   const [loading, setLoading] = useState(true);
+  const [activeChallenge, setActiveChallenge] = useState(null);
 
   const fetchChallenges = useCallback(async () => {
     try {
@@ -32,6 +34,19 @@ const Challenges = () => {
     fetchChallenges();
   };
 
+  // Si un défi est en cours, on affiche le jeu
+  if (activeChallenge) {
+    return (
+      <QuizGame
+        challengeId={activeChallenge}
+        onBack={() => {
+          setActiveChallenge(null);
+          fetchChallenges();
+        }}
+      />
+    );
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -48,7 +63,6 @@ const Challenges = () => {
         <p className="text-slate-400 mt-1">Affrontez vos camarades et mesurez votre niveau</p>
       </div>
 
-      {/* Formulaire de lancement de défi – reçoit la fonction pour rafraîchir */}
       <ChallengeForm onChallengeSent={fetchChallenges} />
 
       {/* Défis reçus */}
@@ -71,18 +85,30 @@ const Challenges = () => {
                   <p className="text-sm text-slate-400">{c.quiz_title}</p>
                 </div>
                 <div className="flex gap-2 self-end sm:self-center">
-                  <button
-                    onClick={() => handleAccept(c.id)}
-                    className="flex items-center gap-1 bg-gradient-to-r from-emerald-600 to-green-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:shadow-md transition-all"
-                  >
-                    <Check size={16} /> Accepter
-                  </button>
-                  <button
-                    onClick={() => handleDecline(c.id)}
-                    className="flex items-center gap-1 bg-white/10 text-slate-300 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-red-500/20 hover:text-red-300 transition-all"
-                  >
-                    <X size={16} /> Refuser
-                  </button>
+                  {c.status === 'pending' && (
+                    <>
+                      <button
+                        onClick={() => handleAccept(c.id)}
+                        className="flex items-center gap-1 bg-gradient-to-r from-emerald-600 to-green-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:shadow-md transition-all"
+                      >
+                        <Check size={16} /> Accepter
+                      </button>
+                      <button
+                        onClick={() => handleDecline(c.id)}
+                        className="flex items-center gap-1 bg-white/10 text-slate-300 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-red-500/20 hover:text-red-300 transition-all"
+                      >
+                        <X size={16} /> Refuser
+                      </button>
+                    </>
+                  )}
+                  {c.status === 'accepted' && (
+                    <button
+                      onClick={() => setActiveChallenge(c.id)}
+                      className="flex items-center gap-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:shadow-md transition-all"
+                    >
+                      <Play size={16} /> Jouer
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

@@ -4,13 +4,11 @@ import api from '../../services/api';
 import Button from '../../components/common/Button';
 import { Timer, CheckCircle, XCircle, ArrowLeft } from 'lucide-react';
 
-// Formate un texte d'explication en JSX structuré
 const formatExplanation = (text) => {
   if (!text) return null;
   const lines = text.split('\n').filter(line => line.trim() !== '');
   return lines.map((line, i) => {
     let className = "mb-1 leading-relaxed text-slate-300";
-    // Détecter les titres (ex: "Étape 1 :", "1.", "Conclusion :")
     if (/^(Étape\s?\d+|Etape\s?\d+|\d+\.|Phase \d+|Conclusion|En conclusion|Donc|Ainsi|Résultat final)/i.test(line)) {
       className += " font-semibold text-emerald-300 mt-2";
     }
@@ -18,7 +16,7 @@ const formatExplanation = (text) => {
   });
 };
 
-const QuizGame = ({ quizId, onBack }) => {
+const QuizGame = ({ quizId, challengeId, onBack }) => {
   const [attemptId, setAttemptId] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [timeLimit, setTimeLimit] = useState(600);
@@ -27,30 +25,33 @@ const QuizGame = ({ quizId, onBack }) => {
   const [submitted, setSubmitted] = useState(false);
   const [result, setResult] = useState(null);
   const timerRef = useRef(null);
-
-  // Ref pour garder la dernière version de handleSubmit
   const handleSubmitRef = useRef(() => {});
 
   useEffect(() => {
-    api.post(`/quizzes/${quizId}/start`).then(res => {
+    const startUrl = challengeId
+      ? `/challenges/${challengeId}/start`
+      : `/quizzes/${quizId}/start`;
+    api.post(startUrl).then(res => {
       setAttemptId(res.data.attempt_id);
       setQuestions(res.data.questions);
       setTimeLimit(res.data.time_limit);
       setTimeLeft(res.data.time_limit);
     }).catch(console.error);
     return () => clearInterval(timerRef.current);
-  }, [quizId]);
+  }, [quizId, challengeId]);
 
-  // Définition de handleSubmit avec useCallback pour qu'on puisse la stocker dans la ref
   const handleSubmit = useCallback(async () => {
-    if (submitted) return; // Évite double soumission
+    if (submitted) return;
     clearInterval(timerRef.current);
     const ansArray = Object.entries(answers).map(([qId, opt]) => ({
       questionId: parseInt(qId),
       selectedOption: opt,
     }));
+    const submitUrl = challengeId
+      ? `/challenges/${challengeId}/submit`
+      : `/quizzes/${quizId}/submit`;
     try {
-      const res = await api.post(`/quizzes/${quizId}/submit`, {
+      const res = await api.post(submitUrl, {
         attempt_id: attemptId,
         answers: ansArray,
         time_spent: timeLimit - timeLeft,
@@ -60,28 +61,25 @@ const QuizGame = ({ quizId, onBack }) => {
     } catch (err) {
       console.error(err);
     }
-  }, [answers, attemptId, timeLimit, timeLeft, quizId, submitted]);
+  }, [answers, attemptId, timeLimit, timeLeft, quizId, challengeId, submitted]);
 
-  // Met à jour la ref à chaque fois que handleSubmit change
   useEffect(() => {
     handleSubmitRef.current = handleSubmit;
   }, [handleSubmit]);
 
-  // Timer indépendant, utilise la ref pour appeler la fonction à jour
   useEffect(() => {
     timerRef.current = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
           clearInterval(timerRef.current);
-          handleSubmitRef.current(); // Appelle la dernière version
+          handleSubmitRef.current();
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
-
     return () => clearInterval(timerRef.current);
-  }, [quizId]); // Ne dépend toujours que de quizId
+  }, [quizId, challengeId]);
 
   const selectAnswer = (questionId, optionIndex) => {
     setAnswers(prev => ({ ...prev, [questionId]: optionIndex }));
@@ -137,7 +135,7 @@ const QuizGame = ({ quizId, onBack }) => {
           ))}
         </div>
         <Button onClick={onBack} className="w-full py-4">
-          <ArrowLeft size={16} /> Retour aux quiz
+          <ArrowLeft size={16} /> Retour aux défis
         </Button>
       </div>
     );
