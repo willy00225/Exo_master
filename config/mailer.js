@@ -8,10 +8,10 @@ const getTransporter = async () => {
   transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.hostinger.com',
     port: parseInt(process.env.SMTP_PORT || '465'),
-    secure: true, // utiliser SSL
+    secure: true,
     auth: {
       user: process.env.SMTP_USER || 'no-reply@exo-master.com',
-      pass: process.env.SMTP_PASS || 'ReussiteForce@77',
+      pass: process.env.SMTP_PASS || 'votre_mot_de_passe',
     },
   });
 
@@ -35,4 +35,16 @@ const sendMail = async ({ to, subject, html }) => {
   }
 };
 
-module.exports = { sendMail };
+const sendPasswordResetEmail = async (user, token) => {
+  const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${token}`;
+  await sendMail({
+    to: user.email,
+    subject: 'Réinitialisation de votre mot de passe - EXO MASTER',
+    html: `<h1>Réinitialisation de votre mot de passe</h1>
+           <p>Cliquez sur le lien ci-dessous pour réinitialiser votre mot de passe :</p>
+           <a href="${resetLink}">${resetLink}</a>
+           <p>Ce lien expirera dans 1 heure.</p>`
+  });
+};
+
+module.exports = { sendMail, sendPasswordResetEmail };
