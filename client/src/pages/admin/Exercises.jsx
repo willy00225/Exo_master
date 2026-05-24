@@ -20,8 +20,8 @@ const Exercises = () => {
   const [groups, setGroups] = useState([]);
   const [chapters, setChapters] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(null);          // 🆕 erreur de chargement
-  const [operationMessage, setOperationMessage] = useState({ type: '', text: '' }); // 🆕 messages d'opération
+  const [loadError, setLoadError] = useState(null);
+  const [operationMessage, setOperationMessage] = useState({ type: '', text: '' });
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [generateModalOpen, setGenerateModalOpen] = useState(false);
   const [editingExercise, setEditingExercise] = useState(null);
@@ -59,7 +59,7 @@ const Exercises = () => {
       setGroups(res.data);
     } catch (err) {
       console.error(err);
-      setLoadError('Impossible de charger les groupes. Veuillez réessayer.');
+      setLoadError('Impossible de charger les classes. Veuillez réessayer.');
     }
   };
 
@@ -73,7 +73,6 @@ const Exercises = () => {
       setChapters(res.data);
     } catch (err) {
       console.error(err);
-      // Ne bloque pas l'interface, on laisse une erreur silencieuse
     }
   };
 
@@ -113,7 +112,7 @@ const Exercises = () => {
     setEditingExercise(null);
   };
 
-  // 🔥 Affichage en cas d'erreur de chargement
+  // Affichage en cas d'erreur de chargement
   if (loadError && !loading) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4">
@@ -212,7 +211,7 @@ const Exercises = () => {
           value={filters.group_id}
           onChange={(e) => setFilters({ ...filters, group_id: e.target.value, chapter_id: '' })}
         >
-          <option value="">Tous les groupes</option>
+          <option value="">Toutes les classes</option>
           {groups.map((g) => (
             <option key={g.id} value={g.id}>{g.name}</option>
           ))}
@@ -264,7 +263,7 @@ const Exercises = () => {
               <thead className="bg-white/5 border-b border-white/10">
                 <tr>
                   <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Titre</th>
-                  <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Groupe</th>
+                  <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Classe</th>
                   <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Difficulté</th>
                   <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Fichier</th>
                   <th className="px-6 py-4 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">Actions</th>

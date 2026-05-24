@@ -17,7 +17,7 @@ const Quizzes = () => {
   const [quizzes, setQuizzes] = useState([]);
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);                 // 🆕 état d'erreur
+  const [error, setError] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingQuiz, setEditingQuiz] = useState(null);
 
@@ -59,7 +59,6 @@ const Quizzes = () => {
     setEditingQuiz(null);
   };
 
-  // 🔥 Affichage en cas d'erreur de chargement
   if (error && !loading) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4">
@@ -125,7 +124,7 @@ const Quizzes = () => {
               <thead className="bg-white/5 border-b border-white/10">
                 <tr>
                   <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Titre</th>
-                  <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Groupe</th>
+                  <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Classe</th>
                   <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Difficulté</th>
                   <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Questions</th>
                   <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Temps limite</th>

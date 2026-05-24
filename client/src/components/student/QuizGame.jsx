@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import api from '../../services/api';
 import Button from '../../components/common/Button';
-import { Timer, CheckCircle, XCircle, ArrowLeft } from 'lucide-react';
+import { Timer, CheckCircle, XCircle, ArrowLeft, Trophy, Swords } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 const formatExplanation = (text) => {
   if (!text) return null;
@@ -16,6 +17,7 @@ const formatExplanation = (text) => {
 };
 
 const QuizGame = ({ quizId, challengeId, onBack }) => {
+  const { user } = useAuth(); // Récupération de l'utilisateur connecté
   const [attemptId, setAttemptId] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [timeLimit, setTimeLimit] = useState(600);
@@ -23,6 +25,7 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
   const [answers, setAnswers] = useState({});
   const [submitted, setSubmitted] = useState(false);
   const [result, setResult] = useState(null);
+  const [challengeResult, setChallengeResult] = useState(null); // Résultat du défi (victoire/défaite/égalité)
   const timerRef = useRef(null);
   const handleSubmitRef = useRef(() => {});
 
@@ -57,10 +60,25 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
       });
       setResult(res.data);
       setSubmitted(true);
+
+      // Si c'est un défi, récupérer le statut final (victoire/défaite/égalité)
+      if (challengeId && user) {
+        try {
+          const statusRes = await api.get(`/challenges/${challengeId}/status`);
+          const status = statusRes.data;
+          if (status.status === 'completed') {
+            const isWinner = status.winner_id === user.id;
+            const isDraw = !status.winner_id;
+            setChallengeResult({ ...status, isWinner, isDraw });
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      }
     } catch (err) {
       console.error(err);
     }
-  }, [answers, attemptId, timeLimit, timeLeft, quizId, challengeId, submitted]);
+  }, [answers, attemptId, timeLimit, timeLeft, quizId, challengeId, submitted, user]);
 
   useEffect(() => {
     handleSubmitRef.current = handleSubmit;
@@ -92,14 +110,63 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
     }`;
 
   if (submitted && result) {
+    const isChallenge = !!challengeId;
+    const hasChallengeResult = challengeResult !== null;
+
     return (
       <div className="space-y-6 text-white">
+        {/* Animation spéciale pour les défis */}
+        {isChallenge && hasChallengeResult && (
+          <div className={`text-center p-6 rounded-2xl border ${
+            challengeResult.isWinner ? 'bg-emerald-500/10 border-emerald-500/30' :
+            challengeResult.isDraw ? 'bg-amber-500/10 border-amber-500/30' :
+            'bg-red-500/10 border-red-500/30'
+          }`}>
+            {challengeResult.isWinner ? (
+              <>
+                <Trophy size={48} className="mx-auto text-emerald-400 animate-bounce" />
+                <h2 className="text-2xl font-bold mt-2 text-emerald-400">Victoire !</h2>
+                <p className="text-slate-300">Vous avez gagné le duel !</p>
+                <div className="flex justify-center gap-4 mt-3 text-lg">
+                  <span className="text-emerald-400 font-bold">{challengeResult.challenger_score} pts</span>
+                  <span className="text-slate-500">vs</span>
+                  <span className="text-red-400 font-bold">{challengeResult.challenged_score} pts</span>
+                </div>
+              </>
+            ) : challengeResult.isDraw ? (
+              <>
+                <Swords size={48} className="mx-auto text-amber-400 animate-pulse" />
+                <h2 className="text-2xl font-bold mt-2 text-amber-400">Égalité</h2>
+                <p className="text-slate-300">Aucun vainqueur !</p>
+                <div className="flex justify-center gap-4 mt-3 text-lg">
+                  <span className="text-amber-400 font-bold">{challengeResult.challenger_score} pts</span>
+                  <span className="text-slate-500">vs</span>
+                  <span className="text-amber-400 font-bold">{challengeResult.challenged_score} pts</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <XCircle size={48} className="mx-auto text-red-400 animate-shake" />
+                <h2 className="text-2xl font-bold mt-2 text-red-400">Défaite</h2>
+                <p className="text-slate-300">Vous avez perdu le duel...</p>
+                <div className="flex justify-center gap-4 mt-3 text-lg">
+                  <span className="text-red-400 font-bold">{challengeResult.challenger_score} pts</span>
+                  <span className="text-slate-500">vs</span>
+                  <span className="text-emerald-400 font-bold">{challengeResult.challenged_score} pts</span>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Résultat personnel du quiz */}
         <div className="text-center space-y-4 bg-white/5 border border-white/10 rounded-2xl p-6">
           <h2 className="text-2xl font-bold">Résultat</h2>
           <p className="text-5xl font-bold text-violet-400">{result.score} / {result.total}</p>
           <p className="text-lg text-slate-400">{result.percentage}% de réussite</p>
         </div>
 
+        {/* Corrigé détaillé */}
         <h3 className="text-xl font-semibold">Corrigé</h3>
         <div className="space-y-4">
           {result.corrections?.map((corr, idx) => (
@@ -133,6 +200,7 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
             </div>
           ))}
         </div>
+
         <Button onClick={onBack} className="w-full py-4">
           <ArrowLeft size={16} /> Retour aux défis
         </Button>

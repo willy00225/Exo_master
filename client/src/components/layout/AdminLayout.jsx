@@ -22,11 +22,11 @@ const AdminLayout = () => {
   const navItems = [
     { path: '/admin', icon: LayoutDashboard, label: 'Tableau de bord', end: true },
     { path: '/admin/students', icon: Users, label: 'Élèves' },
-    { path: '/admin/groups', icon: Users, label: 'Groupes' },
+    { path: '/admin/groups', icon: Users, label: 'Classes' }, // Modifié : 'Groupes' → 'Classes'
     { path: '/admin/chapters', icon: BookOpen, label: 'Chapitres' },
     { path: '/admin/exercises', icon: FileText, label: 'Exercices' },
     { path: '/admin/quizzes', icon: HelpCircle, label: 'Quiz' },
-    { path: '/admin/question-bank', icon: Database, label: 'Banque de questions' }, // 🆕
+    { path: '/admin/question-bank', icon: Database, label: 'Banque de questions' },
     { path: '/admin/challenges', icon: Swords, label: 'Challenges' },
     { path: '/admin/invitations', icon: Mail, label: 'Invitations' },
     { path: '/admin/tips', icon: Lightbulb, label: 'Astuces' },

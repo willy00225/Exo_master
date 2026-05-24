@@ -9,7 +9,7 @@ const Students = () => {
   const [students, setStudents] = useState([]);
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(null);          // 🆕 erreur centralisée
+  const [loadError, setLoadError] = useState(null);
   const [groupsLoading, setGroupsLoading] = useState(true);
   const [groupsError, setGroupsError] = useState('');
   const [filter, setFilter] = useState({ group_id: '', subscription_status: '' });
@@ -28,7 +28,7 @@ const Students = () => {
         if (Array.isArray(res.data)) {
           setGroups(res.data);
           if (res.data.length === 0) {
-            setGroupsError('Aucun groupe trouvé dans la base.');
+            setGroupsError('Aucune classe trouvée dans la base.');
           }
         } else if (res.data && Array.isArray(res.data.groups)) {
           setGroups(res.data.groups);
@@ -37,9 +37,9 @@ const Students = () => {
           console.error('Format attendu : un tableau ou { groups: [...] }', res.data);
         }
       } catch (err) {
-        console.error('Erreur chargement groupes', err);
+        console.error('Erreur chargement classes', err);
         setGroupsError('Erreur réseau ou API injoignable.');
-        setLoadError('Impossible de charger les groupes. Veuillez réessayer.');
+        setLoadError('Impossible de charger les classes. Veuillez réessayer.');
       } finally {
         setGroupsLoading(false);
       }
@@ -102,7 +102,6 @@ const Students = () => {
 
   const isActive = (expires) => expires && new Date(expires) > new Date();
 
-  // 🔥 Affichage en cas d'erreur de chargement
   if (loadError && !loading) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4">
@@ -135,7 +134,7 @@ const Students = () => {
       >
         <Users size={18} className="text-slate-400" />
 
-        {/* Sélecteur de groupe */}
+        {/* Sélecteur de classe */}
         <div className="relative">
           {groupsLoading ? (
             <div className="absolute inset-0 flex items-center justify-center">
@@ -151,7 +150,7 @@ const Students = () => {
               value={filter.group_id}
               onChange={(e) => setFilter({ ...filter, group_id: e.target.value })}
             >
-              <option value="">Tous les groupes</option>
+              <option value="">Toutes les classes</option>
               {groups.map((g) => (
                 <option key={g.id} value={g.id} className="bg-slate-800 text-white">
                   {g.name}
@@ -196,7 +195,7 @@ const Students = () => {
               <thead className="bg-white/5 border-b border-white/10">
                 <tr>
                   <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Élève</th>
-                  <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Groupes</th>
+                  <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Classes</th>
                   <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Abonnement</th>
                   <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Actions</th>
                 </tr>
@@ -217,7 +216,7 @@ const Students = () => {
                             </span>
                           ))
                         ) : (
-                          <span className="text-slate-500">Aucun</span>
+                          <span className="text-slate-500">Aucune</span>
                         )}
                       </div>
                     </td>

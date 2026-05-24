@@ -23,7 +23,7 @@ const Tips = () => {
   const [tips, setTips] = useState([]);
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(null);       // 🆕 erreur de chargement
+  const [loadError, setLoadError] = useState(null);
   const [filterGroup, setFilterGroup] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
 
@@ -52,7 +52,7 @@ const Tips = () => {
       return true;
     } catch (err) {
       console.error(err);
-      setLoadError('Impossible de charger les groupes. Veuillez réessayer.');
+      setLoadError('Impossible de charger les classes. Veuillez réessayer.');
       return false;
     }
   };
@@ -120,7 +120,7 @@ const Tips = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.group_id || !form.category || !form.content) {
-      setMessage({ type: 'error', text: 'Groupe, catégorie et contenu sont obligatoires.' });
+      setMessage({ type: 'error', text: 'Classe, catégorie et contenu sont obligatoires.' });
       return;
     }
     setSaving(true);
@@ -160,7 +160,7 @@ const Tips = () => {
   const handleAiGenerate = async (e) => {
     e.preventDefault();
     if (!aiForm.group_id) {
-      setAiMessage({ type: 'error', text: 'Veuillez sélectionner un groupe.' });
+      setAiMessage({ type: 'error', text: 'Veuillez sélectionner une classe.' });
       return;
     }
     setAiGenerating(true);
@@ -191,7 +191,6 @@ const Tips = () => {
     );
   };
 
-  // 🔥 Affichage en cas d'erreur de chargement
   if (loadError && !loading) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4">
@@ -269,7 +268,7 @@ const Tips = () => {
           onChange={(e) => setFilterGroup(e.target.value)}
           className="bg-white/5 border border-white/20 rounded-lg text-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
         >
-          <option value="">Tous les groupes</option>
+          <option value="">Toutes les classes</option>
           {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
         </select>
         <select
@@ -305,7 +304,7 @@ const Tips = () => {
               <thead className="bg-white/5 border-b border-white/10">
                 <tr>
                   <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase">Titre</th>
-                  <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase">Groupe</th>
+                  <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase">Classe</th>
                   <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase">Catégorie</th>
                   <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase">Difficulté</th>
                   <th className="px-6 py-4 text-right text-xs font-medium text-slate-400 uppercase">Actions</th>
@@ -399,7 +398,7 @@ const Tips = () => {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Groupe *</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Classe *</label>
                     <select value={form.group_id} onChange={e => setForm({...form, group_id: e.target.value})}
                       className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-violet-500" required>
                       <option value="">Sélectionnez</option>
@@ -477,10 +476,10 @@ const Tips = () => {
 
               <form onSubmit={handleAiGenerate} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Groupe *</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Classe *</label>
                   <select value={aiForm.group_id} onChange={e => setAiForm({...aiForm, group_id: e.target.value})}
                     className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-violet-500" required>
-                    <option value="">Sélectionnez un groupe</option>
+                    <option value="">Sélectionnez une classe</option>
                     {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
                   </select>
                 </div>

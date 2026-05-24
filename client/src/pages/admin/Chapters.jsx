@@ -9,7 +9,7 @@ const Chapters = () => {
   const [chapters, setChapters] = useState([]);
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);                 // 🆕 état d'erreur
+  const [error, setError] = useState(null);
   const [filterGroup, setFilterGroup] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingChapter, setEditingChapter] = useState(null);
@@ -109,7 +109,6 @@ const Chapters = () => {
     }
   };
 
-  // 🔥 Affichage en cas d'erreur de chargement initial
   if (error && !loading) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4">
@@ -135,7 +134,7 @@ const Chapters = () => {
       >
         <div>
           <h1 className="text-3xl font-bold text-white font-space-grotesk">Chapitres</h1>
-          <p className="text-slate-400 mt-1">Gérez les chapitres de chaque groupe</p>
+          <p className="text-slate-400 mt-1">Gérez les chapitres de chaque classe</p>
         </div>
         <button
           onClick={handleCreate}
@@ -170,7 +169,7 @@ const Chapters = () => {
           onChange={(e) => setFilterGroup(e.target.value)}
           className="bg-white/5 border border-white/20 rounded-lg text-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
         >
-          <option value="">Tous les groupes</option>
+          <option value="">Toutes les classes</option>
           {groups.map((g) => (
             <option key={g.id} value={g.id}>{g.name}</option>
           ))}
@@ -206,7 +205,7 @@ const Chapters = () => {
               <thead className="bg-white/5 border-b border-white/10">
                 <tr>
                   <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Titre</th>
-                  <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Groupe</th>
+                  <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Classe</th>
                   <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Ordre</th>
                   <th className="px-6 py-4 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">Actions</th>
                 </tr>
@@ -316,7 +315,7 @@ const Chapters = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Groupe</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Classe</label>
                     <select
                       name="group_id"
                       value={formData.group_id}
@@ -324,7 +323,7 @@ const Chapters = () => {
                       className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
                       required
                     >
-                      <option value="">Sélectionnez un groupe</option>
+                      <option value="">Sélectionnez une classe</option>
                       {groups.map((g) => (
                         <option key={g.id} value={g.id}>{g.name}</option>
                       ))}

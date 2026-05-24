@@ -202,7 +202,7 @@ const Exercises = () => {
           onChange={(e) => setFilterGroup(e.target.value)}
           className="bg-transparent border border-white/20 rounded-lg text-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-500"
         >
-          <option value="">Tous les groupes</option>
+          <option value="">Toutes les classes</option>
           {data.groups.map((g) => (
             <option key={g.id} value={g.id}>{g.name}</option>
           ))}

@@ -26,8 +26,11 @@ const Challenges = () => {
     }
   }, []);
 
+  // Rafraîchissement automatique toutes les 10 secondes
   useEffect(() => {
     fetchChallenges();
+    const interval = setInterval(fetchChallenges, 10000);
+    return () => clearInterval(interval);
   }, [fetchChallenges]);
 
   const handleAccept = async (id) => {

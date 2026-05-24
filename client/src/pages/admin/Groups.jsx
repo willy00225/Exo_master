@@ -9,7 +9,7 @@ const Groups = () => {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState(null);
-  const [error, setError] = useState(null);               // 🆕 état d'erreur unifié
+  const [error, setError] = useState(null);
 
   const fetchGroups = async () => {
     setLoading(true);
@@ -19,8 +19,8 @@ const Groups = () => {
       setGroups(res.data);
     } catch (err) {
       console.error(err);
-      setError('Erreur lors du chargement des groupes. Veuillez réessayer.');
-      setGroups([]); // vide le tableau pour éviter d'afficher d'anciennes données
+      setError('Erreur lors du chargement des classes. Veuillez réessayer.');
+      setGroups([]);
     } finally {
       setLoading(false);
     }
@@ -41,7 +41,7 @@ const Groups = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce groupe ?')) return;
+    if (!window.confirm('Êtes-vous sûr de vouloir supprimer cette classe ?')) return;
     try {
       await api.delete(`/groups/${id}`);
       fetchGroups();
@@ -56,7 +56,6 @@ const Groups = () => {
     setEditingGroup(null);
   };
 
-  // 🔥 Affichage en cas d'erreur de chargement
   if (error && !loading) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4">
@@ -81,19 +80,19 @@ const Groups = () => {
         className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
       >
         <div>
-          <h1 className="text-3xl font-bold text-white font-space-grotesk">Groupes</h1>
-          <p className="text-slate-400 mt-1">Gérez les groupes par matière et niveau</p>
+          <h1 className="text-3xl font-bold text-white font-space-grotesk">Classes</h1>
+          <p className="text-slate-400 mt-1">Gérez les classes par matière et niveau</p>
         </div>
         <button
           onClick={handleCreate}
           className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-4 py-2.5 rounded-lg font-medium hover:from-violet-700 hover:to-cyan-700 transition-all shadow-lg"
         >
           <Plus size={18} />
-          Nouveau groupe
+          Nouvelle classe
         </button>
       </motion.div>
 
-      {/* Tableau des groupes */}
+      {/* Tableau des classes */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -103,17 +102,17 @@ const Groups = () => {
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader className="animate-spin text-violet-400" size={32} />
-            <span className="ml-3 text-slate-400 text-lg">Chargement des groupes…</span>
+            <span className="ml-3 text-slate-400 text-lg">Chargement des classes…</span>
           </div>
         ) : groups.length === 0 ? (
           <div className="p-12 text-center">
             <Users size={48} className="mx-auto text-slate-600 mb-4" />
-            <p className="text-slate-400 text-lg">Aucun groupe pour le moment.</p>
+            <p className="text-slate-400 text-lg">Aucune classe pour le moment.</p>
             <button
               onClick={handleCreate}
               className="mt-4 inline-flex items-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-4 py-2 rounded-lg font-medium hover:shadow-lg transition-all"
             >
-              <Plus size={16} /> Créer votre premier groupe
+              <Plus size={16} /> Créer votre première classe
             </button>
           </div>
         ) : (
