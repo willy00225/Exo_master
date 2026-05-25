@@ -5,7 +5,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const auth = require("../middleware/auth");
-const { sendMail, sendPasswordResetEmail } = require("../config/mailer");
+const { sendMail, sendPasswordResetEmail, sendVerificationEmail } = require("../config/mailer");
 
 // ------------------------------------------------------------
 // 📝 INSCRIPTION avec envoi d'email de vérification
@@ -51,14 +51,7 @@ router.post("/register", async (req, res) => {
 
     // Envoyer l'email de vérification (ne bloque pas l'inscription en cas d'échec)
     try {
-      const verificationLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${verificationToken}`;
-      await sendMail({
-        to: email,
-        subject: 'Vérifiez votre adresse email - EXO MASTER',
-        html: `<h1>Bienvenue sur EXO MASTER</h1>
-               <p>Cliquez sur le lien ci-dessous pour activer votre compte :</p>
-               <a href="${verificationLink}">${verificationLink}</a>`
-      });
+      await sendVerificationEmail(newUser.rows[0], verificationToken);
     } catch (mailErr) {
       console.error("Erreur lors de l'envoi du mail de vérification :", mailErr.message);
       // L'inscription continue même sans l'email
@@ -110,21 +103,16 @@ router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // 1. Vérifier si l'utilisateur existe
     const user = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
-
     if (user.rows.length === 0) {
       return res.status(401).json({ error: "Email ou mot de passe incorrect." });
     }
 
-    // 2. Comparer le mot de passe
     const validPassword = await bcrypt.compare(password, user.rows[0].password);
-
     if (!validPassword) {
       return res.status(401).json({ error: "Email ou mot de passe incorrect." });
     }
 
-    // 3. Vérifier si l'email est vérifié (ACTIVÉ)
     if (!user.rows[0].email_verified) {
       return res.status(403).json({
         error: "Email non vérifié. Veuillez consulter votre boîte mail.",
@@ -132,16 +120,13 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    // 4. Générer un token JWT
     const token = jwt.sign(
       { id: user.rows[0].id, email: user.rows[0].email, role: user.rows[0].role },
       process.env.JWT_SECRET,
       { expiresIn: "24h" }
     );
 
-    // 5. Retourner les informations utilisateur (sans le mot de passe)
     const { password: _, ...userWithoutPassword } = user.rows[0];
-
     res.json({ user: userWithoutPassword, token });
   } catch (error) {
     console.error(error.message);
@@ -159,7 +144,6 @@ router.post("/resend-verification", async (req, res) => {
 
     const user = await pool.query("SELECT id, name, email, email_verified FROM users WHERE email = $1", [email]);
     if (user.rows.length === 0) {
-      // Par sécurité, ne pas divulguer si l'email existe ou non
       return res.json({ message: "Si un compte existe avec cet email, un nouveau lien de vérification a été envoyé." });
     }
 
@@ -167,18 +151,10 @@ router.post("/resend-verification", async (req, res) => {
       return res.status(400).json({ error: "Cet email est déjà vérifié." });
     }
 
-    // Générer un nouveau token et l'enregistrer (écrase l'ancien)
     const newToken = crypto.randomBytes(32).toString('hex');
     await pool.query("UPDATE users SET verification_token = $1 WHERE id = $2", [newToken, user.rows[0].id]);
 
-    const verificationLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${newToken}`;
-    await sendMail({
-      to: email,
-      subject: 'Vérification de votre adresse email - EXO MASTER',
-      html: `<h1>Vérification de votre compte</h1>
-             <p>Cliquez sur le lien ci-dessous pour activer votre compte :</p>
-             <a href="${verificationLink}">${verificationLink}</a>`
-    });
+    await sendVerificationEmail(user.rows[0], newToken);
 
     res.json({ message: "Un nouveau lien de vérification a été envoyé à votre adresse email." });
   } catch (err) {
@@ -194,23 +170,19 @@ router.post("/forgot-password", async (req, res) => {
   try {
     const { email } = req.body;
 
-    // Vérifier que l'utilisateur existe
     const user = await pool.query("SELECT id, name, email FROM users WHERE email = $1", [email]);
     if (user.rows.length === 0) {
       return res.json({ message: "Si un compte existe avec cet email, un lien de réinitialisation a été envoyé." });
     }
 
-    // Générer un token aléatoire et sa date d'expiration (1 heure)
     const token = crypto.randomBytes(32).toString("hex");
     const expiresAt = new Date(Date.now() + 3600000);
 
-    // Enregistrer le token dans la table users
     await pool.query(
       "UPDATE users SET reset_token = $1, reset_token_expires = $2 WHERE id = $3",
       [token, expiresAt, user.rows[0].id]
     );
 
-    // Envoyer l'email
     await sendPasswordResetEmail(user.rows[0], token);
 
     res.json({ message: "Si un compte existe avec cet email, un lien de réinitialisation a été envoyé." });
@@ -227,7 +199,6 @@ router.post("/reset-password", async (req, res) => {
   try {
     const { token, newPassword } = req.body;
 
-    // Vérifier que le token est valide et non expiré
     const user = await pool.query(
       "SELECT id FROM users WHERE reset_token = $1 AND reset_token_expires > NOW()",
       [token]
@@ -236,10 +207,7 @@ router.post("/reset-password", async (req, res) => {
       return res.status(400).json({ error: "Token invalide ou expiré." });
     }
 
-    // Hasher le nouveau mot de passe
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-    // Mettre à jour le mot de passe et supprimer le token
     await pool.query(
       "UPDATE users SET password = $1, reset_token = NULL, reset_token_expires = NULL WHERE id = $2",
       [hashedPassword, user.rows[0].id]
