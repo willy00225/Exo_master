@@ -20,6 +20,12 @@ router.post("/register", async (req, res) => {
       return res.status(400).json({ error: "Cet email est déjà utilisé." });
     }
 
+    // Vérifier le format de l'email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: "Adresse email invalide." });
+    }
+
     // Hasher le mot de passe
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
@@ -98,7 +104,7 @@ router.get("/verify-email", async (req, res) => {
 });
 
 // ------------------------------------------------------------
-// 🔐 CONNEXION (login)
+// 🔐 CONNEXION (login) – Vérification d'email activée
 // ------------------------------------------------------------
 router.post("/login", async (req, res) => {
   try {
@@ -118,13 +124,13 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ error: "Email ou mot de passe incorrect." });
     }
 
-    // 3. Vérifier si l'email est vérifié (désactivé temporairement)
-    // if (!user.rows[0].email_verified) {
-    //   return res.status(403).json({
-    //     error: "Email non vérifié. Veuillez consulter votre boîte mail.",
-    //     code: "EMAIL_NOT_VERIFIED"
-    //   });
-    // }
+    // 3. Vérifier si l'email est vérifié (ACTIVÉ)
+    if (!user.rows[0].email_verified) {
+      return res.status(403).json({
+        error: "Email non vérifié. Veuillez consulter votre boîte mail.",
+        code: "EMAIL_NOT_VERIFIED"
+      });
+    }
 
     // 4. Générer un token JWT
     const token = jwt.sign(

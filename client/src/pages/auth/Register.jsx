@@ -7,10 +7,12 @@ import { UserPlus, Mail, Lock, User, ArrowLeft, GraduationCap } from 'lucide-rea
 import logo from '../../assets/exo_master_logo.png';
 
 const Register = () => {
+  const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
+    confirmPassword: '',
     group_id: '',
   });
   const [groups, setGroups] = useState([]);
@@ -34,9 +36,18 @@ const Register = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    // Vérification de correspondance des mots de passe
+    if (formData.password !== formData.confirmPassword) {
+      setError('Les mots de passe ne correspondent pas.');
+      return;
+    }
+
     setLoading(true);
     try {
-      await api.post('/auth/register', formData);
+      // On n'envoie pas confirmPassword à l'API
+      const { confirmPassword, ...submitData } = formData;
+      await api.post('/auth/register', submitData);
       await login(formData.email, formData.password);
       navigate('/');
     } catch (err) {
@@ -117,13 +128,29 @@ const Register = () => {
               Mot de passe
             </label>
             <input
-              type="password"
+              type={showPassword ? "text" : "password"}
               name="password"
               value={formData.password}
               onChange={handleChange}
               className="w-full px-4 py-2.5 bg-white/5 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
               placeholder="6 caractères minimum"
               minLength={6}
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-1">
+              <Lock size={16} className="inline mr-1" />
+              Confirmer le mot de passe
+            </label>
+            <input
+              type={showPassword ? "text" : "password"}
+              name="confirmPassword"
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              className="w-full px-4 py-2.5 bg-white/5 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              placeholder="Confirmez votre mot de passe"
               required
             />
           </div>
@@ -150,6 +177,20 @@ const Register = () => {
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* Case à cocher pour afficher le mot de passe */}
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="showPassword"
+              checked={showPassword}
+              onChange={() => setShowPassword(!showPassword)}
+              className="accent-violet-500"
+            />
+            <label htmlFor="showPassword" className="text-sm text-slate-300 cursor-pointer">
+              Afficher le mot de passe
+            </label>
           </div>
 
           <button
