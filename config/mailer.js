@@ -1,36 +1,33 @@
-const nodemailer = require('nodemailer');
+const SibApiV3Sdk = require('sib-api-v3-sdk');
 
-let transporter = null;
+const apiKey = process.env.BREVO_API_KEY;
 
-const getTransporter = async () => {
-  if (transporter) return transporter;
-
-  transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: false,
-    auth: {
-      user: process.env.SMTP_USER || 'aa2a6b001@smtp-brevo.com',
-      pass: process.env.SMTP_PASS,
-    },
-  });
-
-  return transporter;
-};
+if (apiKey) {
+  SibApiV3Sdk.ApiClient.instance.authentications['api-key'].apiKey = apiKey;
+}
 
 const sendMail = async ({ to, subject, html }) => {
-  const t = await getTransporter();
-  if (!t) return false;
+  if (!apiKey) {
+    console.error('Clé API Brevo manquante.');
+    return false;
+  }
+  
+  const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
+  const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
+  
+  sendSmtpEmail.sender = { 
+    email: process.env.SMTP_FROM_EMAIL || 'no-reply@exo-master.com', 
+    name: 'Exo Master' 
+  };
+  sendSmtpEmail.to = [{ email: to }];
+  sendSmtpEmail.subject = subject;
+  sendSmtpEmail.htmlContent = html;
+
   try {
-    await t.sendMail({
-      from: process.env.SMTP_FROM || 'Exo Master <no-reply@exo-master.com>',
-      to,
-      subject,
-      html,
-    });
+    await apiInstance.sendTransacEmail(sendSmtpEmail);
     return true;
   } catch (err) {
-    console.error('Erreur envoi email:', err.message);
+    console.error('Erreur envoi email Brevo:', err.response?.body || err.message);
     return false;
   }
 };
