@@ -6,12 +6,12 @@ const getTransporter = async () => {
   if (transporter) return transporter;
 
   transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.hostinger.com',
-    port: parseInt(process.env.SMTP_PORT || '465'),
-    secure: true,
+    host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
+    port: parseInt(process.env.SMTP_PORT || '587'),
+    secure: false,
     auth: {
-      user: process.env.SMTP_USER || 'no-reply@exo-master.com',
-      pass: process.env.SMTP_PASS || 'votre_mot_de_passe',
+      user: process.env.SMTP_USER || 'aa2a6b001@smtp-brevo.com',
+      pass: process.env.SMTP_PASS,
     },
   });
 
@@ -36,7 +36,7 @@ const sendMail = async ({ to, subject, html }) => {
 };
 
 const sendPasswordResetEmail = async (user, token) => {
-  const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${token}`;
+  const resetLink = `${process.env.FRONTEND_URL || 'https://exo-master.com'}/reset-password?token=${token}`;
   await sendMail({
     to: user.email,
     subject: 'Réinitialisation de votre mot de passe - EXO MASTER',
