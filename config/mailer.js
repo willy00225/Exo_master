@@ -1,22 +1,13 @@
-const nodemailer = require('nodemailer');
+const SibApiV3Sdk = require('sib-api-v3-sdk');
 
-let transporter = null;
-
-const getTransporter = async () => {
-  if (transporter) return transporter;
-
-  transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: false,
-    auth: {
-      user: process.env.SMTP_USER || 'aa2a6b001@smtp-brevo.com',
-      pass: process.env.SMTP_PASS,
-    },
-  });
-
-  return transporter;
-};
+const apiKey = process.env.BREVO_API_KEY;
+if (apiKey) {
+  const client = SibApiV3Sdk.ApiClient.instance;
+  client.authentications['api-key'].apiKey = apiKey;
+  console.log('✅ API Brevo configurée');
+} else {
+  console.warn('⚠️ BREVO_API_KEY manquant');
+}
 
 // Template d'email réutilisable
 const wrapEmail = (title, content) => `
@@ -32,20 +23,17 @@ const wrapEmail = (title, content) => `
     <tr>
       <td align="center">
         <table width="600" cellpadding="0" cellspacing="0" style="background: linear-gradient(135deg, #1e1e2f 0%, #2d2d44 100%); border-radius: 12px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.4);">
-          <!-- En-tête -->
           <tr>
             <td style="padding: 30px 40px 20px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1);">
               <img src="https://exo-master.com/exo_master_logo.png" alt="EXO MASTER" style="height: 50px; margin-bottom: 10px;" />
               <h1 style="color:#ffffff; font-size: 24px; margin:0;">${title}</h1>
             </td>
           </tr>
-          <!-- Contenu -->
           <tr>
             <td style="padding: 30px 40px; color:#cfcfcf; font-size: 16px; line-height: 1.6;">
               ${content}
             </td>
           </tr>
-          <!-- Pied de page -->
           <tr>
             <td style="padding: 20px 40px; background-color: rgba(0,0,0,0.2); text-align: center; color:#888888; font-size: 12px;">
               © 2026 EXO MASTER. Tous droits réservés.<br/>
@@ -61,19 +49,29 @@ const wrapEmail = (title, content) => `
 `;
 
 const sendMail = async ({ to, subject, html }) => {
-  const t = await getTransporter();
-  if (!t) return false;
+  if (!apiKey) {
+    console.error('❌ Clé API Brevo absente');
+    return false;
+  }
+
+  const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
+  const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
+
+  sendSmtpEmail.sender = {
+    email: process.env.SMTP_FROM_EMAIL || 'willyblack369@gmail.com',
+    name: 'Exo Master'
+  };
+  sendSmtpEmail.to = [{ email: to }];
+  sendSmtpEmail.subject = subject;
+  sendSmtpEmail.htmlContent = wrapEmail(subject, html);
+
+  console.log(`📧 Envoi email à ${to} via API Brevo`);
   try {
-    await t.sendMail({
-      from: process.env.SMTP_FROM || 'Exo Master <willyblack369@gmail.com>',
-      to,
-      subject,
-      html: wrapEmail(subject, html),
-    });
-    console.log(`✅ Email envoyé à ${to}`);
+    const data = await apiInstance.sendTransacEmail(sendSmtpEmail);
+    console.log(`✅ Email envoyé – ID message : ${data.messageId}`);
     return true;
   } catch (err) {
-    console.error('❌ Erreur envoi email:', err.message);
+    console.error('❌ Erreur API Brevo :', err.response?.body || err.message);
     return false;
   }
 };
@@ -91,7 +89,6 @@ const sendPasswordResetEmail = async (user, token) => {
   return sendMail({ to: user.email, subject: 'Réinitialisation de votre mot de passe - EXO MASTER', html: content });
 };
 
-// Fonction pour l'email de vérification (utilisée dans routes/auth.js)
 const sendVerificationEmail = async (user, token) => {
   const verificationLink = `${process.env.FRONTEND_URL || 'https://exo-master.com'}/verify-email?token=${token}`;
   const content = `
