@@ -49,11 +49,17 @@ router.post("/register", async (req, res) => {
       );
     }
 
+    // 📧 LOG : Avant envoi
+    console.log(`📧 [VERIF] Début envoi vérification pour ${email} (token: ${verificationToken.substring(0,10)}...)`);
+
     // Envoyer l'email de vérification (ne bloque pas l'inscription en cas d'échec)
     try {
       await sendVerificationEmail(newUser.rows[0], verificationToken);
+      // ✅ LOG : Succès
+      console.log(`✅ [VERIF] Email de vérification envoyé à ${email}`);
     } catch (mailErr) {
-      console.error("Erreur lors de l'envoi du mail de vérification :", mailErr.message);
+      // ❌ LOG : Échec
+      console.error(`❌ [VERIF] Échec envoi vérification à ${email}:`, mailErr.message);
       // L'inscription continue même sans l'email
     }
 
