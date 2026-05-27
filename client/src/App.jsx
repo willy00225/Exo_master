@@ -39,6 +39,9 @@ import LandingPage from './pages/LandingPage';
 // Email vérifié
 import EmailVerified from './pages/EmailVerified';
 
+// Vérification d'email (lien reçu par mail)
+import VerifyEmail from './pages/VerifyEmail';
+
 // Mot de passe oublié
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
@@ -85,6 +88,9 @@ function AppContent() {
 
       {/* Route email vérifié (publique) */}
       <Route path="/email-verified" element={<EmailVerified />} />
+
+      {/* Route vérification d'email (publique) */}
+      <Route path="/verify-email" element={<VerifyEmail />} />
 
       {/* Route racine : Landing page si non connecté, sinon redirection selon le rôle */}
       <Route
