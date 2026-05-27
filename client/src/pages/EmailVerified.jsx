@@ -1,47 +1,54 @@
-import { motion } from 'framer-motion';
-import { CheckCircle, ArrowRight } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { CheckCircle, XCircle, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import logo from '../assets/exo_master_logo.png';
 
-const EmailVerified = () => (
-  <div className="min-h-screen bg-[#0B0E1A] flex items-center justify-center p-4 font-sans relative overflow-hidden">
-    {/* Fond décoratif */}
-    <div className="absolute inset-0 -z-10">
-      <div className="absolute top-1/3 left-1/4 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl" />
-      <div className="absolute bottom-1/3 right-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl" />
+const EmailVerified = () => {
+  const [searchParams] = useSearchParams();
+  const success = searchParams.get('success');
+  const error = searchParams.get('error');
+
+  if (success === 'true') {
+    return (
+      <div className="min-h-screen bg-[#0B0E1A] flex items-center justify-center">
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-8 text-center text-white max-w-md">
+          <CheckCircle size={64} className="mx-auto text-emerald-400 mb-4" />
+          <h1 className="text-2xl font-bold mb-2">Email vérifié !</h1>
+          <p className="text-slate-400 mb-4">Votre compte est maintenant actif.</p>
+          <Link to="/login" className="inline-block bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-6 py-2 rounded-lg">
+            Se connecter
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (error === 'expired') {
+    return (
+      <div className="min-h-screen bg-[#0B0E1A] flex items-center justify-center">
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-8 text-center text-white max-w-md">
+          <Clock size={64} className="mx-auto text-amber-400 mb-4" />
+          <h1 className="text-2xl font-bold mb-2">Lien expiré</h1>
+          <p className="text-slate-400 mb-4">Le lien de vérification a expiré (valable 24h). Veuillez demander un nouveau lien ou vous réinscrire.</p>
+          <Link to="/forgot-password" className="inline-block bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-6 py-2 rounded-lg">
+            Mot de passe oublié
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#0B0E1A] flex items-center justify-center">
+      <div className="bg-white/5 border border-white/10 rounded-2xl p-8 text-center text-white max-w-md">
+        <XCircle size={64} className="mx-auto text-red-400 mb-4" />
+        <h1 className="text-2xl font-bold mb-2">Échec de vérification</h1>
+        <p className="text-slate-400 mb-4">Le lien de vérification est invalide ou a déjà été utilisé.</p>
+        <Link to="/register" className="inline-block bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-6 py-2 rounded-lg">
+          Créer un compte
+        </Link>
+      </div>
     </div>
-
-    <motion.div
-      initial={{ opacity: 0, y: 30 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6, ease: 'easeOut' }}
-      className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl w-full max-w-md p-8 text-center"
-    >
-      {/* Logo */}
-      <div className="flex flex-col items-center mb-6">
-        <img src={logo} alt="EXO MASTER" className="h-14 w-auto mb-2" />
-        <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">
-          DEVENEZ LE MEILLEUR
-        </p>
-      </div>
-
-      {/* Icône de succès */}
-      <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-4">
-        <CheckCircle size={36} className="text-emerald-400" />
-      </div>
-
-      <h1 className="text-2xl font-bold text-white font-space-grotesk mb-2">Email vérifié !</h1>
-      <p className="text-slate-400 mb-8">Votre compte est maintenant actif. Vous pouvez vous connecter.</p>
-
-      <Link
-        to="/login"
-        className="inline-flex items-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-violet-700 hover:to-cyan-700 transition-all shadow-lg"
-      >
-        Se connecter
-        <ArrowRight size={18} />
-      </Link>
-    </motion.div>
-  </div>
-);
+  );
+};
 
 export default EmailVerified;

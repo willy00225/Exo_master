@@ -82,20 +82,34 @@ router.post("/register", async (req, res) => {
 });
 
 // ------------------------------------------------------------
-// 📧 Vérification de l'email
+// 📧 Vérification de l'email (avec expiration 24h)
 // ------------------------------------------------------------
 router.get("/verify-email", async (req, res) => {
   try {
     const { token } = req.query;
     if (!token) return res.status(400).json({ error: "Token manquant." });
 
-    const user = await pool.query("SELECT id FROM users WHERE verification_token = $1", [token]);
-    if (user.rows.length === 0) return res.status(400).json({ error: "Token invalide." });
+    const user = await pool.query(
+      "SELECT id, created_at FROM users WHERE verification_token = $1",
+      [token]
+    );
+    if (user.rows.length === 0) {
+      // Rediriger avec un message d'erreur
+      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/email-verified?error=invalid`);
+    }
+
+    // Vérifier si le lien a expiré (24h après création du compte)
+    const createdAt = new Date(user.rows[0].created_at);
+    const now = new Date();
+    const diffHours = (now - createdAt) / (1000 * 60 * 60);
+    if (diffHours > 24) {
+      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/email-verified?error=expired`);
+    }
 
     await pool.query("UPDATE users SET email_verified = true, verification_token = NULL WHERE id = $1", [user.rows[0].id]);
 
-    // Rediriger vers une page de succès sur le frontend
-    res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/email-verified`);
+    // Rediriger vers la page de succès
+    return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/email-verified?success=true`);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Erreur serveur." });
