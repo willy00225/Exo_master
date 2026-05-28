@@ -117,3 +117,9 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+/* Force les options des listes déroulantes à avoir un fond sombre et texte clair */
+select option {
+  background-color: #1e293b; /* slate-800 */
+  color: #e2e8f0; /* slate-200 */
+}

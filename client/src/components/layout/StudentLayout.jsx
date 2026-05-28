@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { 
-  Home, FileText, HelpCircle, Swords, User, CreditCard, Lock, LogOut, ChevronRight, MessageSquare, Menu, X, Lightbulb
+  Home, FileText, HelpCircle, Swords, User, CreditCard, Lock, LogOut, ChevronRight, MessageSquare, Menu, X, Lightbulb, GraduationCap
 } from 'lucide-react';
 import logo from '../../assets/exo_master_logo.png';
 import NotificationBell from '../../components/common/NotificationBell';
@@ -24,6 +24,7 @@ const StudentLayout = () => {
     { path: '/student/quizzes', icon: HelpCircle, label: 'Quiz' },
     { path: '/student/challenges', icon: Swords, label: 'Challenges' },
     { path: '/student/tips', icon: Lightbulb, label: 'Astuces' },
+    { path: '/student/change-class', icon: GraduationCap, label: 'Changer de classe' }, // ✅ AJOUTÉ
     { path: '/student/payments', icon: CreditCard, label: 'Paiements' },
     { path: '/student/profile', icon: User, label: 'Profil' },
     { path: '/student/change-password', icon: Lock, label: 'Mot de passe' },

@@ -32,6 +32,7 @@ import StudentPayments from './pages/student/Payments';
 import ChangePassword from './pages/student/ChangePassword';
 import StudentSupport from './pages/student/Support';
 import StudentTips from './pages/student/Tips';
+import ChangeClass from './pages/student/ChangeClass'; // ✅ AJOUTÉ
 
 // Landing page
 import LandingPage from './pages/LandingPage';
@@ -147,6 +148,7 @@ function AppContent() {
         <Route path="change-password" element={<ChangePassword />} />
         <Route path="support" element={<StudentSupport />} />
         <Route path="tips" element={<StudentTips />} />
+        <Route path="change-class" element={<ChangeClass />} /> {/* ✅ AJOUTÉ */}
       </Route>
 
       {/* Route 404 - doit rester en dernier */}

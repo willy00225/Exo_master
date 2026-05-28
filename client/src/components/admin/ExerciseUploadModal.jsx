@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import api from '../../services/api';
 
-const ExerciseUploadModal = ({ isOpen, onClose, onSave, exercise, groups, chapters }) => {
+const ExerciseUploadModal = ({ isOpen, onClose, onSave, exercise, groups }) => {
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -14,6 +14,7 @@ const ExerciseUploadModal = ({ isOpen, onClose, onSave, exercise, groups, chapte
     chapter_id: '',
     file: null,
   });
+  const [chapters, setChapters] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
 
@@ -26,7 +27,7 @@ const ExerciseUploadModal = ({ isOpen, onClose, onSave, exercise, groups, chapte
         difficulty: exercise.difficulty || 'easy',
         group_id: exercise.group_id || '',
         chapter_id: exercise.chapter_id || '',
-        file: null, // on ne pré-remplit pas le fichier
+        file: null,
       });
     } else {
       setForm({
@@ -41,10 +42,23 @@ const ExerciseUploadModal = ({ isOpen, onClose, onSave, exercise, groups, chapte
     setMessage({ type: '', text: '' });
   }, [exercise, isOpen]);
 
+  // Charger les chapitres lorsque le groupe change
+  useEffect(() => {
+    if (!form.group_id) {
+      setChapters([]);
+      return;
+    }
+    api.get(`/chapters?group_id=${form.group_id}`)
+      .then(res => setChapters(res.data))
+      .catch(() => setChapters([]));
+  }, [form.group_id]);
+
   const handleChange = (e) => {
     const { name, value, files } = e.target;
     if (name === 'file') {
       setForm({ ...form, file: files[0] });
+    } else if (name === 'group_id') {
+      setForm({ ...form, group_id: value, chapter_id: '' });
     } else {
       setForm({ ...form, [name]: value });
     }
@@ -197,7 +211,7 @@ const ExerciseUploadModal = ({ isOpen, onClose, onSave, exercise, groups, chapte
                   disabled={!form.group_id}
                 >
                   <option value="">Aucun chapitre</option>
-                  {chapters.filter(c => c.group_id == form.group_id).map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                  {chapters.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
                 </select>
               </div>
 
@@ -209,7 +223,7 @@ const ExerciseUploadModal = ({ isOpen, onClose, onSave, exercise, groups, chapte
                     name="file"
                     onChange={handleChange}
                     className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-violet-600 file:text-white file:font-medium hover:file:bg-violet-700 transition-all"
-                    required={!exercise} // obligatoire en création, optionnel en édition
+                    required={!exercise}
                   />
                   <Upload size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 </div>
