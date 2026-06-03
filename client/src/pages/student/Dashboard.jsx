@@ -55,8 +55,8 @@ const StudentDashboard = () => {
           api.get('/student/stats'),
         ]);
         setSubscription(subRes.data);
-        // Correction : compter les exercices dans les chapitres
-        const exercisesCount = exRes.data.chapters?.reduce((acc, ch) => acc + (ch.exercises?.length || 0), 0) || 0;
+        // Nouveau calcul : compte les exercices dans toutes les matières
+        const exercisesCount = exRes.data.subjects?.reduce((acc, subject) => acc + subject.chapters?.reduce((sum, ch) => sum + ch.exercises.length, 0), 0) || 0;
         setStats({
           exercises: exercisesCount,
           quizzes: quizRes.data?.length || 0,

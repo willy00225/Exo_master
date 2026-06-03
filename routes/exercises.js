@@ -12,11 +12,12 @@ const fs = require("fs");
 // ROUTES ÉLÈVES
 // ----------------------
 
-// GET /api/exercises/student/available – Exercices disponibles pour l'élève, groupés par chapitre
-router.get("/student/available", auth, async (req, res) => {
+// GET /api/exercises/student/available – Exercices disponibles pour l'élève, groupés par matière puis chapitre
+router.get("/student/available", auth, subscription, async (req, res) => {
   try {
     const userId = req.user.id;
-    // Récupérer les groupes de l'élève
+
+    // Groupes de l'élève
     const userGroups = await pool.query(
       `SELECT g.id, g.name, g.subject, g.level 
        FROM groups g
@@ -26,68 +27,61 @@ router.get("/student/available", auth, async (req, res) => {
     );
     const groupIds = userGroups.rows.map(g => g.id);
     if (groupIds.length === 0) {
-      return res.json({ groups: [], chapters: [] });
+      return res.json({ groups: [], subjects: [] });
     }
 
-    // Récupérer les chapitres de ces groupes
-    const chapters = await pool.query(
-      `SELECT c.id, c.title, c.group_id, g.name as group_name
-       FROM chapters c
-       JOIN groups g ON c.group_id = g.id
-       WHERE c.group_id = ANY($1::int[])
-       ORDER BY c.order_index ASC, c.created_at ASC`,
-      [groupIds]
-    );
-
-    // Récupérer tous les exercices de ces groupes, avec leur chapitre d'appartenance
+    // Récupérer tous les exercices de ces groupes, avec la matière du chapitre
     const exercises = await pool.query(
       `SELECT e.*, 
               c.id as chapter_id, c.title as chapter_title,
-              g.name as group_name, g.subject, g.level
+              g.name as group_name, g.subject as group_subject, g.level,
+              s.id as subject_id, s.name as subject_name
        FROM exercises e
        LEFT JOIN chapters c ON e.chapter_id = c.id
        JOIN groups g ON e.group_id = g.id
+       LEFT JOIN subjects s ON c.subject_id = s.id
        WHERE e.group_id = ANY($1::int[])
-       ORDER BY 
-         CASE e.difficulty
-           WHEN 'easy' THEN 1
-           WHEN 'medium' THEN 2
-           WHEN 'hard' THEN 3
-           WHEN 'very_hard' THEN 4
-         END ASC,
-         e.created_at ASC`,
+       ORDER BY s.name, g.name, c.order_index,
+         CASE e.difficulty WHEN 'easy' THEN 1 WHEN 'medium' THEN 2 WHEN 'hard' THEN 3 WHEN 'very_hard' THEN 4 END,
+         e.created_at`,
       [groupIds]
     );
 
-    // Grouper les exercices par chapitre
-    const chaptersWithExercises = chapters.rows.map(chapter => {
-      const chapterExercises = exercises.rows.filter(
-        ex => ex.chapter_id === chapter.id
-      );
-      return {
-        ...chapter,
-        exercises: chapterExercises
-      };
-    });
+    // Groupement par matière → chapitre → exercices
+    const subjectsMap = {};
 
-    // Exercices sans chapitre (chapter_id NULL)
-    const exercisesWithoutChapter = exercises.rows.filter(ex => ex.chapter_id === null);
-    if (exercisesWithoutChapter.length > 0) {
-      chaptersWithExercises.push({
-        id: null,
-        title: "Sans chapitre",
-        group_id: null,
-        group_name: null,
-        exercises: exercisesWithoutChapter
-      });
+    for (const ex of exercises.rows) {
+      const subjectKey = ex.subject_id || 'none';
+      if (!subjectsMap[subjectKey]) {
+        subjectsMap[subjectKey] = {
+          id: ex.subject_id || null,
+          name: ex.subject_name || 'Sans matière',
+          chapters: {}
+        };
+      }
+      const chapterKey = ex.chapter_id || 'none';
+      if (!subjectsMap[subjectKey].chapters[chapterKey]) {
+        subjectsMap[subjectKey].chapters[chapterKey] = {
+          id: ex.chapter_id || null,
+          title: ex.chapter_title || 'Sans chapitre',
+          exercises: []
+        };
+      }
+      subjectsMap[subjectKey].chapters[chapterKey].exercises.push(ex);
     }
+
+    // Convertir en tableaux
+    const subjects = Object.values(subjectsMap).map(subject => ({
+      ...subject,
+      chapters: Object.values(subject.chapters)
+    }));
 
     res.json({
       groups: userGroups.rows,
-      chapters: chaptersWithExercises
+      subjects
     });
   } catch (err) {
-    console.error(err.message);
+    console.error(err);
     res.status(500).json({ error: "Erreur serveur." });
   }
 });
