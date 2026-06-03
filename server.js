@@ -38,7 +38,7 @@ const pool = require("./config/db");
       ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expires TIMESTAMP
     `);
 
-    // Autres tables (inchangées)
+    // Autres tables
     await pool.query(`
       CREATE TABLE IF NOT EXISTS groups (
         id SERIAL PRIMARY KEY,
@@ -187,6 +187,31 @@ const pool = require("./config/db");
         expires_at TIMESTAMP NOT NULL,
         created_at TIMESTAMP DEFAULT NOW()
       )
+    `);
+
+    // Création de la table subjects (si elle n'existe pas)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS subjects (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        slug VARCHAR(100) UNIQUE NOT NULL
+      )
+    `);
+
+    // Insertion des matières de base (ignorées si déjà présentes)
+    await pool.query(`
+      INSERT INTO subjects (name, slug) VALUES
+      ('Mathématiques', 'mathematiques'),
+      ('Physique-Chimie', 'physique-chimie'),
+      ('Français', 'francais'),
+      ('Histoire-Géographie', 'histoire-geographie'),
+      ('Anglais', 'anglais'),
+      ('SVT', 'svt'),
+      ('Philosophie', 'philosophie'),
+      ('EDHC', 'edhc'),
+      ('Technologie', 'technologie'),
+      ('EPS', 'eps')
+      ON CONFLICT (slug) DO NOTHING
     `);
 
     // Insertions par défaut (ignorées si existent)
