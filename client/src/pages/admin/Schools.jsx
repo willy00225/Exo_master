@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Plus, Edit, Trash2, GraduationCap, Loader,
-  AlertCircle, CheckCircle, CreditCard,
+  AlertCircle, CheckCircle, CreditCard, X,
 } from 'lucide-react';
 import api from '../../services/api';
 
@@ -278,7 +278,82 @@ const Schools = () => {
             className="bg-slate-900 border border-white/10 rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto"
             onClick={e => e.stopPropagation()}
           >
-            {/* ... contenu du formulaire, identique à avant ... */}
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-white">
+                {editingSchool ? 'Modifier l\'école' : 'Nouvelle école'}
+              </h2>
+              <button onClick={() => setModalOpen(false)} className="p-1.5 bg-white/10 text-slate-300 rounded-full hover:bg-white/20">
+                <X size={18} />
+              </button>
+            </div>
+            {message.text && (
+              <div className={`flex items-center gap-2 p-3 rounded-lg mb-4 ${
+                message.type === 'success' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'
+              }`}>
+                {message.type === 'success' ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
+                {message.text}
+              </div>
+            )}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Nom de l'école *</label>
+                <input
+                  type="text" name="name" value={form.name} onChange={handleChange}
+                  className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Code unique *</label>
+                <input
+                  type="text" name="code" value={form.code} onChange={handleChange}
+                  className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white font-mono"
+                  placeholder="LYCEE-STE-MARIE-2026"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">
+                  Nombre maximum d'élèves (vide = illimité)
+                </label>
+                <input
+                  type="number" name="max_students" value={form.max_students} onChange={handleChange}
+                  className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Groupes associés (classes autorisées)
+                </label>
+                <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+                  {groups.map(group => (
+                    <label key={group.id} className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.selected_groups.includes(group.id)}
+                        onChange={() => handleGroupToggle(group.id)}
+                        className="accent-violet-500"
+                      />
+                      {group.name}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button" onClick={() => setModalOpen(false)}
+                  className="px-4 py-2.5 bg-white/10 text-slate-300 rounded-lg hover:bg-white/20"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit" disabled={saving}
+                  className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-4 py-2.5 rounded-lg font-medium hover:shadow-lg disabled:opacity-50"
+                >
+                  {saving ? 'Enregistrement...' : editingSchool ? 'Mettre à jour' : 'Créer'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -293,9 +368,14 @@ const Schools = () => {
             className="bg-slate-900 border border-white/10 rounded-2xl shadow-2xl w-full max-w-md p-6"
             onClick={e => e.stopPropagation()}
           >
-            <h2 className="text-xl font-bold text-white mb-4">
-              Valider paiement - {selectedSchool.name}
-            </h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-white">
+                Valider paiement - {selectedSchool.name}
+              </h2>
+              <button onClick={() => setPaymentModalOpen(false)} className="p-1.5 bg-white/10 text-slate-300 rounded-full hover:bg-white/20">
+                <X size={18} />
+              </button>
+            </div>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1">
