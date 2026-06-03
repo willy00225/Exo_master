@@ -445,6 +445,9 @@ app.use("/api/admin/subjects", require("./routes/admin/subjects"));
 // Import et utilisation des routes pour structurer les écoles partenaires
 app.use("/api/admin/schools", require("./routes/admin/schools"));
 
+// Import et utilisation des routes pour les paiements des écoles
+app.use("/api/admin/schools", require("./routes/admin/school-payments"));
+
 // Port
 const PORT = process.env.PORT || 5000;
 

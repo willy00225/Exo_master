@@ -1,17 +1,11 @@
 const pool = require("../config/db");
 
-/**
- * Middleware pour vérifier que l'utilisateur a un abonnement actif.
- * À utiliser après le middleware 'auth'.
- * Ignore les utilisateurs qui ne sont pas des étudiants (admin, etc.).
- */
 module.exports = async function (req, res, next) {
   const userId = req.user.id;
 
   try {
-    // Récupérer le rôle et la date d'expiration
     const user = await pool.query(
-      "SELECT role, subscription_expires FROM users WHERE id = $1",
+      "SELECT role, subscription_expires, school_id FROM users WHERE id = $1",
       [userId]
     );
 
@@ -24,18 +18,29 @@ module.exports = async function (req, res, next) {
       return next();
     }
 
-    const expires = user.rows[0].subscription_expires;
+    let expires = user.rows[0].subscription_expires;
 
-    console.log(`[Subscription] userId=${userId}, expires=${expires}, now=${new Date().toISOString()}`);
-
-    if (!expires || new Date(expires) < new Date()) {
-      console.log(`[Subscription] BLOCKED`);
-      return res.status(403).json({
-        error: "Abonnement expiré ou inexistant. Veuillez souscrire un abonnement.",
-      });
+    // Si l'élève a un abonnement individuel actif, c'est bon
+    if (expires && new Date(expires) >= new Date()) {
+      return next();
     }
 
-    next();
+    // Sinon, vérifier si l'école partenaire a un abonnement actif
+    const schoolId = user.rows[0].school_id;
+    if (schoolId) {
+      const school = await pool.query(
+        "SELECT subscription_expires FROM schools WHERE id = $1",
+        [schoolId]
+      );
+      if (school.rows.length > 0 && school.rows[0].subscription_expires && new Date(school.rows[0].subscription_expires) >= new Date()) {
+        return next(); // L'école a un abonnement actif
+      }
+    }
+
+    // Aucun abonnement valide
+    return res.status(403).json({
+      error: "Abonnement expiré ou inexistant. Veuillez souscrire un abonnement.",
+    });
   } catch (err) {
     console.error("Erreur middleware subscription:", err.message);
     res.status(500).json({ error: "Erreur serveur lors de la vérification de l'abonnement." });

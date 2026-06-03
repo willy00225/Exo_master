@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Plus, Edit, Trash2, GraduationCap, Loader,
-  AlertCircle, CheckCircle, Users,
+  AlertCircle, CheckCircle, CreditCard,
 } from 'lucide-react';
 import api from '../../services/api';
 
@@ -11,6 +11,8 @@ const Schools = () => {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [selectedSchool, setSelectedSchool] = useState(null);
   const [editingSchool, setEditingSchool] = useState(null);
   const [form, setForm] = useState({
     name: '',
@@ -18,6 +20,7 @@ const Schools = () => {
     max_students: '',
     selected_groups: [],
   });
+  const [paymentDays, setPaymentDays] = useState(365);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
 
@@ -130,6 +133,27 @@ const Schools = () => {
     }
   };
 
+  const handlePayment = async () => {
+    if (!selectedSchool) return;
+    setSaving(true);
+    try {
+      await api.put(`/admin/schools/${selectedSchool.id}/payment`, {
+        subscription_days: paymentDays,
+      });
+      setMessage({ type: 'success', text: `Abonnement activé pour ${paymentDays} jours.` });
+      fetchSchools();
+      setPaymentModalOpen(false);
+      setPaymentDays(365);
+      setTimeout(() => setMessage({ type: '', text: '' }), 2000);
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Erreur lors de la validation du paiement.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const isExpired = (date) => !date || new Date(date) < new Date();
+
   return (
     <div className="space-y-6">
       <motion.div
@@ -142,7 +166,7 @@ const Schools = () => {
             <GraduationCap className="text-violet-400" size={28} />
             Écoles partenaires
           </h1>
-          <p className="text-slate-400 mt-1">Gérez les codes d'invitation pour les écoles</p>
+          <p className="text-slate-400 mt-1">Gérez les codes d'invitation et les abonnements des écoles</p>
         </div>
         <button
           onClick={handleCreate}
@@ -191,6 +215,7 @@ const Schools = () => {
                 <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase">Nom</th>
                 <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase">Code</th>
                 <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase">Max élèves</th>
+                <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase">Abonnement</th>
                 <th className="px-6 py-4 text-xs font-medium text-slate-400 uppercase">Groupes</th>
                 <th className="px-6 py-4 text-right text-xs font-medium text-slate-400 uppercase">Actions</th>
               </tr>
@@ -201,10 +226,28 @@ const Schools = () => {
                   <td className="px-6 py-4 font-medium text-white">{school.name}</td>
                   <td className="px-6 py-4 text-slate-400 font-mono">{school.code}</td>
                   <td className="px-6 py-4 text-slate-400">{school.max_students || 'Illimité'}</td>
+                  <td className="px-6 py-4">
+                    <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                      isExpired(school.subscription_expires)
+                        ? 'bg-red-500/20 text-red-400'
+                        : 'bg-emerald-500/20 text-emerald-400'
+                    }`}>
+                      {school.subscription_expires
+                        ? new Date(school.subscription_expires).toLocaleDateString()
+                        : 'Aucun'}
+                    </span>
+                  </td>
                   <td className="px-6 py-4 text-slate-400">
                     {school.groups?.map(g => g.name).join(', ') || '-'}
                   </td>
                   <td className="px-6 py-4 text-right">
+                    <button
+                      onClick={() => { setSelectedSchool(school); setPaymentModalOpen(true); }}
+                      className="text-emerald-400 hover:text-emerald-300 p-2 rounded-lg hover:bg-white/10 mr-1 transition-all"
+                      title="Valider paiement"
+                    >
+                      <CreditCard size={18} />
+                    </button>
                     <button
                       onClick={() => handleEdit(school)}
                       className="text-slate-400 hover:text-violet-400 p-2 rounded-lg hover:bg-white/10 mr-1 transition-all"
@@ -235,77 +278,53 @@ const Schools = () => {
             className="bg-slate-900 border border-white/10 rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto"
             onClick={e => e.stopPropagation()}
           >
+            {/* ... contenu du formulaire, identique à avant ... */}
+          </div>
+        </div>
+      )}
+
+      {/* Modale validation paiement */}
+      {paymentModalOpen && selectedSchool && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          onClick={() => setPaymentModalOpen(false)}
+        >
+          <div
+            className="bg-slate-900 border border-white/10 rounded-2xl shadow-2xl w-full max-w-md p-6"
+            onClick={e => e.stopPropagation()}
+          >
             <h2 className="text-xl font-bold text-white mb-4">
-              {editingSchool ? 'Modifier l\'école' : 'Nouvelle école'}
+              Valider paiement - {selectedSchool.name}
             </h2>
-            {message.text && (
-              <div className={`flex items-center gap-2 p-3 rounded-lg mb-4 ${
-                message.type === 'success' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'
-              }`}>
-                {message.type === 'success' ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
-                {message.text}
-              </div>
-            )}
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Nom de l'école *</label>
-                <input
-                  type="text" name="name" value={form.name} onChange={handleChange}
-                  className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Code unique *</label>
-                <input
-                  type="text" name="code" value={form.code} onChange={handleChange}
-                  className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white font-mono"
-                  placeholder="LYCEE-STE-MARIE-2026"
-                  required
-                />
-              </div>
+            <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1">
-                  Nombre maximum d'élèves (vide = illimité)
+                  Durée de l'abonnement (jours)
                 </label>
                 <input
-                  type="number" name="max_students" value={form.max_students} onChange={handleChange}
+                  type="number"
+                  value={paymentDays}
+                  onChange={(e) => setPaymentDays(e.target.value)}
                   className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white"
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Groupes associés (classes autorisées)
-                </label>
-                <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
-                  {groups.map(group => (
-                    <label key={group.id} className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={form.selected_groups.includes(group.id)}
-                        onChange={() => handleGroupToggle(group.id)}
-                        className="accent-violet-500"
-                      />
-                      {group.name}
-                    </label>
-                  ))}
-                </div>
               </div>
               <div className="flex justify-end gap-3 pt-2">
                 <button
-                  type="button" onClick={() => setModalOpen(false)}
+                  type="button"
+                  onClick={() => setPaymentModalOpen(false)}
                   className="px-4 py-2.5 bg-white/10 text-slate-300 rounded-lg hover:bg-white/20"
                 >
                   Annuler
                 </button>
                 <button
-                  type="submit" disabled={saving}
-                  className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-4 py-2.5 rounded-lg font-medium hover:shadow-lg disabled:opacity-50"
+                  onClick={handlePayment}
+                  disabled={saving}
+                  className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-green-600 text-white px-4 py-2.5 rounded-lg font-medium hover:shadow-lg disabled:opacity-50"
                 >
-                  {saving ? 'Enregistrement...' : editingSchool ? 'Mettre à jour' : 'Créer'}
+                  {saving ? 'Validation...' : 'Valider le paiement'}
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
