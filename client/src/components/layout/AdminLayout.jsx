@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  LayoutDashboard, Users, BookOpen, FileText, HelpCircle, CreditCard, Settings, LogOut, ChevronRight, Swords, Ticket, Menu, X, Mail, Lightbulb, Database
+  LayoutDashboard, Users, BookOpen, FileText, HelpCircle, CreditCard, Settings, LogOut, ChevronRight, Swords, Ticket, Menu, X, Mail, Lightbulb, Database, GraduationCap
 } from 'lucide-react';
 import logo from '../../assets/exo_master_logo.png';
 import NotificationBell from '../../components/common/NotificationBell';
@@ -22,7 +22,8 @@ const AdminLayout = () => {
   const navItems = [
     { path: '/admin', icon: LayoutDashboard, label: 'Tableau de bord', end: true },
     { path: '/admin/students', icon: Users, label: 'Élèves' },
-    { path: '/admin/groups', icon: Users, label: 'Classes' }, // Modifié : 'Groupes' → 'Classes'
+    { path: '/admin/groups', icon: Users, label: 'Classes' },
+    { path: '/admin/subjects', icon: GraduationCap, label: 'Matières' }, // ✅ Icône ajustée
     { path: '/admin/chapters', icon: BookOpen, label: 'Chapitres' },
     { path: '/admin/exercises', icon: FileText, label: 'Exercices' },
     { path: '/admin/quizzes', icon: HelpCircle, label: 'Quiz' },

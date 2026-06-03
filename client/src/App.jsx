@@ -21,6 +21,7 @@ import Support from './pages/admin/Support';
 import Invitations from './pages/admin/Invitations';
 import Tips from './pages/admin/Tips';
 import QuestionBank from './pages/admin/QuestionBank'; // 🆕 Banque de questions
+import Subjects from './pages/admin/Subjects'; // ✅ Matières
 
 // Pages Élève (alias pour éviter les conflits)
 import StudentExercises from './pages/student/Exercises';
@@ -118,6 +119,7 @@ function AppContent() {
         <Route path="students" element={<Students />} />
         <Route path="groups" element={<Groups />} />
         <Route path="chapters" element={<Chapters />} />
+        <Route path="subjects" element={<Subjects />} /> {/* ✅ Matières */}
         <Route path="payments" element={<Payments />} />
         <Route path="exercises" element={<Exercises />} />
         <Route path="quizzes" element={<Quizzes />} />

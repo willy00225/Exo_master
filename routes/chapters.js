@@ -11,11 +11,11 @@ router.use(admin);
 // POST /api/chapters - Créer un chapitre
 router.post("/", async (req, res) => {
   try {
-    const { group_id, title, description, order_index } = req.body;
+    const { group_id, subject_id, title, description, order_index } = req.body;
     const result = await pool.query(
-      `INSERT INTO chapters (group_id, title, description, order_index)
-       VALUES ($1, $2, $3, $4) RETURNING *`,
-      [group_id, title, description, order_index || 0]
+      `INSERT INTO chapters (group_id, subject_id, title, description, order_index)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [group_id, subject_id, title, description, order_index || 0]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -47,11 +47,11 @@ router.get("/", async (req, res) => {
 router.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, order_index } = req.body;
+    const { title, description, order_index, group_id, subject_id } = req.body;
     const result = await pool.query(
-      `UPDATE chapters SET title = $1, description = $2, order_index = $3
-       WHERE id = $4 RETURNING *`,
-      [title, description, order_index, id]
+      `UPDATE chapters SET title = $1, description = $2, order_index = $3, group_id = $4, subject_id = $5
+       WHERE id = $6 RETURNING *`,
+      [title, description, order_index, group_id, subject_id, id]
     );
     res.json(result.rows[0]);
   } catch (err) {

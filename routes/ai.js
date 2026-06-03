@@ -52,7 +52,7 @@ router.use(admin);
 // ------------------------------------------------------------------
 router.post("/generate-questions", async (req, res) => {
   try {
-    const { group_id, chapter_id, difficulty, count = 5 } = req.body;
+    const { group_id, chapter_id, difficulty, count = 5, curriculum = 'ivoirien' } = req.body;
 
     const group = await pool.query("SELECT name, subject, level FROM groups WHERE id = $1", [group_id]);
     if (group.rows.length === 0) return res.status(404).json({ error: "Groupe non trouvé." });
@@ -65,8 +65,17 @@ router.post("/generate-questions", async (req, res) => {
       if (chapter.rows.length > 0) chapterTitle = chapter.rows[0].title;
     }
 
+    // --- Adaptation au curriculum ---
+    let curriculumIntro = "";
+    if (curriculum === 'ivoirien') {
+      curriculumIntro = "Tu es un professeur certifié du système éducatif ivoirien, enseignant selon les programmes officiels de la Côte d'Ivoire. ";
+    } else {
+      // Pour d'autres pays, une phrase générique pourra être ajoutée ultérieurement
+      curriculumIntro = "Tu es un professeur certifié. ";
+    }
+
     const systemInstruction = "Tu es un professeur certifié. Réponds UNIQUEMENT avec un objet JSON valide.";
-    const prompt = `Tu es un professeur de ${subject} en Côte d'Ivoire, niveau ${level}.
+    const prompt = `${curriculumIntro}Tu es un professeur de ${subject}, niveau ${level}.
 Génère ${count} questions à choix multiples pour le chapitre "${chapterTitle}".
 Difficulté : ${difficulty || 'moyen'}.
 
@@ -85,7 +94,6 @@ Format JSON exact : { "questions": [ { "text": "énoncé", "options": ["Option A
     }
 
     // --- Correction automatique basée sur l'évaluation mathématique ---
-    // Fonction d'évaluation mathématique sécurisée
     function safeEvaluate(expr) {
       let sanitized = expr.replace(/,/g, '.').replace(/\s+/g, '');
       if (!/^[\d.+\-*\/()]+$/.test(sanitized)) return null;
@@ -97,7 +105,6 @@ Format JSON exact : { "questions": [ { "text": "énoncé", "options": ["Option A
       }
     }
 
-    // Pour chaque question, on essaie de trouver le vrai résultat et de corriger l'index
     for (const q of parsed.questions) {
       const match = q.text.match(/(\d+[\.,]?\d*)\s*([+\-])\s*(\d+[\.,]?\d*)/);
       if (match) {
@@ -109,16 +116,16 @@ Format JSON exact : { "questions": [ { "text": "énoncé", "options": ["Option A
         if (result !== null && !isNaN(result)) {
           const correctIndex = q.options.findIndex(opt => {
             const optValue = parseFloat(String(opt).replace(',', '.'));
-            return Math.abs(optValue - result) < 0.001; // tolérance
+            return Math.abs(optValue - result) < 0.001;
           });
           if (correctIndex !== -1) {
-            q.correct = correctIndex; // corrige l'index
+            q.correct = correctIndex;
           }
         }
       }
     }
 
-    // Vérification supplémentaire : demander à l'IA de résoudre chaque question et comparer
+    // Vérification supplémentaire
     const verifiedQuestions = [];
     for (const q of parsed.questions) {
       const verifyPrompt = `Voici une question à choix multiples :
@@ -134,7 +141,7 @@ Réponds UNIQUEMENT avec un JSON : { "isCorrect": true/false, "correctIndex": 0,
         const verif = parseAIResponse(rawVerif);
         if (verif && verif.isCorrect === false) {
           console.warn(`Question "${q.text}" corrigée : ${q.correct} -> ${verif.correctIndex}`);
-          q.correct = verif.correctIndex; // Corrige automatiquement
+          q.correct = verif.correctIndex;
         }
       } catch (e) {
         console.warn("Vérification individuelle échouée, on garde la question originale.");
@@ -142,7 +149,6 @@ Réponds UNIQUEMENT avec un JSON : { "isCorrect": true/false, "correctIndex": 0,
       verifiedQuestions.push(q);
     }
 
-    // Insérer les questions vérifiées dans la banque
     for (const q of verifiedQuestions) {
       await pool.query(
         `INSERT INTO question_bank (group_id, chapter_id, difficulty, question_text, options, correct_option)
@@ -162,11 +168,11 @@ Réponds UNIQUEMENT avec un JSON : { "isCorrect": true/false, "correctIndex": 0,
 });
 
 // ------------------------------------------------------------------
-// 📝 POST /api/ai/generate-exercise – Génération d'exercice via IA (avec double vérification sécurisée)
+// 📝 POST /api/ai/generate-exercise – Génération d'exercice via IA
 // ------------------------------------------------------------------
 router.post("/generate-exercise", async (req, res) => {
   try {
-    const { group_id, chapter_id, difficulty, theme } = req.body;
+    const { group_id, chapter_id, difficulty, theme, curriculum = 'ivoirien' } = req.body;
 
     const group = await pool.query("SELECT name, subject, level FROM groups WHERE id = $1", [group_id]);
     if (group.rows.length === 0) return res.status(404).json({ error: "Groupe non trouvé." });
@@ -179,9 +185,17 @@ router.post("/generate-exercise", async (req, res) => {
       if (chapter.rows.length > 0) chapterTitle = chapter.rows[0].title;
     }
 
-    // --- PREMIÈRE GÉNÉRATION ---
+    // --- Adaptation au curriculum ---
+    let curriculumIntro = "";
+    if (curriculum === 'ivoirien') {
+      curriculumIntro = "Tu es un professeur certifié du système éducatif ivoirien, enseignant selon les programmes officiels de la Côte d'Ivoire. ";
+    } else {
+      // Pour d'autres pays, une phrase générique pourra être ajoutée ultérieurement
+      curriculumIntro = "Tu es un professeur certifié. ";
+    }
+
     const systemInstruction = "Tu es un professeur certifié. Réponds UNIQUEMENT avec un objet JSON valide contenant 'title', 'statement', 'correction'.";
-    const prompt = `
+    const prompt = `${curriculumIntro}
 Tu es un professeur agrégé en ${subject}, enseignant à des élèves de niveau ${level}. 
 Tu dois créer un exercice de difficulté "${difficulty}" sur le chapitre "${chapterTitle}". 
 Le client attend un exercice parfaitement exact, adapté au programme officiel de ce niveau, et un corrigé détaillé étape par étape. 

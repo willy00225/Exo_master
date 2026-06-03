@@ -382,6 +382,9 @@ app.use("/api/admin/fix-questions", require("./routes/admin/fix-questions"));
 // Import et utilisation des routes pour permettre aux élèves de changer de classe
 app.use("/api/student/change-class", require("./routes/student/changeClass"));
 
+// Import et utilisation des routes pour structurer les chapitres en fonction des matières
+app.use("/api/admin/subjects", require("./routes/admin/subjects"));
+
 // Port
 const PORT = process.env.PORT || 5000;
 
