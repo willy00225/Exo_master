@@ -273,6 +273,44 @@ Retourne UNIQUEMENT le JSON, sans commentaire.
 });
 
 // ------------------------------------------------------------------
+// 📝 POST /api/ai/generate-chapters – Génération des chapitres par IA
+// ------------------------------------------------------------------
+router.post("/generate-chapters", async (req, res) => {
+  try {
+    const { group_id, subject_id, count = 10 } = req.body;
+
+    const group = await pool.query("SELECT name, subject, level FROM groups WHERE id = $1", [group_id]);
+    if (group.rows.length === 0) return res.status(404).json({ error: "Classe non trouvée." });
+
+    const subject = await pool.query("SELECT name FROM subjects WHERE id = $1", [subject_id]);
+    if (subject.rows.length === 0) return res.status(404).json({ error: "Matière non trouvée." });
+
+    const systemInstruction = "Tu es un inspecteur pédagogique du système éducatif ivoirien. Réponds UNIQUEMENT avec un tableau JSON.";
+    const prompt = `Liste les ${count} chapitres officiels du programme ivoirien pour la matière "${subject.rows[0].name}" en classe de ${group.rows[0].level} (${group.rows[0].name}). 
+    Retourne UNIQUEMENT un tableau JSON : { "chapters": ["Nom du chapitre 1", "Nom du chapitre 2", ...] }`;
+
+    const raw = await generateWithAI(prompt, systemInstruction);
+    const parsed = parseAIResponse(raw);
+    if (!parsed || !Array.isArray(parsed.chapters)) {
+      return res.status(500).json({ error: "L'IA n'a pas pu générer de chapitres valides." });
+    }
+
+    // Insérer les chapitres dans la base
+    for (let i = 0; i < parsed.chapters.length; i++) {
+      await pool.query(
+        "INSERT INTO chapters (group_id, subject_id, title, order_index) VALUES ($1, $2, $3, $4)",
+        [group_id, subject_id, parsed.chapters[i], i + 1]
+      );
+    }
+
+    res.json({ message: `${parsed.chapters.length} chapitres générés.` });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erreur lors de la génération des chapitres." });
+  }
+});
+
+// ------------------------------------------------------------------
 // 📝 POST /api/ai/generate-tips – Générer des astuces via IA
 // ------------------------------------------------------------------
 router.post("/generate-tips", async (req, res) => {

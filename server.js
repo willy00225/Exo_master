@@ -410,6 +410,9 @@ app.use("/api/student/change-class", require("./routes/student/changeClass"));
 // Import et utilisation des routes pour structurer les chapitres en fonction des matières
 app.use("/api/admin/subjects", require("./routes/admin/subjects"));
 
+// Import et utilisation des routes pour structurer les écoles partenaires
+app.use("/api/admin/schools", require("./routes/admin/schools"));
+
 // Port
 const PORT = process.env.PORT || 5000;
 

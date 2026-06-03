@@ -23,7 +23,8 @@ const AdminLayout = () => {
     { path: '/admin', icon: LayoutDashboard, label: 'Tableau de bord', end: true },
     { path: '/admin/students', icon: Users, label: 'Élèves' },
     { path: '/admin/groups', icon: Users, label: 'Classes' },
-    { path: '/admin/subjects', icon: GraduationCap, label: 'Matières' }, // ✅ Icône ajustée
+    { path: '/admin/subjects', icon: GraduationCap, label: 'Matières' },
+    { path: '/admin/schools', icon: GraduationCap, label: 'Écoles' }, // 🏫 Écoles
     { path: '/admin/chapters', icon: BookOpen, label: 'Chapitres' },
     { path: '/admin/exercises', icon: FileText, label: 'Exercices' },
     { path: '/admin/quizzes', icon: HelpCircle, label: 'Quiz' },

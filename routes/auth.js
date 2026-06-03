@@ -12,7 +12,7 @@ const { sendMail, sendPasswordResetEmail, sendVerificationEmail } = require("../
 // ------------------------------------------------------------
 router.post("/register", async (req, res) => {
   try {
-    const { name, email, password, group_id } = req.body;
+    const { name, email, password, group_id, school_code } = req.body;
 
     // Vérifier si l'email existe déjà
     const existingUser = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
@@ -47,6 +47,30 @@ router.post("/register", async (req, res) => {
         "INSERT INTO user_groups (user_id, group_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
         [newUser.rows[0].id, group_id]
       );
+    }
+
+    // Traitement du code école
+    if (school_code) {
+      const school = await pool.query("SELECT id, max_students FROM schools WHERE code = $1", [school_code]);
+      if (school.rows.length === 0) {
+        return res.status(400).json({ error: "Code école invalide." });
+      }
+      const schoolId = school.rows[0].id;
+      const max = school.rows[0].max_students;
+      if (max) {
+        const countResult = await pool.query("SELECT COUNT(*) FROM school_enrollments WHERE school_id = $1", [schoolId]);
+        if (parseInt(countResult.rows[0].count) >= max) {
+          return res.status(400).json({ error: "Le quota d'élèves pour cette école est atteint." });
+        }
+      }
+      await pool.query("INSERT INTO school_enrollments (user_id, school_id) VALUES ($1, $2)", [newUser.rows[0].id, schoolId]);
+      await pool.query("UPDATE users SET school_id = $1 WHERE id = $2", [schoolId, newUser.rows[0].id]);
+
+      // Affectation automatique aux groupes de l'école
+      const schoolGroups = await pool.query("SELECT group_id FROM school_groups WHERE school_id = $1", [schoolId]);
+      for (const sg of schoolGroups.rows) {
+        await pool.query("INSERT INTO user_groups (user_id, group_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", [newUser.rows[0].id, sg.group_id]);
+      }
     }
 
     // 📧 LOG : Avant envoi
@@ -94,11 +118,9 @@ router.get("/verify-email", async (req, res) => {
       [token]
     );
     if (user.rows.length === 0) {
-      // Rediriger avec un message d'erreur
       return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/email-verified?error=invalid`);
     }
 
-    // Vérifier si le lien a expiré (24h après création du compte)
     const createdAt = new Date(user.rows[0].created_at);
     const now = new Date();
     const diffHours = (now - createdAt) / (1000 * 60 * 60);
@@ -108,7 +130,6 @@ router.get("/verify-email", async (req, res) => {
 
     await pool.query("UPDATE users SET email_verified = true, verification_token = NULL WHERE id = $1", [user.rows[0].id]);
 
-    // Rediriger vers la page de succès
     return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/email-verified?success=true`);
   } catch (err) {
     console.error(err);

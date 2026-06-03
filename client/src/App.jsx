@@ -22,6 +22,7 @@ import Invitations from './pages/admin/Invitations';
 import Tips from './pages/admin/Tips';
 import QuestionBank from './pages/admin/QuestionBank'; // 🆕 Banque de questions
 import Subjects from './pages/admin/Subjects'; // ✅ Matières
+import Schools from './pages/admin/Schools'; // 🏫 Écoles
 
 // Pages Élève (alias pour éviter les conflits)
 import StudentExercises from './pages/student/Exercises';
@@ -120,6 +121,7 @@ function AppContent() {
         <Route path="groups" element={<Groups />} />
         <Route path="chapters" element={<Chapters />} />
         <Route path="subjects" element={<Subjects />} /> {/* ✅ Matières */}
+        <Route path="schools" element={<Schools />} /> {/* 🏫 Écoles */}
         <Route path="payments" element={<Payments />} />
         <Route path="exercises" element={<Exercises />} />
         <Route path="quizzes" element={<Quizzes />} />
