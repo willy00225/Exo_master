@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Edit, Trash2, BookOpen, Loader, AlertCircle, CheckCircle, Filter } from 'lucide-react';
+import {
+  Plus, Edit, Trash2, BookOpen, Loader,
+  AlertCircle, CheckCircle, Filter, Sparkles, X, Zap
+} from 'lucide-react';
 import api from '../../services/api';
 
 const Chapters = () => {
@@ -13,6 +16,12 @@ const Chapters = () => {
   const [form, setForm] = useState({ title: '', group_id: '', subject_id: '', order_index: 0 });
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+
+  // État pour la génération IA
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [aiForm, setAiForm] = useState({ group_id: '', subject_id: '', count: 10 });
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiMessage, setAiMessage] = useState({ type: '', text: '' });
 
   const fetchChapters = async () => {
     setLoading(true);
@@ -30,18 +39,14 @@ const Chapters = () => {
     try {
       const res = await api.get('/groups');
       setGroups(res.data);
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err) { console.error(err); }
   };
 
   const fetchSubjects = async () => {
     try {
       const res = await api.get('/admin/subjects');
       setSubjects(res.data);
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err) { console.error(err); }
   };
 
   useEffect(() => {
@@ -117,8 +122,30 @@ const Chapters = () => {
     }
   };
 
+  // Génération IA
+  const handleAiGenerate = async (e) => {
+    e.preventDefault();
+    if (!aiForm.group_id || !aiForm.subject_id) {
+      setAiMessage({ type: 'error', text: 'Veuillez sélectionner une classe et une matière.' });
+      return;
+    }
+    setAiGenerating(true);
+    setAiMessage({ type: '', text: '' });
+    try {
+      const res = await api.post('/ai/generate-chapters', aiForm);
+      setAiMessage({ type: 'success', text: res.data.message });
+      fetchChapters();
+      setTimeout(() => setAiModalOpen(false), 1500);
+    } catch (err) {
+      setAiMessage({ type: 'error', text: err.response?.data?.error || 'Erreur lors de la génération.' });
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {/* En-tête */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -131,13 +158,22 @@ const Chapters = () => {
           </h1>
           <p className="text-slate-400 mt-1">Organisez vos chapitres par matière et classe</p>
         </div>
-        <button
-          onClick={handleCreate}
-          className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-4 py-2.5 rounded-lg font-medium hover:shadow-lg transition-all"
-        >
-          <Plus size={18} />
-          Nouveau chapitre
-        </button>
+        <div className="flex flex-wrap gap-3">
+          <button
+            onClick={() => setAiModalOpen(true)}
+            className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white px-4 py-2.5 rounded-lg font-medium hover:shadow-lg transition-all"
+          >
+            <Sparkles size={18} />
+            Générer par IA
+          </button>
+          <button
+            onClick={handleCreate}
+            className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-4 py-2.5 rounded-lg font-medium hover:shadow-lg transition-all"
+          >
+            <Plus size={18} />
+            Nouveau chapitre
+          </button>
+        </div>
       </motion.div>
 
       {message.text && (
@@ -145,8 +181,8 @@ const Chapters = () => {
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           className={`flex items-center gap-2 p-4 rounded-xl ${
-            message.type === 'success' ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-300'
-              : 'bg-red-500/20 border border-red-500/30 text-red-300'
+            message.type === 'success' ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-300'
+            : 'bg-red-500/20 border-red-500/30 text-red-300'
           }`}
         >
           {message.type === 'success' ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
@@ -154,6 +190,7 @@ const Chapters = () => {
         </motion.div>
       )}
 
+      {/* Tableau des chapitres */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -245,6 +282,80 @@ const Chapters = () => {
                   {saving ? 'Enregistrement...' : editingChapter ? 'Mettre à jour' : 'Créer'}
                 </button>
               </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modale de génération IA */}
+      {aiModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setAiModalOpen(false)}>
+          <div className="bg-slate-900 border border-white/10 rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-white font-space-grotesk flex items-center gap-2">
+                <Sparkles className="text-violet-400" size={22} />
+                Génération IA de chapitres
+              </h2>
+              <button onClick={() => setAiModalOpen(false)} className="p-1.5 bg-white/10 text-slate-300 rounded-full hover:bg-white/20">
+                <X size={18} />
+              </button>
+            </div>
+
+            {aiMessage.text && (
+              <div className={`flex items-center gap-2 p-3 rounded-lg mb-4 ${
+                aiMessage.type === 'success' ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-300' : 'bg-red-500/20 border-red-500/30 text-red-300'
+              }`}>
+                {aiMessage.type === 'success' ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
+                {aiMessage.text}
+              </div>
+            )}
+
+            <form onSubmit={handleAiGenerate} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Classe *</label>
+                <select
+                  value={aiForm.group_id}
+                  onChange={(e) => setAiForm({ ...aiForm, group_id: e.target.value })}
+                  className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white"
+                  required
+                >
+                  <option value="">Sélectionnez une classe</option>
+                  {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Matière *</label>
+                <select
+                  value={aiForm.subject_id}
+                  onChange={(e) => setAiForm({ ...aiForm, subject_id: e.target.value })}
+                  className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white"
+                  required
+                >
+                  <option value="">Sélectionnez une matière</option>
+                  {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">
+                  Nombre de chapitres (max 20)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="20"
+                  value={aiForm.count}
+                  onChange={(e) => setAiForm({ ...aiForm, count: e.target.value })}
+                  className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={aiGenerating}
+                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg disabled:opacity-50"
+              >
+                {aiGenerating ? <Loader size={18} className="animate-spin" /> : <Zap size={18} />}
+                {aiGenerating ? 'Génération...' : 'Générer les chapitres'}
+              </button>
             </form>
           </div>
         </div>
