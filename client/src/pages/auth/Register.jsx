@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
-import { UserPlus, Mail, Lock, User, ArrowLeft, GraduationCap } from 'lucide-react';
+import { UserPlus, Mail, Lock, User, ArrowLeft, GraduationCap, Building2 } from 'lucide-react';
 import logo from '../../assets/exo_master_logo.png';
 
 const Register = () => {
@@ -14,6 +14,7 @@ const Register = () => {
     password: '',
     confirmPassword: '',
     group_id: '',
+    school_code: '', // ✅ Nouveau champ
   });
   const [groups, setGroups] = useState([]);
   const [error, setError] = useState('');
@@ -71,7 +72,7 @@ const Register = () => {
         transition={{ duration: 0.6, ease: 'easeOut' }}
         className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl w-full max-w-md p-6 my-8"
       >
-        {/* Logo – taille réduite et marges ajustées */}
+        {/* Logo */}
         <div className="flex flex-col items-center mb-4">
           <img src={logo} alt="EXO MASTER" className="h-12 w-auto mb-1" />
           <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">
@@ -177,6 +178,22 @@ const Register = () => {
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* ✅ Code école (optionnel) */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-1">
+              <Building2 size={16} className="inline mr-1" />
+              Code école (optionnel)
+            </label>
+            <input
+              type="text"
+              name="school_code"
+              value={formData.school_code}
+              onChange={handleChange}
+              className="w-full px-4 py-2.5 bg-white/5 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              placeholder="Code fourni par votre établissement"
+            />
           </div>
 
           {/* Case à cocher pour afficher le mot de passe */}

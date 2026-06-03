@@ -198,6 +198,38 @@ const pool = require("./config/db");
       )
     `);
 
+    // Création des tables pour les écoles partenaires
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS schools (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        code VARCHAR(50) UNIQUE NOT NULL,
+        max_students INTEGER DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS school_groups (
+        school_id INTEGER REFERENCES schools(id) ON DELETE CASCADE,
+        group_id INTEGER REFERENCES groups(id) ON DELETE CASCADE,
+        PRIMARY KEY (school_id, group_id)
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS school_enrollments (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        school_id INTEGER REFERENCES schools(id) ON DELETE CASCADE,
+        enrolled_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    await pool.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS school_id INTEGER REFERENCES schools(id) ON DELETE SET NULL
+    `);
+
     // Insertion des matières de base (ignorées si déjà présentes)
     await pool.query(`
       INSERT INTO subjects (name, slug) VALUES
