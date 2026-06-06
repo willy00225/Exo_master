@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Sparkles, Edit, Trash2, FileText, Download, Filter, Loader,
-  BarChart3, X, Save, AlertCircle, CheckCircle, Zap, Brain, BookOpen, AlertTriangle
+  BarChart3, X, Save, AlertCircle, CheckCircle, Zap, Brain, BookOpen, AlertTriangle, Layers
 } from 'lucide-react';
 import api from '../../services/api';
 import ExerciseUploadModal from '../../components/admin/ExerciseUploadModal';
 import ExerciseGenerateModal from '../../components/admin/ExerciseGenerateModal';
+import BatchGenerateModal from '../../components/admin/BatchGenerateModal'; // 🆕
 
 const difficultyLabels = {
   easy: { label: 'Facile', color: 'text-emerald-400 bg-emerald-500/20 border-emerald-500/30' },
@@ -24,6 +25,7 @@ const Exercises = () => {
   const [operationMessage, setOperationMessage] = useState({ type: '', text: '' });
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [generateModalOpen, setGenerateModalOpen] = useState(false);
+  const [batchModalOpen, setBatchModalOpen] = useState(false); // 🆕
   const [editingExercise, setEditingExercise] = useState(null);
   const [filters, setFilters] = useState({ group_id: '', chapter_id: '', difficulty: '' });
 
@@ -109,6 +111,7 @@ const Exercises = () => {
     fetchExercises();
     setUploadModalOpen(false);
     setGenerateModalOpen(false);
+    setBatchModalOpen(false); // 🆕
     setEditingExercise(null);
   };
 
@@ -147,6 +150,13 @@ const Exercises = () => {
           >
             <Sparkles size={18} />
             Générer par IA
+          </button>
+          <button
+            onClick={() => setBatchModalOpen(true)} // 🆕
+            className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-2.5 rounded-lg font-medium hover:from-amber-600 hover:to-orange-600 transition-all shadow-lg"
+          >
+            <Layers size={18} />
+            Générer par lot
           </button>
           <button
             onClick={() => setUploadModalOpen(true)}
@@ -333,6 +343,12 @@ const Exercises = () => {
         onSave={handleSave}
         groups={groups}
       />
+      {/* 🆕 Génération par lot */}
+<BatchGenerateModal
+  isOpen={batchModalOpen}
+  onClose={() => setBatchModalOpen(false)}
+  onSave={handleSave}
+/>
     </div>
   );
 };
