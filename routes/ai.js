@@ -168,7 +168,7 @@ Réponds UNIQUEMENT avec un JSON : { "isCorrect": true/false, "correctIndex": 0,
 });
 
 // ------------------------------------------------------------------
-// 📝 POST /api/ai/generate-exercise – Génération d'exercice via IA
+// 📝 POST /api/ai/generate-exercise – Génération d'exercice avec triple vérification et SVG
 // ------------------------------------------------------------------
 router.post("/generate-exercise", async (req, res) => {
   try {
@@ -190,21 +190,29 @@ router.post("/generate-exercise", async (req, res) => {
     if (curriculum === 'ivoirien') {
       curriculumIntro = "Tu es un professeur certifié du système éducatif ivoirien, enseignant selon les programmes officiels de la Côte d'Ivoire. ";
     } else {
-      // Pour d'autres pays, une phrase générique pourra être ajoutée ultérieurement
       curriculumIntro = "Tu es un professeur certifié. ";
     }
 
-    const systemInstruction = "Tu es un professeur certifié. Réponds UNIQUEMENT avec un objet JSON valide contenant 'title', 'statement', 'correction'.";
+    // --- Détection des matières nécessitant souvent des schémas (niveau 2) ---
+    const needsFigure = ['Mathématiques', 'Physique-Chimie', 'SVT', 'Technologie'].includes(subject) &&
+                        (difficulty === 'medium' || difficulty === 'hard' || difficulty === 'very_hard');
+
+    const systemInstruction = "Tu es un professeur certifié. Réponds UNIQUEMENT avec un objet JSON valide contenant 'title', 'statement', 'correction'" +
+      (needsFigure ? ", et éventuellement 'figure'." : ".");
+
     const prompt = `${curriculumIntro}
 Tu es un professeur agrégé en ${subject}, enseignant à des élèves de niveau ${level}. 
 Tu dois créer un exercice de difficulté "${difficulty}" sur le chapitre "${chapterTitle}". 
 Le client attend un exercice parfaitement exact, adapté au programme officiel de ce niveau, et un corrigé détaillé étape par étape. 
 Vérifie soigneusement tous les calculs, définitions et raisonnements avant de répondre.
-
+${needsFigure ? `
+**IMPORTANT :** Si l'exercice nécessite une figure géométrique, un graphique, un schéma électrique, un montage expérimental, ou tout autre support visuel, génère-la en **SVG** dans une clé "figure".
+Le SVG doit être simple, lisible, auto-suffisant, avec une taille maximale de 400x400, et utilisable directement dans une page HTML.
+` : ''}
 Retourne UNIQUEMENT un objet JSON valide avec les clés suivantes :
 {
   "title": "Titre court et descriptif",
-  "statement": "Énoncé complet, éventuellement avec des sous‑questions",
+  "statement": "Énoncé complet, éventuellement avec des sous‑questions"${needsFigure ? ',\n  "figure": "<svg>...</svg>" (optionnelle, si pertinent)' : ''},
   "correction": "Corrigé complet, expliquant chaque étape de manière pédagogique"
 }
 `;
@@ -216,7 +224,7 @@ Retourne UNIQUEMENT un objet JSON valide avec les clés suivantes :
       return res.status(500).json({ error: "L'IA n'a pas pu produire un exercice valide." });
     }
 
-    // --- DOUBLE VÉRIFICATION (sécurisée) ---
+    // --- DOUBLE VÉRIFICATION (vérificateur professeur, inchangé) ---
     let finalExercise = generated;
     try {
       const verifyPrompt = `
@@ -243,10 +251,34 @@ Retourne UNIQUEMENT le JSON, sans commentaire.
       console.warn("⚠️ Erreur lors de la double vérification, utilisation de l'exercice original :", verifyErr.message);
     }
 
+    // --- 🔥 NOUVEAU : validation automatique du corrigé par un élève simulé ---
+    try {
+      const validatePrompt = `
+En tant qu'élève de niveau ${level}, résous l'exercice suivant :
+${finalExercise.statement}
+
+Une fois que tu as terminé, compare ton résultat avec le corrigé suivant :
+${finalExercise.correction}
+
+Si le corrigé te semble faux ou incohérent avec ta résolution, retourne un JSON { "valid": false, "correctedCorrection": "..." }.
+Sinon, retourne { "valid": true }.
+
+Ne retourne QUE le JSON demandé, sans commentaire.
+`;
+      const rawValidation = await generateWithAI(validatePrompt, "Tu es un élève consciencieux qui vérifie son travail.");
+      const validation = parseAIResponse(rawValidation);
+      if (validation && validation.valid === false && validation.correctedCorrection) {
+        finalExercise.correction = validation.correctedCorrection;
+        console.log("🔧 Correction automatique du corrigé par validation élève.");
+      }
+    } catch (valErr) {
+      console.warn("⚠️ Validation élève impossible, on garde le corrigé existant.");
+    }
+
     // --- INSERTION EN BASE ---
     const result = await pool.query(
-      `INSERT INTO exercises (title, description, content, correction, difficulty, group_id, chapter_id, file_path)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      `INSERT INTO exercises (title, description, content, correction, difficulty, group_id, chapter_id, file_path, figure)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
       [
         finalExercise.title,
         finalExercise.statement.substring(0, 200) + '...',
@@ -255,7 +287,8 @@ Retourne UNIQUEMENT le JSON, sans commentaire.
         difficulty,
         group_id,
         chapter_id || null,
-        ''
+        '',
+        finalExercise.figure || null
       ]
     );
 
