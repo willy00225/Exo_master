@@ -54,12 +54,23 @@ const Exercises = () => {
         ...Object.fromEntries(Object.entries(filters).filter(([_, v]) => v !== ''))
       });
       const res = await api.get(`/exercises?${params.toString()}`);
-      setExercises(res.data.exercises);
-      setTotal(res.data.total);
-      setTotalPages(res.data.totalPages);
+      // Compatibilité avec l'ancien format (tableau) et le nouveau format paginé
+      if (Array.isArray(res.data)) {
+        setExercises(res.data);
+        setTotal(res.data.length);
+        setTotalPages(1);
+      } else {
+        setExercises(res.data.exercises || []);
+        setTotal(res.data.total || 0);
+        setTotalPages(res.data.totalPages || 1);
+      }
     } catch (err) {
       console.error(err);
-      setLoadError('Impossible de charger les exercices.');
+      if (err.code === 'ECONNABORTED' || err.message.includes('timeout')) {
+        setLoadError('Le serveur met trop de temps à répondre. Veuillez réessayer.');
+      } else {
+        setLoadError('Impossible de charger les exercices. Veuillez réessayer.');
+      }
     } finally {
       setLoading(false);
     }
@@ -121,7 +132,7 @@ const Exercises = () => {
 
   const handleFilterChange = (field, value) => {
     setFilters(prev => ({ ...prev, [field]: value }));
-    setPage(1); // retour à la première page
+    setPage(1);
   };
 
   const clearFilters = () => {
