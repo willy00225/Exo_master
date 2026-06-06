@@ -30,7 +30,6 @@ const Exercises = () => {
   const [batchModalOpen, setBatchModalOpen] = useState(false);
   const [editingExercise, setEditingExercise] = useState(null);
 
-  // Filtres
   const [filters, setFilters] = useState({
     group_id: '',
     subject_id: '',
@@ -38,7 +37,6 @@ const Exercises = () => {
     difficulty: ''
   });
 
-  // Pagination
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
@@ -54,7 +52,6 @@ const Exercises = () => {
         ...Object.fromEntries(Object.entries(filters).filter(([_, v]) => v !== ''))
       });
       const res = await api.get(`/exercises?${params.toString()}`);
-      // Compatibilité avec l'ancien format (tableau) et le nouveau format paginé
       if (Array.isArray(res.data)) {
         setExercises(res.data);
         setTotal(res.data.length);
@@ -77,19 +74,13 @@ const Exercises = () => {
   };
 
   const fetchGroups = async () => {
-    try {
-      const res = await api.get('/groups');
-      setGroups(res.data);
-    } catch (err) { console.error(err); }
+    try { const res = await api.get('/groups'); setGroups(res.data); } catch (err) { console.error(err); }
   };
-
   const fetchSubjects = async () => {
-    try {
-      const res = await api.get('/admin/subjects');
-      setSubjects(res.data);
-    } catch (err) { console.error(err); }
+    try { const res = await api.get('/admin/subjects'); setSubjects(res.data); } catch (err) { console.error(err); }
   };
 
+  // Charger les chapitres UNIQUEMENT pour la classe sélectionnée
   const fetchChapters = async () => {
     if (!filters.group_id) {
       setChapters([]);
@@ -118,8 +109,8 @@ const Exercises = () => {
   };
 
   const handleDownload = (exercise) => {
-    const filename = exercise.file_path.split('/').pop();
-    window.open(`${api.defaults.baseURL}/exercises/file/${filename}`, '_blank');
+    const filename = exercise.file_path?.split('/').pop();
+    if (filename) window.open(`${api.defaults.baseURL}/exercises/file/${filename}`, '_blank');
   };
 
   const handleSave = () => {
@@ -131,7 +122,15 @@ const Exercises = () => {
   };
 
   const handleFilterChange = (field, value) => {
-    setFilters(prev => ({ ...prev, [field]: value }));
+    setFilters(prev => {
+      const newFilters = { ...prev, [field]: value };
+      // Si on change de classe, on réinitialise le chapitre et la matière
+      if (field === 'group_id') {
+        newFilters.chapter_id = '';
+        newFilters.subject_id = '';
+      }
+      return newFilters;
+    });
     setPage(1);
   };
 
@@ -186,22 +185,26 @@ const Exercises = () => {
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
         className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-4 flex flex-wrap items-center gap-3">
         <Filter size={20} className="text-slate-400" />
+        {/* Classe */}
         <select value={filters.group_id} onChange={e => handleFilterChange('group_id', e.target.value)}
           className="bg-white/5 border border-white/20 rounded-lg text-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all">
           <option value="">Toutes les classes</option>
           {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
         </select>
+        {/* Matière */}
         <select value={filters.subject_id} onChange={e => handleFilterChange('subject_id', e.target.value)}
           className="bg-white/5 border border-white/20 rounded-lg text-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all">
           <option value="">Toutes les matières</option>
           {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
+        {/* Chapitre (uniquement ceux de la classe sélectionnée) */}
         <select value={filters.chapter_id} onChange={e => handleFilterChange('chapter_id', e.target.value)}
           disabled={!filters.group_id}
           className="bg-white/5 border border-white/20 rounded-lg text-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all disabled:opacity-50">
           <option value="">Tous les chapitres</option>
           {chapters.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
         </select>
+        {/* Difficulté */}
         <select value={filters.difficulty} onChange={e => handleFilterChange('difficulty', e.target.value)}
           className="bg-white/5 border border-white/20 rounded-lg text-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all">
           <option value="">Toutes difficultés</option>

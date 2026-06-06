@@ -215,12 +215,29 @@ router.post("/", upload.single("file"), async (req, res) => {
   }
 });
 
-// GET /api/exercises - Lister tous les exercices (admin) avec filtres optionnels
+// GET /api/exercises - Liste paginée avec filtres pointus (admin)
 router.get("/", async (req, res) => {
   try {
-    const { group_id, chapter_id, difficulty } = req.query;
-    let query = "SELECT e.*, c.title as chapter_title FROM exercises e LEFT JOIN chapters c ON e.chapter_id = c.id";
+    const { group_id, chapter_id, subject_id, difficulty, page = 1, limit = 20 } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
     const params = [];
+
+    // Requête de comptage
+    let countQuery = `SELECT COUNT(*) FROM exercises e
+                      LEFT JOIN chapters c ON e.chapter_id = c.id
+                      LEFT JOIN groups g ON e.group_id = g.id
+                      LEFT JOIN subjects s ON c.subject_id = s.id`;
+
+    // Requête de données avec jointures pour récupérer les noms
+    let dataQuery = `SELECT e.*,
+                            COALESCE(g.name, '') AS group_name,
+                            COALESCE(s.name, '') AS subject_name,
+                            COALESCE(c.title, '') AS chapter_title
+                     FROM exercises e
+                     LEFT JOIN chapters c ON e.chapter_id = c.id
+                     LEFT JOIN groups g ON e.group_id = g.id
+                     LEFT JOIN subjects s ON c.subject_id = s.id`;
+
     const conditions = [];
 
     if (group_id) {
@@ -231,19 +248,40 @@ router.get("/", async (req, res) => {
       conditions.push(`e.chapter_id = $${params.length + 1}`);
       params.push(chapter_id);
     }
+    if (subject_id) {
+      conditions.push(`c.subject_id = $${params.length + 1}`);
+      params.push(subject_id);
+    }
     if (difficulty) {
       conditions.push(`e.difficulty = $${params.length + 1}`);
       params.push(difficulty);
     }
 
     if (conditions.length > 0) {
-      query += " WHERE " + conditions.join(" AND ");
+      const whereClause = " WHERE " + conditions.join(" AND ");
+      countQuery += whereClause;
+      dataQuery += whereClause;
     }
 
-    query += " ORDER BY e.created_at DESC";
+    dataQuery += " ORDER BY e.created_at DESC";
+    dataQuery += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    params.push(limit, offset);
 
-    const exercises = await pool.query(query, params);
-    res.json(exercises.rows);
+    const [countResult, dataResult] = await Promise.all([
+      pool.query(countQuery, params.slice(0, params.length - 2)),
+      pool.query(dataQuery, params)
+    ]);
+
+    const total = parseInt(countResult.rows[0].count);
+    const totalPages = Math.ceil(total / limit);
+
+    res.json({
+      exercises: dataResult.rows,
+      total,
+      page: parseInt(page),
+      totalPages,
+      limit: parseInt(limit)
+    });
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ error: "Erreur lors de la récupération des exercices." });
