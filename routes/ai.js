@@ -74,14 +74,19 @@ Retourne UNIQUEMENT un objet JSON valide avec les clés suivantes :
   let finalExercise = generated;
   try {
     const verifyPrompt = `
-Un professeur a rédigé l'exercice suivant :
-Titre : ${generated.title}
-Énoncé : ${generated.statement}
-Corrigé : ${generated.correction}
+Un professeur a rédigé l'exercice suivant au format JSON :
+{
+  "title": "${generated.title.replace(/"/g, '\\"')}",
+  "statement": "${generated.statement.replace(/"/g, '\\"').substring(0, 500)}...",
+  "correction": "${generated.correction.replace(/"/g, '\\"').substring(0, 500)}..."
+}
 
-En tant qu'expert en ${subject} (niveau ${level}), vérifie l'exactitude de l'énoncé et du corrigé. 
-Si tu trouves une erreur (de calcul, de logique, de programme), corrige‑la et retourne le JSON corrigé complet avec les mêmes clés. 
+En tant qu'expert en ${subject} (niveau ${level}), vérifie l'exactitude de l'énoncé et du corrigé.
+Si tu trouves une erreur, corrige-la et retourne le JSON corrigé complet avec EXACTEMENT les mêmes clés : "title", "statement", "correction".
 Si tout est parfait, retourne le JSON original sans modification.
+
+IMPORTANT : Les clés doivent être en anglais : "title", "statement", "correction".
+Le contenu doit être du texte simple, pas d'objets imbriqués.
 
 Retourne UNIQUEMENT le JSON, sans commentaire.
 `;
