@@ -327,7 +327,8 @@ router.post("/generate-exercises-batch", async (req, res) => {
             curriculum: 'ivoirien'
           });
           results.push({ chapter: chapter.title, title: exercise.title, status: 'ok' });
-          await new Promise(resolve => setTimeout(resolve, 30000)); // 30 secondes
+          // 🔥 Délai réduit à 5 secondes (au lieu de 30)
+          await new Promise(resolve => setTimeout(resolve, 5000));
         } catch (err) {
           results.push({ chapter: chapter.title, error: err.message, status: 'error' });
         }
