@@ -34,6 +34,7 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
   const [result, setResult] = useState(null);
   const [challengeResult, setChallengeResult] = useState(null);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null); // 🆕
   const timerRef = useRef(null);
   const handleSubmitRef = useRef(() => {});
 
@@ -43,10 +44,10 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
       : `/quizzes/${quizId}/start`;
 
     setInitialLoading(true);
+    setLoadError(null);
     api.post(startUrl)
       .then(res => {
         const rawQuestions = res.data.questions || [];
-        // Normaliser les options de chaque question
         const safeQuestions = rawQuestions.map(q => ({
           ...q,
           options: normalizeOptions(q.options),
@@ -59,6 +60,8 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
       })
       .catch(err => {
         console.error(err);
+        const msg = err.response?.data?.error || err.message || "Erreur lors du chargement du quiz.";
+        setLoadError(msg);
         setInitialLoading(false);
       });
 
@@ -131,6 +134,19 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
         ? 'border-violet-400 bg-violet-500/20 text-white'
         : 'border-white/10 text-slate-300 hover:bg-white/10'
     }`;
+
+  // 🆕 Écran d'erreur
+  if (loadError) {
+    return (
+      <div className="flex items-center justify-center py-12 text-white">
+        <div className="text-center space-y-4">
+          <XCircle size={48} className="mx-auto text-red-400" />
+          <p className="text-red-400 text-lg">{loadError}</p>
+          <Button onClick={onBack}>Retour</Button>
+        </div>
+      </div>
+    );
+  }
 
   // Écran de chargement
   if (initialLoading) {
@@ -241,7 +257,7 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
     );
   }
 
-  // Quiz en cours (affiché uniquement après chargement réussi)
+  // Quiz en cours
   return (
     <div className="space-y-6 text-white">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
