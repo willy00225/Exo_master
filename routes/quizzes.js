@@ -72,11 +72,11 @@ router.post("/:id/start", auth, subscription, async (req, res) => {
       return res.status(404).json({ error: "Aucune question disponible pour ce quiz." });
     }
 
-    // Préparer les questions pour l'étudiant (sans réponses)
+    // 🔥 Correction : normalisation des options pour garantir un tableau
     const questionsForStudent = questions.map(q => ({
       id: q.id,
       text: q.question_text,
-      options: q.options,
+      options: Array.isArray(q.options) ? q.options : (typeof q.options === 'string' ? q.options.split(' ').filter(Boolean) : []),
     }));
 
     // Créer la tentative en sauvegardant les questions complètes (avec réponses) pour la correction future
