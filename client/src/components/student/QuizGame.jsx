@@ -16,6 +16,13 @@ const formatExplanation = (text) => {
   });
 };
 
+// 🔥 Helper pour normaliser les options (toujours un tableau)
+const normalizeOptions = (options) => {
+  if (Array.isArray(options)) return options;
+  if (typeof options === 'string') return options.split(' ').filter(Boolean);
+  return [];
+};
+
 const QuizGame = ({ quizId, challengeId, onBack }) => {
   const { user } = useAuth();
   const [attemptId, setAttemptId] = useState(null);
@@ -26,7 +33,7 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
   const [submitted, setSubmitted] = useState(false);
   const [result, setResult] = useState(null);
   const [challengeResult, setChallengeResult] = useState(null);
-  const [initialLoading, setInitialLoading] = useState(true); // 🆕 État de chargement
+  const [initialLoading, setInitialLoading] = useState(true);
   const timerRef = useRef(null);
   const handleSubmitRef = useRef(() => {});
 
@@ -38,15 +45,21 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
     setInitialLoading(true);
     api.post(startUrl)
       .then(res => {
+        const rawQuestions = res.data.questions || [];
+        // Normaliser les options de chaque question
+        const safeQuestions = rawQuestions.map(q => ({
+          ...q,
+          options: normalizeOptions(q.options),
+        }));
         setAttemptId(res.data.attempt_id);
-        setQuestions(res.data.questions);
+        setQuestions(safeQuestions);
         setTimeLimit(res.data.time_limit);
         setTimeLeft(res.data.time_limit);
-        setInitialLoading(false); // ✅ Questions chargées
+        setInitialLoading(false);
       })
       .catch(err => {
         console.error(err);
-        setInitialLoading(false); // Même en cas d'erreur, on arrête le chargement
+        setInitialLoading(false);
       });
 
     return () => clearInterval(timerRef.current);
@@ -94,7 +107,7 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
   }, [handleSubmit]);
 
   useEffect(() => {
-    if (initialLoading) return; // ⛔ Ne démarre pas le timer avant la fin du chargement
+    if (initialLoading) return;
     timerRef.current = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
@@ -119,7 +132,7 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
         : 'border-white/10 text-slate-300 hover:bg-white/10'
     }`;
 
-  // 🆕 Écran de chargement pendant la récupération des questions
+  // Écran de chargement
   if (initialLoading) {
     return (
       <div className="flex items-center justify-center py-12 text-white">
@@ -131,7 +144,7 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
     );
   }
 
-  // Résultats après soumission
+  // Résultats
   if (submitted && result) {
     const isChallenge = !!challengeId;
     const hasChallengeResult = challengeResult !== null;
@@ -198,7 +211,7 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
                 <div>
                   <p className="font-medium">{idx + 1}. {corr.text}</p>
                   <div className="mt-2 space-y-1">
-                    {corr.options.map((opt, optIdx) => (
+                    {normalizeOptions(corr.options).map((opt, optIdx) => (
                       <div key={optIdx} className={`p-2 rounded-lg text-sm ${
                         optIdx === corr.correctOption
                           ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-300'
@@ -228,7 +241,7 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
     );
   }
 
-  // Quiz en cours (affiché uniquement après chargement des questions)
+  // Quiz en cours (affiché uniquement après chargement réussi)
   return (
     <div className="space-y-6 text-white">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -240,33 +253,31 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
       </div>
 
       <div className="space-y-6">
-        {questions.map((q, idx) => (
-          <div
-            key={q.id}
-            className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-5 md:p-6"
-          >
-            <p className="font-medium text-white text-lg mb-4">
-              {idx + 1}. {q.text}
-            </p>
-            <div className="space-y-3">
-              {q.options.map((opt, optIdx) => (
-                <label
-                  key={optIdx}
-                  className={optionClass(q.id, optIdx)}
-                >
-                  <input
-                    type="radio"
-                    name={`q-${q.id}`}
-                    checked={answers[q.id] === optIdx}
-                    onChange={() => selectAnswer(q.id, optIdx)}
-                    className="mr-3 accent-violet-500"
-                  />
-                  <span>{opt}</span>
-                </label>
-              ))}
+        {questions.length === 0 ? (
+          <p className="text-slate-400">Aucune question disponible.</p>
+        ) : (
+          questions.map((q, idx) => (
+            <div key={q.id} className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-5 md:p-6">
+              <p className="font-medium text-white text-lg mb-4">
+                {idx + 1}. {q.text}
+              </p>
+              <div className="space-y-3">
+                {q.options.map((opt, optIdx) => (
+                  <label key={optIdx} className={optionClass(q.id, optIdx)}>
+                    <input
+                      type="radio"
+                      name={`q-${q.id}`}
+                      checked={answers[q.id] === optIdx}
+                      onChange={() => selectAnswer(q.id, optIdx)}
+                      className="mr-3 accent-violet-500"
+                    />
+                    <span>{opt}</span>
+                  </label>
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
 
       <Button onClick={handleSubmit} className="w-full py-4 text-lg">
