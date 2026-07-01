@@ -17,7 +17,7 @@ const formatExplanation = (text) => {
 };
 
 const QuizGame = ({ quizId, challengeId, onBack }) => {
-  const { user } = useAuth(); // Récupération de l'utilisateur connecté
+  const { user } = useAuth();
   const [attemptId, setAttemptId] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [timeLimit, setTimeLimit] = useState(600);
@@ -25,7 +25,8 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
   const [answers, setAnswers] = useState({});
   const [submitted, setSubmitted] = useState(false);
   const [result, setResult] = useState(null);
-  const [challengeResult, setChallengeResult] = useState(null); // Résultat du défi (victoire/défaite/égalité)
+  const [challengeResult, setChallengeResult] = useState(null);
+  const [initialLoading, setInitialLoading] = useState(true); // 🆕 État de chargement
   const timerRef = useRef(null);
   const handleSubmitRef = useRef(() => {});
 
@@ -33,12 +34,21 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
     const startUrl = challengeId
       ? `/challenges/${challengeId}/start`
       : `/quizzes/${quizId}/start`;
-    api.post(startUrl).then(res => {
-      setAttemptId(res.data.attempt_id);
-      setQuestions(res.data.questions);
-      setTimeLimit(res.data.time_limit);
-      setTimeLeft(res.data.time_limit);
-    }).catch(console.error);
+
+    setInitialLoading(true);
+    api.post(startUrl)
+      .then(res => {
+        setAttemptId(res.data.attempt_id);
+        setQuestions(res.data.questions);
+        setTimeLimit(res.data.time_limit);
+        setTimeLeft(res.data.time_limit);
+        setInitialLoading(false); // ✅ Questions chargées
+      })
+      .catch(err => {
+        console.error(err);
+        setInitialLoading(false); // Même en cas d'erreur, on arrête le chargement
+      });
+
     return () => clearInterval(timerRef.current);
   }, [quizId, challengeId]);
 
@@ -61,7 +71,6 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
       setResult(res.data);
       setSubmitted(true);
 
-      // Si c'est un défi, récupérer le statut final (victoire/défaite/égalité)
       if (challengeId && user) {
         try {
           const statusRes = await api.get(`/challenges/${challengeId}/status`);
@@ -85,6 +94,7 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
   }, [handleSubmit]);
 
   useEffect(() => {
+    if (initialLoading) return; // ⛔ Ne démarre pas le timer avant la fin du chargement
     timerRef.current = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
@@ -96,7 +106,7 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
       });
     }, 1000);
     return () => clearInterval(timerRef.current);
-  }, [quizId, challengeId]);
+  }, [initialLoading, quizId, challengeId]);
 
   const selectAnswer = (questionId, optionIndex) => {
     setAnswers(prev => ({ ...prev, [questionId]: optionIndex }));
@@ -109,13 +119,25 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
         : 'border-white/10 text-slate-300 hover:bg-white/10'
     }`;
 
+  // 🆕 Écran de chargement pendant la récupération des questions
+  if (initialLoading) {
+    return (
+      <div className="flex items-center justify-center py-12 text-white">
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-400"></div>
+          <p>Chargement du quiz...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Résultats après soumission
   if (submitted && result) {
     const isChallenge = !!challengeId;
     const hasChallengeResult = challengeResult !== null;
 
     return (
       <div className="space-y-6 text-white">
-        {/* Animation spéciale pour les défis */}
         {isChallenge && hasChallengeResult && (
           <div className={`text-center p-6 rounded-2xl border ${
             challengeResult.isWinner ? 'bg-emerald-500/10 border-emerald-500/30' :
@@ -159,14 +181,12 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
           </div>
         )}
 
-        {/* Résultat personnel du quiz */}
         <div className="text-center space-y-4 bg-white/5 border border-white/10 rounded-2xl p-6">
           <h2 className="text-2xl font-bold">Résultat</h2>
           <p className="text-5xl font-bold text-violet-400">{result.score} / {result.total}</p>
           <p className="text-lg text-slate-400">{result.percentage}% de réussite</p>
         </div>
 
-        {/* Corrigé détaillé */}
         <h3 className="text-xl font-semibold">Corrigé</h3>
         <div className="space-y-4">
           {result.corrections?.map((corr, idx) => (
@@ -208,6 +228,7 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
     );
   }
 
+  // Quiz en cours (affiché uniquement après chargement des questions)
   return (
     <div className="space-y-6 text-white">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
