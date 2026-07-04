@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Download, Loader, FileText, BookOpen, ChevronRight, Filter } from 'lucide-react';
+import { Download, Loader, FileText, BookOpen, ChevronRight, Filter, Unlock, Lock, CheckCircle } from 'lucide-react';
 import api from '../../services/api';
 
 const difficultyLabels = {
@@ -12,20 +12,55 @@ const difficultyLabels = {
 
 const Exercises = () => {
   const [data, setData] = useState({ groups: [], subjects: [] });
+  const [progress, setProgress] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeSubject, setActiveSubject] = useState(null); // id de la matière active
+  const [activeSubject, setActiveSubject] = useState(null);
 
   useEffect(() => {
-    api.get('/exercises/student/available')
-      .then(res => {
-        setData(res.data);
-        if (res.data.subjects.length > 0) {
-          setActiveSubject(res.data.subjects[0].id);
+    const fetchData = async () => {
+      try {
+        const [exRes, progRes] = await Promise.all([
+          api.get('/exercises/student/available'),
+          api.get('/student/difficulty-progress'),
+        ]);
+        setData(exRes.data);
+        setProgress(progRes.data);
+        if (exRes.data.subjects.length > 0) {
+          setActiveSubject(exRes.data.subjects[0].id);
         }
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
   }, []);
+
+  const handleUnlock = async (chapterId) => {
+    try {
+      const res = await api.post('/student/check-unlock', { chapter_id: chapterId });
+      if (res.data.unlocked) {
+        const [progRes, exRes] = await Promise.all([
+          api.get('/student/difficulty-progress'),
+          api.get('/exercises/student/available'),
+        ]);
+        setProgress(progRes.data);
+        setData(exRes.data);
+      } else {
+        alert("Vous devez réussir un quiz de la difficulté actuelle avec au moins 70 % pour passer à la suite.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Erreur lors de la vérification. Réessayez plus tard.");
+    }
+  };
+
+  const getFilteredExercises = (chapter) => {
+    const prog = progress.find(p => p.chapter_id === chapter.id);
+    const currentDiff = prog ? prog.current_difficulty : 'easy';
+    return chapter.exercises.filter(ex => ex.difficulty === currentDiff);
+  };
 
   if (loading) {
     return (
@@ -43,10 +78,9 @@ const Exercises = () => {
     <div className="space-y-6">
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
         <h1 className="text-3xl font-bold text-white font-space-grotesk">Exercices</h1>
-        <p className="text-slate-400 mt-1">Organisés par matière</p>
+        <p className="text-slate-400 mt-1">Progression adaptative – Validez un niveau pour débloquer le suivant</p>
       </motion.div>
 
-      {/* Onglets des matières */}
       {subjects.length > 0 && (
         <div className="flex flex-wrap gap-2 overflow-x-auto pb-2">
           {subjects.map(subject => (
@@ -66,7 +100,6 @@ const Exercises = () => {
         </div>
       )}
 
-      {/* Contenu de la matière active */}
       {currentSubject && (
         <div className="space-y-6">
           <h2 className="text-xl font-semibold text-white flex items-center gap-2">
@@ -79,24 +112,52 @@ const Exercises = () => {
               Aucun exercice dans cette matière pour le moment.
             </div>
           ) : (
-            currentSubject.chapters.map((chapter, idx) => (
-              <motion.div
-                key={chapter.id || idx}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.05 }}
-              >
-                <h3 className="text-lg font-medium text-slate-200 mb-3 flex items-center gap-2">
-                  <ChevronRight size={16} className="text-violet-400" />
-                  {chapter.title}
-                </h3>
-                <div className="space-y-3">
-                  {chapter.exercises.map(ex => (
-                    <ExerciseItem key={ex.id} ex={ex} apiBaseURL={api.defaults.baseURL} />
-                  ))}
-                </div>
-              </motion.div>
-            ))
+            currentSubject.chapters.map((chapter, idx) => {
+              const filtered = getFilteredExercises(chapter);
+              const prog = progress.find(p => p.chapter_id === chapter.id);
+              const currentDiff = prog ? prog.current_difficulty : 'easy';
+
+              return (
+                <motion.div
+                  key={chapter.id || idx}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.05 }}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-lg font-medium text-slate-200 flex items-center gap-2">
+                      <ChevronRight size={16} className="text-violet-400" />
+                      {chapter.title}
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-slate-400">
+                        {currentDiff === 'very_hard' ? '🏆 Maîtrise' : `Niveau : ${currentDiff}`}
+                      </span>
+                      {currentDiff !== 'very_hard' && (
+                        <button
+                          onClick={() => handleUnlock(chapter.id)}
+                          className="flex items-center gap-1 text-sm text-amber-400 hover:text-amber-300 bg-amber-500/10 px-2 py-1 rounded-lg"
+                        >
+                          <Unlock size={14} /> Passer à la suite
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {filtered.length === 0 ? (
+                      <p className="text-slate-500 italic bg-white/5 border border-white/10 rounded-2xl p-4">
+                        Aucun exercice pour ce niveau. Passez à la suite ou revenez plus tard.
+                      </p>
+                    ) : (
+                      filtered.map(ex => (
+                        <ExerciseItem key={ex.id} ex={ex} apiBaseURL={api.defaults.baseURL} />
+                      ))
+                    )}
+                  </div>
+                </motion.div>
+              );
+            })
           )}
         </div>
       )}
@@ -111,13 +172,14 @@ const Exercises = () => {
   );
 };
 
-// Composant ExerciseItem (identique à celui déjà présent, je l'inclus pour compacité)
+// Composant ExerciseItem avec appel à complete intégré
 const ExerciseItem = ({ ex, apiBaseURL }) => {
   const [showContent, setShowContent] = useState(false);
   const [showCorrection, setShowCorrection] = useState(false);
   const [attemptStarted, setAttemptStarted] = useState(false);
   const [remainingSeconds, setRemainingSeconds] = useState(0);
   const [canViewCorrection, setCanViewCorrection] = useState(false);
+  const [attemptCompleted, setAttemptCompleted] = useState(false); // 🆕
   const timerRef = useRef(null);
 
   const requiredMinutes = { easy: 5, medium: 10, hard: 15, very_hard: 20 }[ex.difficulty] || 10;
@@ -129,6 +191,7 @@ const ExerciseItem = ({ ex, apiBaseURL }) => {
     setRemainingSeconds(requiredSeconds);
   };
 
+  // Chronomètre
   useEffect(() => {
     if (!attemptStarted || remainingSeconds <= 0) return;
     timerRef.current = setInterval(() => {
@@ -143,6 +206,14 @@ const ExerciseItem = ({ ex, apiBaseURL }) => {
     }, 1000);
     return () => clearInterval(timerRef.current);
   }, [attemptStarted, remainingSeconds]);
+
+  // 🆕 Dès que le corrigé est visible et que l'exercice n'a pas encore été marqué terminé → appel API complete
+  useEffect(() => {
+    if (canViewCorrection && !attemptCompleted) {
+      api.post(`/exercises/${ex.id}/complete`).catch(console.error);
+      setAttemptCompleted(true);
+    }
+  }, [canViewCorrection, attemptCompleted, ex.id]);
 
   const formatTime = (seconds) => {
     const min = Math.floor(seconds / 60);
@@ -165,7 +236,7 @@ const ExerciseItem = ({ ex, apiBaseURL }) => {
           </span>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
           {ex.content && (
             <button onClick={() => setShowContent(!showContent)} className="text-blue-400 hover:underline text-sm">
               {showContent ? 'Cacher l’énoncé' : 'Voir l’énoncé'}
@@ -192,10 +263,15 @@ const ExerciseItem = ({ ex, apiBaseURL }) => {
             <a
               href={`${apiBaseURL}/exercises/file/${ex.file_path.split('/').pop()}`}
               target="_blank" rel="noreferrer"
-              className="flex items-center gap-1 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:from-violet-700 hover:to-cyan-700 transition-all self-end sm:self-center"
+              className="flex items-center gap-1 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:from-violet-700 hover:to-cyan-700 transition-all"
             >
               <Download size={16} /> Télécharger
             </a>
+          )}
+
+          {/* Indicateur de complétion */}
+          {attemptCompleted && (
+            <span className="text-emerald-400 ml-2"><CheckCircle size={18} /></span>
           )}
         </div>
       </div>

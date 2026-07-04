@@ -4,6 +4,7 @@ const pool = require("../config/db");
 const auth = require("../middleware/auth");
 const admin = require("../middleware/admin");
 const subscription = require("../middleware/subscription");
+const { addXP, checkAndAwardBadge, XP_VALUES, BADGES } = require("../utils/gamification");
 
 // Fonction utilitaire : calcul du temps limite
 const calculateTimeLimit = (difficulty, questionCount) => {
@@ -51,7 +52,6 @@ router.post("/:id/start", auth, subscription, async (req, res) => {
     const quizData = quiz.rows[0];
     const { group_id, chapter_id, difficulty_filter, question_count } = quizData;
 
-    // Piocher des questions aléatoires dans la banque
     let query = "SELECT * FROM question_bank WHERE group_id = $1";
     const params = [group_id];
     if (chapter_id) {
@@ -72,14 +72,12 @@ router.post("/:id/start", auth, subscription, async (req, res) => {
       return res.status(404).json({ error: "Aucune question disponible pour ce quiz." });
     }
 
-    // 🔥 Correction : normalisation des options pour garantir un tableau
     const questionsForStudent = questions.map(q => ({
       id: q.id,
       text: q.question_text,
       options: Array.isArray(q.options) ? q.options : (typeof q.options === 'string' ? q.options.split(' ').filter(Boolean) : []),
     }));
 
-    // Créer la tentative en sauvegardant les questions complètes (avec réponses) pour la correction future
     const attempt = await pool.query(
       `INSERT INTO quiz_attempts (user_id, quiz_id, score, total_questions, started_at, questions)
        VALUES ($1, $2, 0, $3, NOW(), $4) RETURNING id`,
@@ -98,13 +96,12 @@ router.post("/:id/start", auth, subscription, async (req, res) => {
   }
 });
 
-// POST /api/quizzes/:id/submit – Corrige avec une tolérance mathématique robuste, enregistre le score, et renvoie le corrigé détaillé.
+// POST /api/quizzes/:id/submit – Corrige, enregistre le score, attribue XP et badges.
 router.post("/:id/submit", auth, subscription, async (req, res) => {
   try {
     const quizId = req.params.id;
     const { attempt_id, answers, time_spent } = req.body;
 
-    // Récupérer la tentative avec les questions sauvegardées
     const attempt = await pool.query(
       "SELECT * FROM quiz_attempts WHERE id = $1 AND user_id = $2",
       [attempt_id, req.user.id]
@@ -113,14 +110,11 @@ router.post("/:id/submit", auth, subscription, async (req, res) => {
       return res.status(404).json({ error: "Tentative introuvable." });
     }
 
-    const questions = attempt.rows[0].questions; // tableau JSON
+    const questions = attempt.rows[0].questions;
 
-    // Fonction pour extraire une valeur numérique d'une option (ex: "4,0", "4.0", "4", 4)
     const parseNumeric = (val) => {
       if (typeof val === 'number') return val;
-      if (typeof val === 'string') {
-        return Number(val.replace(',', '.'));
-      }
+      if (typeof val === 'string') return Number(val.replace(',', '.'));
       return NaN;
     };
 
@@ -128,12 +122,10 @@ router.post("/:id/submit", auth, subscription, async (req, res) => {
     const corrections = questions.map((q) => {
       const userAnswer = answers.find(a => a.questionId === q.id);
       const selectedOption = userAnswer ? userAnswer.selectedOption : null;
-      const correctIndex = q.correct_option; // 0, 1, 2, 3
+      const correctIndex = q.correct_option;
 
-      // Étape 1 : comparaison directe par index
       let correct = (selectedOption === correctIndex);
 
-      // Étape 2 : si différent, on tente une comparaison numérique entre les valeurs
       if (!correct && selectedOption !== null && selectedOption !== undefined) {
         const correctValue = parseNumeric(q.options[correctIndex]);
         const selectedValue = parseNumeric(q.options[selectedOption]);
@@ -142,7 +134,6 @@ router.post("/:id/submit", auth, subscription, async (req, res) => {
         }
       }
 
-      // Renforcement : loguer les cas ambigus restants pour analyse humaine
       if (!correct && selectedOption !== null && selectedOption !== undefined) {
         console.warn(`[Quiz] Correction ambiguë pour la question ${q.id} : attendu ${correctIndex}, reçu ${selectedOption}`);
       }
@@ -160,17 +151,56 @@ router.post("/:id/submit", auth, subscription, async (req, res) => {
       };
     });
 
-    // Mettre à jour la tentative
     await pool.query(
       `UPDATE quiz_attempts SET score = $1, time_spent = $2, completed_at = NOW()
        WHERE id = $3`,
       [score, time_spent, attempt_id]
     );
 
+    const percentage = (score / questions.length) * 100;
+
+    // ------------- 🎮 GAMIFICATION ---------------
+    // XP selon le score
+    if (percentage === 100) {
+      await addXP(req.user.id, XP_VALUES.quiz_perfect, "Score parfait au quiz");
+      await checkAndAwardBadge(req.user.id, BADGES.perfect_score.key);
+    } else if (percentage >= 70) {
+      await addXP(req.user.id, XP_VALUES.quiz_good, "Quiz réussi (≥70%)");
+    } else if (percentage >= 50) {
+      await addXP(req.user.id, XP_VALUES.quiz_pass, "Quiz réussi (≥50%)");
+    }
+
+    // Badge premier quiz
+    const quizCount = await pool.query("SELECT COUNT(*) FROM quiz_attempts WHERE user_id = $1", [req.user.id]);
+    if (parseInt(quizCount.rows[0].count) === 1) {
+      await checkAndAwardBadge(req.user.id, BADGES.first_quiz.key);
+    }
+
+    // Badge streak (3 succès consécutifs)
+    const recentAttempts = await pool.query(
+      "SELECT score, total_questions FROM quiz_attempts WHERE user_id = $1 ORDER BY completed_at DESC LIMIT 3",
+      [req.user.id]
+    );
+    if (recentAttempts.rows.length === 3) {
+      const allPassed = recentAttempts.rows.every(r => (r.score / r.total_questions) >= 0.7);
+      if (allPassed) {
+        await checkAndAwardBadge(req.user.id, BADGES.streak_3.key);
+      }
+    }
+
+    // Badge maître des quiz (10 quiz réussis)
+    const passedCount = await pool.query(
+      "SELECT COUNT(*) FROM quiz_attempts WHERE user_id = $1 AND score * 1.0 / total_questions >= 0.7",
+      [req.user.id]
+    );
+    if (parseInt(passedCount.rows[0].count) >= 10) {
+      await checkAndAwardBadge(req.user.id, BADGES.quiz_master.key);
+    }
+
     res.json({
       score,
       total: questions.length,
-      percentage: Math.round((score / questions.length) * 100),
+      percentage: Math.round(percentage),
       corrections,
     });
   } catch (err) {
@@ -205,7 +235,7 @@ router.get("/leaderboard/:quizId", auth, async (req, res) => {
 router.use(auth);
 router.use(admin);
 
-// POST /api/quizzes - Créer un quiz (sans questions, elles seront piochées dans la banque)
+// POST /api/quizzes - Créer un quiz
 router.post("/", async (req, res) => {
   try {
     const { title, description, group_id, chapter_id, difficulty, question_count = 10 } = req.body;

@@ -3,7 +3,8 @@ const router = express.Router();
 const pool = require("../config/db");
 const auth = require("../middleware/auth");
 const subscription = require("../middleware/subscription");
-const { createNotification } = require("../utils/notificationHelper"); // 🆕
+const { createNotification } = require("../utils/notificationHelper");
+const { addXP, checkAndAwardBadge, XP_VALUES, BADGES } = require("../utils/gamification"); // 🆕
 
 // Toutes les routes nécessitent authentification et abonnement actif
 router.use(auth);
@@ -224,7 +225,7 @@ router.post("/:id/start", auth, subscription, async (req, res) => {
   }
 });
 
-// POST /api/challenges/:id/submit - Soumettre les réponses pour un défi (avec corrections)
+// POST /api/challenges/:id/submit - Soumettre les réponses pour un défi (avec corrections et gamification)
 router.post("/:id/submit", async (req, res) => {
   try {
     const userId = req.user.id;
@@ -262,7 +263,7 @@ router.post("/:id/submit", async (req, res) => {
     };
 
     let score = 0;
-    // Construire les corrections (identique à /quizzes/:id/submit)
+    // Construire les corrections
     const corrections = questions.map((q) => {
       const userAnswer = answers.find(a => a.questionId === q.id);
       const selectedOption = userAnswer ? userAnswer.selectedOption : null;
@@ -320,6 +321,12 @@ router.post("/:id/submit", async (req, res) => {
         `UPDATE challenges SET status = 'completed', completed_at = NOW(), winner_id = $1 WHERE id = $2`,
         [winnerId, challengeId]
       );
+
+      // 🎮 GAMIFICATION : Récompenser le vainqueur
+      if (winnerId) {
+        await addXP(winnerId, XP_VALUES.challenge_won, "Défi remporté");
+        await checkAndAwardBadge(winnerId, BADGES.challenge_winner.key);
+      }
     }
 
     res.json({ score, total: questions.length, corrections });

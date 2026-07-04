@@ -7,6 +7,7 @@ const admin = require("../middleware/admin");
 const upload = require("../middleware/upload");
 const path = require("path");
 const fs = require("fs");
+const { addXP, checkAndAwardBadge, XP_VALUES, BADGES } = require("../utils/gamification"); // 🆕
 
 // ----------------------
 // ROUTES ÉLÈVES
@@ -168,6 +169,54 @@ router.get("/:id/correction-status", auth, subscription, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Erreur lors de la vérification." });
+  }
+});
+
+// 🆕 POST /api/exercises/:id/complete – Marque un exercice comme terminé et attribue l'XP
+router.post("/:id/complete", auth, subscription, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const exerciseId = req.params.id;
+
+    // Vérifier que l'utilisateur a bien une tentative pour cet exercice
+    const attempt = await pool.query(
+      "SELECT id FROM exercise_attempts WHERE user_id = $1 AND exercise_id = $2",
+      [userId, exerciseId]
+    );
+    if (attempt.rows.length === 0) {
+      return res.status(400).json({ error: "Aucune tentative trouvée. Commencez d'abord l'exercice." });
+    }
+
+    // Éviter les doubles récompenses (une seule fois par exercice)
+    const alreadyRewarded = await pool.query(
+      "SELECT id FROM xp_history WHERE user_id = $1 AND reason = $2",
+      [userId, `Exercice ${exerciseId} terminé`]
+    );
+    if (alreadyRewarded.rows.length === 0) {
+      await addXP(userId, XP_VALUES.exercise_completed, `Exercice ${exerciseId} terminé`);
+
+      // Vérifier si le chapitre est complété
+      const exercise = await pool.query("SELECT chapter_id FROM exercises WHERE id = $1", [exerciseId]);
+      if (exercise.rows[0].chapter_id) {
+        const chapterId = exercise.rows[0].chapter_id;
+        const totalExercises = await pool.query("SELECT COUNT(*) FROM exercises WHERE chapter_id = $1", [chapterId]);
+        const completedExercises = await pool.query(
+          `SELECT COUNT(DISTINCT ea.exercise_id) 
+           FROM exercise_attempts ea 
+           JOIN exercises e ON ea.exercise_id = e.id 
+           WHERE ea.user_id = $1 AND e.chapter_id = $2`,
+          [userId, chapterId]
+        );
+        if (parseInt(completedExercises.rows[0].count) >= parseInt(totalExercises.rows[0].count)) {
+          await checkAndAwardBadge(userId, BADGES.chapter_complete.key);
+        }
+      }
+    }
+
+    res.json({ message: "Exercice marqué comme terminé." });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erreur serveur." });
   }
 });
 

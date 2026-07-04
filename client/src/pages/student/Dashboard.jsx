@@ -10,6 +10,9 @@ import {
   ResponsiveContainer, PieChart, Pie, Cell, RadialBarChart, RadialBar,
 } from 'recharts';
 import api from '../../services/api';
+import GamificationCard from '../../components/student/GamificationCard';
+import LeaderboardCard from '../../components/student/LeaderboardCard';
+import ProgressCharts from '../../components/student/ProgressCharts'; // 🆕
 
 const COLORS = ['#8B5CF6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444'];
 
@@ -43,19 +46,20 @@ const StudentDashboard = () => {
   const [pendingChallenges, setPendingChallenges] = useState([]);
   const [studentStats, setStudentStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [gamification, setGamification] = useState({ xp: { total_xp: 0, level: 1 }, badges: [] });
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [subRes, exRes, challRes, quizRes, studentStatsRes] = await Promise.all([
+        const [subRes, exRes, challRes, quizRes, studentStatsRes, gamificationRes] = await Promise.all([
           api.get('/payments/status'),
           api.get('/exercises/student/available'),
           api.get('/challenges/pending'),
           api.get('/quizzes/available'),
           api.get('/student/stats'),
+          api.get('/student/progress/gamification'),
         ]);
         setSubscription(subRes.data);
-        // Nouveau calcul : compte les exercices dans toutes les matières
         const exercisesCount = exRes.data.subjects?.reduce((acc, subject) => acc + subject.chapters?.reduce((sum, ch) => sum + ch.exercises.length, 0), 0) || 0;
         setStats({
           exercises: exercisesCount,
@@ -64,6 +68,7 @@ const StudentDashboard = () => {
         });
         setPendingChallenges(challRes.data.received || []);
         setStudentStats(studentStatsRes.data);
+        setGamification(gamificationRes.data);
       } catch (err) {
         console.error(err);
       } finally {
@@ -146,7 +151,13 @@ const StudentDashboard = () => {
         </div>
       </motion.div>
 
-      {/* Cartes statistiques principales – responsive grid */}
+      {/* Gamification + Classement */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+        <GamificationCard xp={gamification.xp} badges={gamification.badges} />
+        <LeaderboardCard />
+      </div>
+
+      {/* Cartes statistiques principales */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
         <StatCard
           icon={BookOpen} value={stats.exercises} label="Exercices disponibles"
@@ -164,6 +175,9 @@ const StudentDashboard = () => {
           to="/student/challenges"
         />
       </div>
+
+      {/* 🆕 Graphiques de progression (après les cartes de statistiques) */}
+      <ProgressCharts />
 
       {/* Performances et graphiques */}
       {studentStats && (

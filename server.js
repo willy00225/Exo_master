@@ -448,6 +448,12 @@ app.use("/api/admin/schools", require("./routes/admin/schools"));
 // Import et utilisation des routes pour les paiements des écoles
 app.use("/api/admin/schools", require("./routes/admin/school-payments"));
 
+// Import et utilisation des routes pour les progressions dans les exercices
+app.use("/api/student", require("./routes/student/progress"));
+
+// Import et utilisation des routes pour le classement
+app.use("/api/student/leaderboard", require("./routes/student/leaderboard"));
+
 // Port
 const PORT = process.env.PORT || 5000;
 

@@ -7,51 +7,73 @@ const subscription = require("../../middleware/subscription");
 router.use(auth);
 router.use(subscription);
 
-// GET /api/student/stats
-router.get("/", async (req, res) => {
+// GET /api/student/stats/dashboard – Stats complètes pour le tableau de bord
+router.get("/dashboard", async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // 1. Statistiques globales
-    const globalStats = await pool.query(`
-      SELECT 
-        COUNT(qa.id) AS total_attempts,
-        COALESCE(ROUND(AVG(qa.score * 100.0 / NULLIF(qa.total_questions, 0)), 1), 0) AS average_score,
-        COALESCE(MAX(qa.score * 100.0 / NULLIF(qa.total_questions, 0)), 0) AS best_score
-      FROM quiz_attempts qa
-      WHERE qa.user_id = $1
-    `, [userId]);
+    // Total exercices complétés (ayant une tentative)
+    const exercisesDone = await pool.query(
+      `SELECT COUNT(DISTINCT exercise_id) FROM exercise_attempts WHERE user_id = $1`,
+      [userId]
+    );
 
-    // 2. Dernières tentatives (5) avec nom du quiz
-    const recentAttempts = await pool.query(`
-      SELECT qa.id, q.title AS quiz_title, qa.score, qa.total_questions, qa.time_spent, qa.completed_at
-      FROM quiz_attempts qa
-      JOIN quizzes q ON qa.quiz_id = q.id
-      WHERE qa.user_id = $1
-      ORDER BY qa.completed_at DESC
-      LIMIT 5
-    `, [userId]);
+    // Total quiz passés
+    const quizzesDone = await pool.query(
+      "SELECT COUNT(*) FROM quiz_attempts WHERE user_id = $1",
+      [userId]
+    );
 
-    // 3. Performance par chapitre (moyenne, nombre de quiz)
-    const perChapter = await pool.query(`
-      SELECT 
-        COALESCE(ch.title, 'Sans chapitre') AS chapter_title,
-        COUNT(qa.id) AS attempts,
-        ROUND(AVG(qa.score * 100.0 / NULLIF(qa.total_questions, 0)), 1) AS average_score
-      FROM quiz_attempts qa
-      JOIN quizzes q ON qa.quiz_id = q.id
-      LEFT JOIN chapters ch ON q.chapter_id = ch.id
-      WHERE qa.user_id = $1
-      GROUP BY ch.id, ch.title
-      ORDER BY average_score DESC
-    `, [userId]);
+    // Moyenne des scores quiz
+    const avgScore = await pool.query(
+      `SELECT COALESCE(ROUND(AVG(score * 100.0 / NULLIF(total_questions,0)), 1), 0) AS avg
+       FROM quiz_attempts WHERE user_id = $1`,
+      [userId]
+    );
+
+    // Progression des scores (7 derniers jours)
+    const scoreProgress = await pool.query(
+      `SELECT DATE(completed_at) AS date,
+              ROUND(AVG(score * 100.0 / NULLIF(total_questions,0)), 1) AS avg_score,
+              COUNT(*) AS count
+       FROM quiz_attempts
+       WHERE user_id = $1 AND completed_at > NOW() - INTERVAL '7 days'
+       GROUP BY DATE(completed_at)
+       ORDER BY date`,
+      [userId]
+    );
+
+    // Répartition du temps passé (par jour)
+    const timeSpent = await pool.query(
+      `SELECT DATE(completed_at) AS date,
+              SUM(time_spent) AS total_seconds
+       FROM quiz_attempts
+       WHERE user_id = $1 AND completed_at > NOW() - INTERVAL '7 days'
+       GROUP BY DATE(completed_at)
+       ORDER BY date`,
+      [userId]
+    );
+
+    // Nombre de badges
+    const badgesCount = await pool.query(
+      "SELECT COUNT(*) FROM student_badges WHERE user_id = $1",
+      [userId]
+    );
+
+    // Niveau et XP
+    const xp = await pool.query(
+      "SELECT total_xp, level FROM student_xp WHERE user_id = $1",
+      [userId]
+    );
 
     res.json({
-      total_attempts: parseInt(globalStats.rows[0].total_attempts),
-      average_score: parseFloat(globalStats.rows[0].average_score),
-      best_score: parseFloat(globalStats.rows[0].best_score),
-      recent_attempts: recentAttempts.rows,
-      per_chapter: perChapter.rows
+      exercises_done: parseInt(exercisesDone.rows[0].count),
+      quizzes_done: parseInt(quizzesDone.rows[0].count),
+      avg_score: parseFloat(avgScore.rows[0].avg),
+      score_progress: scoreProgress.rows,
+      time_spent: timeSpent.rows,
+      badges: parseInt(badgesCount.rows[0].count),
+      xp: xp.rows[0] || { total_xp: 0, level: 1 },
     });
   } catch (err) {
     console.error(err);
