@@ -17,11 +17,19 @@ const pool = new Pool(
       }
 );
 
-pool.connect((err) => {
+// ✅ Gestion des erreurs inattendues (ex: ECONNRESET) pour éviter le crash du serveur
+pool.on("error", (err) => {
+  console.error("⚠️ Erreur inattendue du pool PostgreSQL :", err.message);
+  // Le pool va automatiquement créer un nouveau client lors de la prochaine requête
+});
+
+// Connexion initiale (vérification au démarrage, non bloquante)
+pool.connect((err, client, release) => {
   if (err) {
-    console.error("Erreur connexion PostgreSQL", err);
+    console.error("Erreur connexion initiale PostgreSQL :", err.message);
   } else {
     console.log("PostgreSQL connecté");
+    release();
   }
 });
 
