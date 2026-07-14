@@ -77,6 +77,7 @@ const sendMail = async ({ to, subject, html }) => {
 };
 
 const sendPasswordResetEmail = async (user, token) => {
+  // Le mot de passe oublié reste sur le frontend (car il gère le formulaire)
   const resetLink = `${process.env.FRONTEND_URL || 'https://exo-master.com'}/reset-password?token=${token}`;
   const content = `
     <p>Vous avez demandé la réinitialisation de votre mot de passe.</p>
@@ -90,7 +91,11 @@ const sendPasswordResetEmail = async (user, token) => {
 };
 
 const sendVerificationEmail = async (user, token) => {
-  const verificationLink = `${process.env.FRONTEND_URL || 'https://exo-master.com'}/verify-email?token=${token}`;
+  // ✅ Lien correct vers le backend
+  const verificationLink = `${
+    process.env.BACKEND_URL || 'https://exomaster-production.up.railway.app'
+  }/api/auth/verify-email?token=${token}`;
+
   const content = `
     <p>Bienvenue sur EXO MASTER !</p>
     <p>Pour activer votre compte et accéder à tous les exercices, veuillez vérifier votre adresse email en cliquant ci-dessous :</p>
