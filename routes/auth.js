@@ -49,7 +49,7 @@ router.post("/register", async (req, res) => {
       );
     }
 
-    // Traitement du code école
+    // Traitement du code école (si fourni)
     if (school_code) {
       const school = await pool.query("SELECT id, max_students FROM schools WHERE code = $1", [school_code]);
       if (school.rows.length === 0) {
@@ -73,16 +73,12 @@ router.post("/register", async (req, res) => {
       }
     }
 
-    // 📧 LOG : Avant envoi
+    // 📧 Envoi de l'email de vérification (non bloquant)
     console.log(`📧 [VERIF] Début envoi vérification pour ${email} (token: ${verificationToken.substring(0,10)}...)`);
-
-    // Envoyer l'email de vérification (ne bloque pas l'inscription en cas d'échec)
     try {
       await sendVerificationEmail(newUser.rows[0], verificationToken);
-      // ✅ LOG : Succès
       console.log(`✅ [VERIF] Email de vérification envoyé à ${email}`);
     } catch (mailErr) {
-      // ❌ LOG : Échec
       console.error(`❌ [VERIF] Échec envoi vérification à ${email}:`, mailErr.message);
       // L'inscription continue même sans l'email
     }
@@ -106,7 +102,7 @@ router.post("/register", async (req, res) => {
 });
 
 // ------------------------------------------------------------
-// 📧 Vérification de l'email (avec expiration 24h)
+// 📧 Vérification de l'email – SANS expiration basée sur la date du compte
 // ------------------------------------------------------------
 router.get("/verify-email", async (req, res) => {
   try {
@@ -114,22 +110,19 @@ router.get("/verify-email", async (req, res) => {
     if (!token) return res.status(400).json({ error: "Token manquant." });
 
     const user = await pool.query(
-      "SELECT id, created_at FROM users WHERE verification_token = $1",
+      "SELECT id FROM users WHERE verification_token = $1",
       [token]
     );
+
     if (user.rows.length === 0) {
+      console.warn(`⚠️ [VERIF] Token invalide ou déjà utilisé : ${token.substring(0,10)}...`);
       return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/email-verified?error=invalid`);
     }
 
-    const createdAt = new Date(user.rows[0].created_at);
-    const now = new Date();
-    const diffHours = (now - createdAt) / (1000 * 60 * 60);
-    if (diffHours > 24) {
-      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/email-verified?error=expired`);
-    }
-
+    // Marquer l'email comme vérifié et supprimer le token
     await pool.query("UPDATE users SET email_verified = true, verification_token = NULL WHERE id = $1", [user.rows[0].id]);
 
+    console.log(`✅ [VERIF] Email vérifié pour l'utilisateur ID ${user.rows[0].id}`);
     return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/email-verified?success=true`);
   } catch (err) {
     console.error(err);
@@ -156,7 +149,7 @@ router.post("/login", async (req, res) => {
 
     if (!user.rows[0].email_verified) {
       return res.status(403).json({
-        error: "Email non vérifié. Veuillez consulter votre boîte mail.",
+        error: "Email non vérifié. Veuillez consulter votre boîte mail ou renvoyer le lien de vérification.",
         code: "EMAIL_NOT_VERIFIED"
       });
     }
