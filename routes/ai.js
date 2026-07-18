@@ -22,6 +22,21 @@ function parseAIResponse(raw) {
 }
 
 // ------------------------------------------------------------------
+// 🌐 Détermine la langue d'enseignement selon la matière
+// ------------------------------------------------------------------
+function getLanguageFromSubject(subject) {
+  const langMap = {
+    'Français': 'français',
+    'Littérature': 'français',
+    'Anglais': 'anglais',
+    'Espagnol': 'espagnol',
+    'Allemand': 'allemand',
+    // Ajoutez d'autres langues si nécessaire
+  };
+  return langMap[subject] || 'français'; // par défaut le français
+}
+
+// ------------------------------------------------------------------
 // 🔧 Fonction réutilisable pour générer un seul exercice
 // ------------------------------------------------------------------
 async function generateSingleExercise({ group_id, chapter_id, difficulty, curriculum = 'ivoirien' }) {
@@ -30,27 +45,40 @@ async function generateSingleExercise({ group_id, chapter_id, difficulty, curric
 
   const subject = group.rows[0].subject;
   const level = group.rows[0].level;
+  const language = getLanguageFromSubject(subject);
+  
   let chapterTitle = "général";
   if (chapter_id) {
     const chapter = await pool.query("SELECT title FROM chapters WHERE id = $1", [chapter_id]);
     if (chapter.rows.length > 0) chapterTitle = chapter.rows[0].title;
   }
 
-  let curriculumIntro = curriculum === 'ivoirien'
+  const curriculumIntro = curriculum === 'ivoirien'
     ? "Tu es un professeur certifié du système éducatif ivoirien, enseignant selon les programmes officiels de la Côte d'Ivoire. "
     : "Tu es un professeur certifié. ";
 
   const needsFigure = ['Mathématiques', 'Physique-Chimie', 'SVT', 'Technologie'].includes(subject) &&
                       (difficulty === 'medium' || difficulty === 'hard' || difficulty === 'very_hard');
 
+  const languageInstruction = language === 'français'
+    ? "Rédige l'intégralité de l'énoncé et du corrigé en **français** (et uniquement en français)."
+    : `Rédige l'intégralité de l'énoncé et du corrigé en **${language}** (et uniquement en ${language}).`;
+
+  const grammarRule = (subject === 'Français' || subject === 'Anglais')
+    ? `\n**RÈGLE DE GRAMMAIRE IMPÉRATIVE :** Pour les questions de grammaire, d'orthographe ou de conjugaison, vérifie scrupuleusement la nature des mots, la fonction des compléments, les accords, et assure‑toi que chaque explication est irréprochable. N'invente pas de règle.`
+    : '';
+
   const systemInstruction = "Tu es un professeur certifié. Réponds UNIQUEMENT avec un objet JSON valide contenant 'title', 'statement', 'correction'" +
-    (needsFigure ? ", et éventuellement 'figure'." : ".");
+    (needsFigure ? ", et éventuellement 'figure'." : ".") +
+    ` ${languageInstruction}`;
 
   const prompt = `${curriculumIntro}
 Tu es un professeur agrégé en ${subject}, enseignant à des élèves de niveau ${level}. 
 Tu dois créer un exercice de difficulté "${difficulty}" sur le chapitre "${chapterTitle}". 
 Le client attend un exercice parfaitement exact, adapté au programme officiel de ce niveau, et un corrigé détaillé étape par étape. 
 Vérifie soigneusement tous les calculs, définitions et raisonnements avant de répondre.
+${languageInstruction}
+${grammarRule}
 ${needsFigure ? `
 **IMPORTANT :** Si l'exercice nécessite une figure géométrique, un graphique, un schéma électrique, un montage expérimental, ou tout autre support visuel, génère-la en **SVG** dans une clé "figure".
 Le SVG doit être simple, lisible, auto‑suffisant, avec une taille maximale de 400x400, et utilisable directement dans une page HTML.
@@ -70,7 +98,7 @@ Retourne UNIQUEMENT un objet JSON valide avec les clés suivantes :
     throw new Error("L'IA n'a pas pu produire un exercice valide.");
   }
 
-  // Double vérification
+  // Double vérification avec contrainte de langue
   let finalExercise = generated;
   try {
     const verifyPrompt = `
@@ -78,7 +106,8 @@ Un professeur a rédigé l'exercice suivant au format JSON :
 ${JSON.stringify(generated, null, 2)}
 
 En tant qu'expert en ${subject} (niveau ${level}), vérifie l'exactitude de l'énoncé et du corrigé.
-Si tu trouves une erreur (de calcul, de logique, de programme), corrige‑la et retourne le JSON corrigé complet avec les mêmes clés : "title", "statement", "correction".
+Si tu trouves une erreur (de calcul, de logique, de programme, de grammaire ou de langue), corrige‑la et retourne le JSON corrigé complet avec les mêmes clés : "title", "statement", "correction".
+Assure‑toi que tout le contenu est en ${language} et qu'il n'y a aucun mélange de langues.
 Si tout est parfait, retourne le JSON original sans modification.
 
 IMPORTANT : Les clés doivent être en anglais : "title", "statement", "correction".
@@ -98,7 +127,7 @@ Retourne UNIQUEMENT le JSON, sans commentaire.
     console.warn("⚠️ Erreur lors de la double vérification, utilisation de l'exercice original :", verifyErr.message);
   }
 
-  // Validation élève
+  // Validation élève (conservée)
   try {
     const validatePrompt = `
 En tant qu'élève de niveau ${level}, résous l'exercice suivant :
@@ -179,6 +208,7 @@ router.post("/generate-questions", async (req, res) => {
 
     const subject = group.rows[0].subject;
     const level = group.rows[0].level;
+    const language = getLanguageFromSubject(subject);
     let chapterTitle = "général";
     if (chapter_id) {
       const chapter = await pool.query("SELECT title FROM chapters WHERE id = $1", [chapter_id]);
@@ -192,10 +222,20 @@ router.post("/generate-questions", async (req, res) => {
       curriculumIntro = "Tu es un professeur certifié. ";
     }
 
+    const languageInstruction = language === 'français'
+      ? "Rédige l'intégralité des questions et des options en **français** (et uniquement en français)."
+      : `Rédige l'intégralité des questions et des options en **${language}** (et uniquement en ${language}).`;
+
+    const grammarRule = (subject === 'Français' || subject === 'Anglais')
+      ? `\n**RÈGLE DE GRAMMAIRE IMPÉRATIVE :** Pour les questions de grammaire, d'orthographe ou de conjugaison, vérifie scrupuleusement la nature des mots, la fonction des compléments, les accords, et assure‑toi que chaque explication est irréprochable. N'invente pas de règle.`
+      : '';
+
     const systemInstruction = "Tu es un professeur certifié. Réponds UNIQUEMENT avec un objet JSON valide.";
     const prompt = `${curriculumIntro}Tu es un professeur de ${subject}, niveau ${level}.
 Génère ${count} questions à choix multiples pour le chapitre "${chapterTitle}".
 Difficulté : ${difficulty || 'moyen'}.
+${languageInstruction}
+${grammarRule}
 
 **PROCÉDURE OBLIGATOIRE :**
 1. Pour chaque question, effectue TOI-MÊME le calcul ou la résolution.
@@ -211,6 +251,7 @@ Format JSON exact : { "questions": [ { "text": "énoncé", "options": ["Option A
       return res.status(500).json({ error: "L'IA n'a pas pu générer de questions valides." });
     }
 
+    // Vérification des calculs (conservée)
     function safeEvaluate(expr) {
       let sanitized = expr.replace(/,/g, '.').replace(/\s+/g, '');
       if (!/^[\d.+\-*\/()]+$/.test(sanitized)) return null;
@@ -242,6 +283,7 @@ Format JSON exact : { "questions": [ { "text": "énoncé", "options": ["Option A
       }
     }
 
+    // Vérification individuelle (conservée)
     const verifiedQuestions = [];
     for (const q of parsed.questions) {
       const verifyPrompt = `Voici une question à choix multiples :
@@ -327,7 +369,7 @@ router.post("/generate-exercises-batch", async (req, res) => {
             curriculum: 'ivoirien'
           });
           results.push({ chapter: chapter.title, title: exercise.title, status: 'ok' });
-          // 🔥 Délai de 25 secondes pour respecter la limite de 3 requêtes/min (OpenAI)
+          // Délai de 25 secondes pour respecter la limite de requêtes
           await new Promise(resolve => setTimeout(resolve, 25000));
         } catch (err) {
           results.push({ chapter: chapter.title, error: err.message, status: 'error' });
@@ -391,8 +433,10 @@ router.post("/generate-tips", async (req, res) => {
     const group = await pool.query("SELECT name, subject, level FROM groups WHERE id = $1", [group_id]);
     if (group.rows.length === 0) return res.status(404).json({ error: "Groupe introuvable." });
 
+    const language = getLanguageFromSubject(group.rows[0].subject);
     const systemInstruction = "Tu es un conseiller pédagogique expert. Réponds uniquement en JSON.";
     const prompt = `Rédige 3 astuces claires et pratiques pour aider des élèves de niveau ${group.rows[0].level} en ${group.rows[0].subject} à réussir leurs ${category}. 
+    Les astuces doivent être rédigées en ${language}.
     Chaque astuce doit faire environ 3 phrases. 
     Réponds avec un tableau JSON : { "tips": ["astuce 1", "astuce 2", "astuce 3"] }`;
 

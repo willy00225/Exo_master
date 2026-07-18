@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, BookOpen, CreditCard, HelpCircle, Swords, TrendingUp,
-  PieChart, DollarSign, AlertTriangle,
+  PieChart, DollarSign, AlertTriangle, Sparkles, X, Loader, CheckCircle,
 } from 'lucide-react';
 import {
   LineChart, Line, BarChart, Bar, PieChart as RePieChart, Pie, Cell,
@@ -44,7 +44,33 @@ const AdminDashboard = () => {
   const [paymentsByMethod, setPaymentsByMethod] = useState([]);
   const [studentsByGroup, setStudentsByGroup] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);               // 🆕 état d'erreur
+  const [error, setError] = useState(null);
+
+  // --- état pour la modale de nettoyage ---
+  const [cleanModalOpen, setCleanModalOpen] = useState(false);
+  const [groups, setGroups] = useState([]);
+  const [subjects, setSubjects] = useState([]);
+  const [selectedGroup, setSelectedGroup] = useState('');
+  const [selectedSubject, setSelectedSubject] = useState('');
+  const [cleaning, setCleaning] = useState(false);
+  const [cleanMessage, setCleanMessage] = useState({ type: '', text: '' });
+
+  // Charger les groupes et matières (pour les sélecteurs)
+  useEffect(() => {
+    const fetchGroupsAndSubjects = async () => {
+      try {
+        const [groupsRes, subjectsRes] = await Promise.all([
+          api.get('/groups'),
+          api.get('/subjects'),
+        ]);
+        setGroups(groupsRes.data);
+        setSubjects(subjectsRes.data);
+      } catch (err) {
+        console.error('Erreur chargement groupes/matières', err);
+      }
+    };
+    fetchGroupsAndSubjects();
+  }, []);
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -59,7 +85,7 @@ const AdminDashboard = () => {
         setMonthly(monthlyRes.data);
         setPaymentsByMethod(paymentsRes.data);
         setStudentsByGroup(groupsRes.data);
-        setError(null); // efface toute erreur précédente
+        setError(null);
       } catch (err) {
         console.error('Erreur chargement des statistiques', err);
         setError('Impossible de charger les statistiques. Veuillez réessayer.');
@@ -69,6 +95,41 @@ const AdminDashboard = () => {
     };
     fetchAll();
   }, []);
+
+  // --- fonction de nettoyage ---
+  const handleClean = async (e) => {
+    e.preventDefault();
+    if (!selectedGroup || !selectedSubject) {
+      setCleanMessage({ type: 'error', text: 'Veuillez sélectionner une classe et une matière.' });
+      return;
+    }
+    setCleaning(true);
+    setCleanMessage({ type: '', text: '' });
+    try {
+      const res = await api.post('/ai/clean-exercises', {
+        group_id: selectedGroup,
+        subject_id: selectedSubject,
+      });
+      setCleanMessage({
+        type: 'success',
+        text: `Nettoyage terminé : ${res.data.summary.corrected} exercice(s) corrigé(s), ${res.data.summary.ignored} ignoré(s).`,
+      });
+      // Réinitialiser les sélecteurs après 3 secondes
+      setTimeout(() => {
+        setCleanModalOpen(false);
+        setCleanMessage({ type: '', text: '' });
+        setSelectedGroup('');
+        setSelectedSubject('');
+      }, 3000);
+    } catch (err) {
+      setCleanMessage({
+        type: 'error',
+        text: err.response?.data?.error || 'Erreur lors du nettoyage.',
+      });
+    } finally {
+      setCleaning(false);
+    }
+  };
 
   // ---- affichage pendant le chargement ----
   if (loading) {
@@ -102,11 +163,22 @@ const AdminDashboard = () => {
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
+        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
       >
-        <h1 className="text-2xl md:text-3xl font-bold text-white font-space-grotesk">
-          Tableau de bord administrateur
-        </h1>
-        <p className="text-slate-400 mt-1">Vue d’ensemble de votre plateforme</p>
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-white font-space-grotesk">
+            Tableau de bord administrateur
+          </h1>
+          <p className="text-slate-400 mt-1">Vue d’ensemble de votre plateforme</p>
+        </div>
+        {/* Bouton Nettoyer les exercices */}
+        <button
+          onClick={() => setCleanModalOpen(true)}
+          className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-5 py-2.5 rounded-lg font-semibold hover:from-amber-600 hover:to-orange-600 transition-all shadow-lg"
+        >
+          <Sparkles size={18} />
+          Nettoyer les exercices
+        </button>
       </motion.div>
 
       {/* Cartes statistiques – responsive grid */}
@@ -118,9 +190,9 @@ const AdminDashboard = () => {
         <StatCard title="Challenges actifs" value={stats.activeChallenges} icon={Swords} gradient="from-rose-500 to-rose-700" />
       </div>
 
-      {/* Graphiques – première ligne */}
+      {/* Graphiques (inchangés) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-        {/* Inscriptions mensuelles (ligne) */}
+        {/* Inscriptions mensuelles */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -151,7 +223,7 @@ const AdminDashboard = () => {
           </ResponsiveContainer>
         </motion.div>
 
-        {/* Répartition des paiements (pie) */}
+        {/* Répartition des paiements */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -185,9 +257,8 @@ const AdminDashboard = () => {
         </motion.div>
       </div>
 
-      {/* Graphiques – deuxième ligne */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-        {/* Élèves par groupe (barres) */}
+        {/* Élèves par groupe */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -211,7 +282,7 @@ const AdminDashboard = () => {
           </ResponsiveContainer>
         </motion.div>
 
-        {/* Taux d’abonnement actif (jauge radiale) */}
+        {/* Taux d’abonnement actif */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -251,6 +322,104 @@ const AdminDashboard = () => {
           </p>
         </motion.div>
       </div>
+
+      {/* MODALE DE NETTOYAGE */}
+      <AnimatePresence>
+        {cleanModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+            onClick={() => setCleanModalOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.95 }}
+              className="bg-slate-900 border border-white/10 rounded-2xl shadow-2xl w-full max-w-md p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-white font-space-grotesk flex items-center gap-2">
+                  <Sparkles className="text-amber-400" size={22} />
+                  Nettoyer les exercices
+                </h2>
+                <button
+                  onClick={() => setCleanModalOpen(false)}
+                  className="p-1.5 bg-white/10 text-slate-300 rounded-full hover:bg-white/20"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {cleanMessage.text && (
+                <div
+                  className={`flex items-center gap-2 p-3 rounded-lg mb-4 ${
+                    cleanMessage.type === 'success'
+                      ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-300'
+                      : 'bg-red-500/20 border border-red-500/30 text-red-300'
+                  }`}
+                >
+                  {cleanMessage.type === 'success' ? <CheckCircle size={16} /> : <AlertTriangle size={16} />}
+                  {cleanMessage.text}
+                </div>
+              )}
+
+              <form onSubmit={handleClean} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Classe / Groupe</label>
+                  <select
+                    value={selectedGroup}
+                    onChange={(e) => setSelectedGroup(e.target.value)}
+                    className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all"
+                    required
+                  >
+                    <option value="">Sélectionnez une classe</option>
+                    {groups.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name} ({g.level})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Matière</label>
+                  <select
+                    value={selectedSubject}
+                    onChange={(e) => setSelectedSubject(e.target.value)}
+                    className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all"
+                    required
+                  >
+                    <option value="">Sélectionnez une matière</option>
+                    {subjects.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={cleaning}
+                  className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white py-3 rounded-lg font-semibold hover:from-amber-600 hover:to-orange-600 transition-all disabled:opacity-50 shadow-lg"
+                >
+                  {cleaning ? (
+                    <>
+                      <Loader size={18} className="animate-spin" /> Nettoyage en cours...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={18} /> Lancer le nettoyage
+                    </>
+                  )}
+                </button>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

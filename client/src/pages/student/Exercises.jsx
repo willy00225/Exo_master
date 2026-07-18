@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Download, Loader, FileText, BookOpen, ChevronRight, Filter, Unlock, Lock, CheckCircle } from 'lucide-react';
+import { Download, Loader, FileText, BookOpen, ChevronRight, Filter, Unlock, Lock, CheckCircle, Info } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import api from '../../services/api';
 
 const difficultyLabels = {
@@ -134,13 +135,26 @@ const Exercises = () => {
                         {currentDiff === 'very_hard' ? '🏆 Maîtrise' : `Niveau : ${currentDiff}`}
                       </span>
                       {currentDiff !== 'very_hard' && (
-                        <button
-                          onClick={() => handleUnlock(chapter.id)}
-                          className="flex items-center gap-1 text-sm text-amber-400 hover:text-amber-300 bg-amber-500/10 px-2 py-1 rounded-lg"
-                        >
-                          <Unlock size={14} /> Passer à la suite
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleUnlock(chapter.id)}
+                            className="flex items-center gap-1 text-sm text-amber-400 hover:text-amber-300 bg-amber-500/10 px-2 py-1 rounded-lg"
+                            title="Débloquez ce niveau en réussissant un quiz avec 70 %"
+                          >
+                            <Unlock size={14} /> Passer à la suite
+                          </button>
+                          <span className="text-xs text-slate-500 cursor-help" title="Pour débloquer le niveau suivant, vous devez obtenir au moins 70 % à un quiz de ce chapitre.">
+                            <Info size={14} />
+                          </span>
+                        </div>
                       )}
+                      {/* Lien rapide vers les quiz du chapitre */}
+                      <Link
+                        to={`/student/quizzes?chapter=${chapter.id}`}
+                        className="text-xs text-violet-400 hover:underline ml-2"
+                      >
+                        Quiz disponibles
+                      </Link>
                     </div>
                   </div>
 
@@ -172,14 +186,14 @@ const Exercises = () => {
   );
 };
 
-// Composant ExerciseItem avec appel à complete intégré
+// Composant ExerciseItem (inchangé – déjà complet avec la validation par corrigé)
 const ExerciseItem = ({ ex, apiBaseURL }) => {
   const [showContent, setShowContent] = useState(false);
   const [showCorrection, setShowCorrection] = useState(false);
   const [attemptStarted, setAttemptStarted] = useState(false);
   const [remainingSeconds, setRemainingSeconds] = useState(0);
   const [canViewCorrection, setCanViewCorrection] = useState(false);
-  const [attemptCompleted, setAttemptCompleted] = useState(false); // 🆕
+  const [attemptCompleted, setAttemptCompleted] = useState(false);
   const timerRef = useRef(null);
 
   const requiredMinutes = { easy: 5, medium: 10, hard: 15, very_hard: 20 }[ex.difficulty] || 10;
@@ -191,7 +205,6 @@ const ExerciseItem = ({ ex, apiBaseURL }) => {
     setRemainingSeconds(requiredSeconds);
   };
 
-  // Chronomètre
   useEffect(() => {
     if (!attemptStarted || remainingSeconds <= 0) return;
     timerRef.current = setInterval(() => {
@@ -207,7 +220,6 @@ const ExerciseItem = ({ ex, apiBaseURL }) => {
     return () => clearInterval(timerRef.current);
   }, [attemptStarted, remainingSeconds]);
 
-  // 🆕 Dès que le corrigé est visible et que l'exercice n'a pas encore été marqué terminé → appel API complete
   useEffect(() => {
     if (canViewCorrection && !attemptCompleted) {
       api.post(`/exercises/${ex.id}/complete`).catch(console.error);
@@ -269,7 +281,6 @@ const ExerciseItem = ({ ex, apiBaseURL }) => {
             </a>
           )}
 
-          {/* Indicateur de complétion */}
           {attemptCompleted && (
             <span className="text-emerald-400 ml-2"><CheckCircle size={18} /></span>
           )}
