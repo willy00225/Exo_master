@@ -49,27 +49,27 @@ const AdminDashboard = () => {
   // --- état pour la modale de nettoyage ---
   const [cleanModalOpen, setCleanModalOpen] = useState(false);
   const [groups, setGroups] = useState([]);
-  const [subjects, setSubjects] = useState([]);
+  const [subjects, setSubjects] = useState([]);        // matières uniques (noms)
   const [selectedGroup, setSelectedGroup] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('');
   const [cleaning, setCleaning] = useState(false);
   const [cleanMessage, setCleanMessage] = useState({ type: '', text: '' });
 
-  // Charger les groupes et matières (pour les sélecteurs)
+  // Charger les groupes et en déduire les matières
   useEffect(() => {
-    const fetchGroupsAndSubjects = async () => {
+    const fetchGroups = async () => {
       try {
-        const [groupsRes, subjectsRes] = await Promise.all([
-          api.get('/groups'),
-          api.get('/subjects'),
-        ]);
-        setGroups(groupsRes.data);
-        setSubjects(subjectsRes.data);
+        const res = await api.get('/groups');
+        const allGroups = res.data;
+        setGroups(allGroups);
+        // Extraire les noms de matières uniques
+        const uniqueSubjects = [...new Set(allGroups.map(g => g.subject).filter(Boolean))];
+        setSubjects(uniqueSubjects);
       } catch (err) {
-        console.error('Erreur chargement groupes/matières', err);
+        console.error('Erreur chargement groupes', err);
       }
     };
-    fetchGroupsAndSubjects();
+    fetchGroups();
   }, []);
 
   useEffect(() => {
@@ -108,7 +108,7 @@ const AdminDashboard = () => {
     try {
       const res = await api.post('/ai/clean-exercises', {
         group_id: selectedGroup,
-        subject_id: selectedSubject,
+        subject: selectedSubject,        // on envoie le nom de la matière
       });
       setCleanMessage({
         type: 'success',
@@ -392,9 +392,9 @@ const AdminDashboard = () => {
                     required
                   >
                     <option value="">Sélectionnez une matière</option>
-                    {subjects.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
+                    {subjects.map((subject) => (
+                      <option key={subject} value={subject}>
+                        {subject}
                       </option>
                     ))}
                   </select>

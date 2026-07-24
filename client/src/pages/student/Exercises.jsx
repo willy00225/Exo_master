@@ -11,6 +11,9 @@ const difficultyLabels = {
   very_hard: { label: 'Très difficile', color: 'text-red-400 bg-red-500/20 border-red-500/30' },
 };
 
+// Matières à masquer pour les étudiants (langues)
+const HIDDEN_SUBJECTS = ['Français', 'Anglais', 'Espagnol', 'Allemand'];
+
 const Exercises = () => {
   const [data, setData] = useState({ groups: [], subjects: [] });
   const [progress, setProgress] = useState([]);
@@ -26,8 +29,10 @@ const Exercises = () => {
         ]);
         setData(exRes.data);
         setProgress(progRes.data);
-        if (exRes.data.subjects.length > 0) {
-          setActiveSubject(exRes.data.subjects[0].id);
+        // Sélectionne le premier sujet visible
+        const visible = exRes.data.subjects.filter(s => !HIDDEN_SUBJECTS.includes(s.name));
+        if (visible.length > 0) {
+          setActiveSubject(visible[0].id);
         }
       } catch (err) {
         console.error(err);
@@ -72,8 +77,19 @@ const Exercises = () => {
     );
   }
 
-  const currentSubject = data.subjects.find(s => s.id === activeSubject);
-  const subjects = data.subjects;
+  // Filtrer les matières visibles
+  const visibleSubjects = data.subjects.filter(s => !HIDDEN_SUBJECTS.includes(s.name));
+  const currentSubject = visibleSubjects.find(s => s.id === activeSubject) || (visibleSubjects.length > 0 ? visibleSubjects[0] : null);
+
+  // Si aucune matière visible, afficher un message
+  if (visibleSubjects.length === 0) {
+    return (
+      <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-12 text-center text-slate-400 mt-6">
+        <FileText size={48} className="mx-auto mb-4 opacity-30" />
+        Aucune matière disponible pour le moment.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -82,25 +98,25 @@ const Exercises = () => {
         <p className="text-slate-400 mt-1">Progression adaptative – Validez un niveau pour débloquer le suivant</p>
       </motion.div>
 
-      {subjects.length > 0 && (
-        <div className="flex flex-wrap gap-2 overflow-x-auto pb-2">
-          {subjects.map(subject => (
-            <button
-              key={subject.id || 'none'}
-              onClick={() => setActiveSubject(subject.id)}
-              className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
-                activeSubject === subject.id
-                  ? 'bg-violet-600/20 border border-violet-400/30 text-violet-200 shadow-lg'
-                  : 'bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10'
-              }`}
-            >
-              <BookOpen size={16} />
-              {subject.name}
-            </button>
-          ))}
-        </div>
-      )}
+      {/* Onglets des matières (filtrés) */}
+      <div className="flex flex-wrap gap-2 overflow-x-auto pb-2">
+        {visibleSubjects.map(subject => (
+          <button
+            key={subject.id || 'none'}
+            onClick={() => setActiveSubject(subject.id)}
+            className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+              activeSubject === subject.id
+                ? 'bg-violet-600/20 border border-violet-400/30 text-violet-200 shadow-lg'
+                : 'bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10'
+            }`}
+          >
+            <BookOpen size={16} />
+            {subject.name}
+          </button>
+        ))}
+      </div>
 
+      {/* Si un sujet est actif, afficher ses chapitres */}
       {currentSubject && (
         <div className="space-y-6">
           <h2 className="text-xl font-semibold text-white flex items-center gap-2">
@@ -173,13 +189,6 @@ const Exercises = () => {
               );
             })
           )}
-        </div>
-      )}
-
-      {subjects.length === 0 && (
-        <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-12 text-center text-slate-400">
-          <FileText size={48} className="mx-auto mb-4 opacity-30" />
-          Aucun exercice disponible pour le moment.
         </div>
       )}
     </div>
