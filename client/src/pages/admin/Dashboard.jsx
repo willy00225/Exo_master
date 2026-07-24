@@ -49,22 +49,16 @@ const AdminDashboard = () => {
   // --- état pour la modale de nettoyage ---
   const [cleanModalOpen, setCleanModalOpen] = useState(false);
   const [groups, setGroups] = useState([]);
-  const [subjects, setSubjects] = useState([]);        // matières uniques (noms)
   const [selectedGroup, setSelectedGroup] = useState('');
-  const [selectedSubject, setSelectedSubject] = useState('');
   const [cleaning, setCleaning] = useState(false);
   const [cleanMessage, setCleanMessage] = useState({ type: '', text: '' });
 
-  // Charger les groupes et en déduire les matières
+  // Charger uniquement les groupes
   useEffect(() => {
     const fetchGroups = async () => {
       try {
         const res = await api.get('/groups');
-        const allGroups = res.data;
-        setGroups(allGroups);
-        // Extraire les noms de matières uniques
-        const uniqueSubjects = [...new Set(allGroups.map(g => g.subject).filter(Boolean))];
-        setSubjects(uniqueSubjects);
+        setGroups(res.data);
       } catch (err) {
         console.error('Erreur chargement groupes', err);
       }
@@ -99,8 +93,8 @@ const AdminDashboard = () => {
   // --- fonction de nettoyage ---
   const handleClean = async (e) => {
     e.preventDefault();
-    if (!selectedGroup || !selectedSubject) {
-      setCleanMessage({ type: 'error', text: 'Veuillez sélectionner une classe et une matière.' });
+    if (!selectedGroup) {
+      setCleanMessage({ type: 'error', text: 'Veuillez sélectionner une classe.' });
       return;
     }
     setCleaning(true);
@@ -108,18 +102,15 @@ const AdminDashboard = () => {
     try {
       const res = await api.post('/ai/clean-exercises', {
         group_id: selectedGroup,
-        subject: selectedSubject,        // on envoie le nom de la matière
       });
       setCleanMessage({
         type: 'success',
         text: `Nettoyage terminé : ${res.data.summary.corrected} exercice(s) corrigé(s), ${res.data.summary.ignored} ignoré(s).`,
       });
-      // Réinitialiser les sélecteurs après 3 secondes
       setTimeout(() => {
         setCleanModalOpen(false);
         setCleanMessage({ type: '', text: '' });
         setSelectedGroup('');
-        setSelectedSubject('');
       }, 3000);
     } catch (err) {
       setCleanMessage({
@@ -323,7 +314,7 @@ const AdminDashboard = () => {
         </motion.div>
       </div>
 
-      {/* MODALE DE NETTOYAGE */}
+      {/* MODALE DE NETTOYAGE (épurée) */}
       <AnimatePresence>
         {cleanModalOpen && (
           <motion.div
@@ -383,22 +374,6 @@ const AdminDashboard = () => {
                     ))}
                   </select>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Matière</label>
-                  <select
-                    value={selectedSubject}
-                    onChange={(e) => setSelectedSubject(e.target.value)}
-                    className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all"
-                    required
-                  >
-                    <option value="">Sélectionnez une matière</option>
-                    {subjects.map((subject) => (
-                      <option key={subject} value={subject}>
-                        {subject}
-                      </option>
-                    ))}
-                  </select>
-                </div>
 
                 <button
                   type="submit"
@@ -411,7 +386,7 @@ const AdminDashboard = () => {
                     </>
                   ) : (
                     <>
-                      <Sparkles size={18} /> Lancer le nettoyage
+                      <Sparkles size={18} /> Nettoyer tous les exercices
                     </>
                   )}
                 </button>

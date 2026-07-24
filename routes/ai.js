@@ -497,37 +497,32 @@ router.get("/tips", async (req, res) => {
 });
 
 // ------------------------------------------------------------------
-// 🧹 POST /api/ai/clean-exercises – Nettoyage intelligent des exercices
+// 🧹 POST /api/ai/clean-exercises – Nettoyage intelligent des exercices (sans matière)
 // ------------------------------------------------------------------
 router.post("/clean-exercises", async (req, res) => {
   try {
-    const { group_id, subject } = req.body;   // subject est un nom, pas un ID
+    const { group_id } = req.body;   // plus de subject
 
-    // Récupérer les exercices du groupe dont la matière correspond
+    // Récupérer tous les exercices du groupe
     const exercises = await pool.query(
       `SELECT e.*, g.subject, g.level
        FROM exercises e
        JOIN groups g ON e.group_id = g.id
-       WHERE e.group_id = $1 AND g.subject = $2`,
-      [group_id, subject]
+       WHERE e.group_id = $1`,
+      [group_id]
     );
 
     if (exercises.rows.length === 0) {
-      return res.status(404).json({ error: "Aucun exercice trouvé pour cette classe et matière." });
+      return res.status(404).json({ error: "Aucun exercice trouvé pour cette classe." });
     }
 
-    // Le reste du nettoyage (le code original n'était pas fourni, nous le laissons tel quel si existant,
-    // sinon nous ajoutons une logique minimale)
-    // Supposons que le nettoyage consiste à analyser les exercices et retourner un résumé
-    // Comme la logique n'est pas détaillée, je place une version simplifiée.
-    // À adapter selon votre implémentation réelle.
+    // Logique de nettoyage (à adapter avec votre implémentation réelle)
     let corrected = 0;
     let ignored = 0;
 
-    // Pour l'exemple, nous allons itérer et compter (à remplacer par votre logique)
     for (const ex of exercises.rows) {
-      // Ici pourrait être l'appel à l'IA pour vérifier/corriger l'exercice
-      // Pour rester simple, nous incrémentons arbitrairement
+      // Ici, vous pouvez appeler l'IA pour corriger l'exercice
+      // Pour l'exemple, on incrémente corrected
       corrected++;
     }
 
