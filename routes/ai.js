@@ -11,7 +11,7 @@ const { generateWithAI } = require("../config/ai");
 const ALLOWED_SUBJECTS = [
   'Mathématiques', 'Physique-Chimie', 'SVT', 'Histoire-Géographie',
   'Informatique', 'Technologie', 'Philosophie', 'Économie',
-  // Ajoutez d'autres matières autorisées
+  'Toutes matières'  // ← ajout temporaire
 ];
 
 // ------------------------------------------------------------------
