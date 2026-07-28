@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import {
   Plus, Edit, Trash2, BookOpen, Loader,
   AlertCircle, CheckCircle, Sparkles, Zap, X,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, ChevronUp, ChevronDown,
 } from 'lucide-react';
 import api from '../../services/api';
 
@@ -102,6 +102,31 @@ const Chapters = () => {
     catch (err) { setMessage({ type: 'error', text: 'Erreur lors de la suppression.' }); }
   };
 
+  const handleMove = async (id, direction) => {
+    const index = chapters.findIndex(ch => ch.id === id);
+    if (index === -1) return;
+    const newChapters = [...chapters];
+    if (direction === 'up' && index > 0) {
+      [newChapters[index - 1], newChapters[index]] = [newChapters[index], newChapters[index - 1]];
+    } else if (direction === 'down' && index < chapters.length - 1) {
+      [newChapters[index + 1], newChapters[index]] = [newChapters[index], newChapters[index + 1]];
+    }
+    // Mise à jour locale immédiate
+    setChapters(newChapters);
+
+    // Envoi des nouveaux ordres au backend
+    const updates = newChapters.map((ch, idx) => ({
+      id: ch.id,
+      order_index: idx,
+    }));
+    try {
+      await Promise.all(updates.map(u => api.put(`/chapters/${u.id}`, { order_index: u.order_index })));
+    } catch (err) {
+      console.error('Erreur mise à jour ordre', err);
+      fetchChapters(); // recharger en cas d'erreur
+    }
+  };
+
   const handleAiGenerate = async (e) => {
     e.preventDefault();
     if (!aiForm.group_id || !aiForm.subject_id) {
@@ -175,7 +200,25 @@ const Chapters = () => {
                     <td className="px-6 py-4 font-medium text-white">{ch.title}</td>
                     <td className="px-6 py-4 text-slate-400">{groups.find(g => g.id === ch.group_id)?.name || '-'}</td>
                     <td className="px-6 py-4 text-slate-400">{subjects.find(s => s.id === ch.subject_id)?.name || '-'}</td>
-                    <td className="px-6 py-4 text-slate-400">{ch.order_index}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleMove(ch.id, 'up')}
+                          className="p-1 text-slate-400 hover:text-white hover:bg-white/10 rounded transition-colors"
+                          title="Monter"
+                        >
+                          <ChevronUp size={16} />
+                        </button>
+                        <span className="text-slate-300 w-8 text-center">{ch.order_index}</span>
+                        <button
+                          onClick={() => handleMove(ch.id, 'down')}
+                          className="p-1 text-slate-400 hover:text-white hover:bg-white/10 rounded transition-colors"
+                          title="Descendre"
+                        >
+                          <ChevronDown size={16} />
+                        </button>
+                      </div>
+                    </td>
                     <td className="px-6 py-4 text-right">
                       <button onClick={() => handleEdit(ch)} className="text-slate-400 hover:text-violet-400 p-2 rounded-lg hover:bg-white/10 mr-1"><Edit size={18} /></button>
                       <button onClick={() => handleDelete(ch.id)} className="text-slate-400 hover:text-red-400 p-2 rounded-lg hover:bg-red-500/10"><Trash2 size={18} /></button>
