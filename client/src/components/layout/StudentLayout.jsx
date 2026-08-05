@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { motion } from 'framer-motion';
 import {
@@ -9,25 +9,34 @@ import {
 import logo from '../../assets/exo_master_logo.png';
 import NotificationBell from '../../components/common/NotificationBell';
 import WhatsAppButton from '../../components/common/WhatsAppButton';
-import api from '../../services/api';   // ← pour la vérification d'abonnement
+import api from '../../services/api';
+
+// Pages accessibles même sans abonnement actif
+const UNRESTRICTED_ROUTES = [
+  '/student/subscription',
+  '/student/payments',
+  '/student/profile',
+  '/student/support',
+  '/student/change-password',
+  '/student/change-class',
+];
 
 const StudentLayout = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // --- État pour le blocage d'abonnement ---
   const [isSubscriptionActive, setIsSubscriptionActive] = useState(true);
   const [checkingSubscription, setCheckingSubscription] = useState(true);
 
-  // Vérifier l'abonnement au chargement du layout
   useEffect(() => {
     const checkSubscription = async () => {
       try {
         const res = await api.get('/payments/status');
         setIsSubscriptionActive(res.data.is_active === true);
       } catch (err) {
-        // En cas d'erreur (403 ou autre), on bloque l'accès
+        // Si la route est protégée et renvoie 403, on considère l'abonnement inactif
         setIsSubscriptionActive(false);
       } finally {
         setCheckingSubscription(false);
@@ -41,13 +50,18 @@ const StudentLayout = () => {
     navigate('/login');
   };
 
+  // Vérifier si la page actuelle est dans la liste des routes non restreintes
+  const isUnrestrictedPage = UNRESTRICTED_ROUTES.some(route =>
+    location.pathname.startsWith(route)
+  );
+
   const navItems = [
     { path: '/student', icon: Home, label: 'Accueil', end: true },
     { path: '/student/exercises', icon: FileText, label: 'Exercices' },
     { path: '/student/quizzes', icon: HelpCircle, label: 'Quiz' },
     { path: '/student/challenges', icon: Swords, label: 'Challenges' },
     { path: '/student/tips', icon: Lightbulb, label: 'Astuces' },
-    { path: '/student/change-class', icon: GraduationCap, label: 'Changer de classe' }, // ✅ CONSERVÉ
+    { path: '/student/change-class', icon: GraduationCap, label: 'Changer de classe' },
     { path: '/student/payments', icon: CreditCard, label: 'Paiements' },
     { path: '/student/profile', icon: User, label: 'Profil' },
     { path: '/student/change-password', icon: Lock, label: 'Mot de passe' },
@@ -151,12 +165,11 @@ const StudentLayout = () => {
       {/* Zone principale */}
       <div className="flex-1 flex flex-col min-w-0 bg-[#0B0E1A] lg:pl-0 pt-14 lg:pt-0">
         <main className="flex-1 overflow-y-auto p-4 md:p-8">
-          {/* --- Vérification de l'abonnement --- */}
           {checkingSubscription ? (
             <div className="flex items-center justify-center h-full">
               <p className="text-slate-400 text-lg">Vérification de votre abonnement…</p>
             </div>
-          ) : !isSubscriptionActive ? (
+          ) : !isSubscriptionActive && !isUnrestrictedPage ? (
             <div className="flex flex-col items-center justify-center h-full gap-6">
               <div className="w-20 h-20 rounded-full bg-red-500/20 flex items-center justify-center">
                 <AlertTriangle size={40} className="text-red-400" />
