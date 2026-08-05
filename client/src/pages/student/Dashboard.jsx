@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   BookOpen, Trophy, Swords, AlertCircle, CheckCircle,
-  BarChart3, TrendingUp, CreditCard, Star,
+  BarChart3, TrendingUp, CreditCard, Star, AlertTriangle,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -12,7 +12,7 @@ import {
 import api from '../../services/api';
 import GamificationCard from '../../components/student/GamificationCard';
 import LeaderboardCard from '../../components/student/LeaderboardCard';
-import ProgressCharts from '../../components/student/ProgressCharts'; // 🆕
+import ProgressCharts from '../../components/student/ProgressCharts';
 
 const COLORS = ['#8B5CF6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444'];
 
@@ -48,6 +48,10 @@ const StudentDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [gamification, setGamification] = useState({ xp: { total_xp: 0, level: 1 }, badges: [] });
 
+  // État pour le blocage d'abonnement
+  const [blocked, setBlocked] = useState(false);
+  const [blockReason, setBlockReason] = useState('');
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -69,8 +73,20 @@ const StudentDashboard = () => {
         setPendingChallenges(challRes.data.received || []);
         setStudentStats(studentStatsRes.data);
         setGamification(gamificationRes.data);
+        setBlocked(false); // tout va bien
       } catch (err) {
         console.error(err);
+        // Si une des requêtes renvoie 403, on bloque l'accès
+        if (err.response && err.response.status === 403) {
+          setBlockReason(err.response.data?.error || "Votre abonnement a expiré.");
+          setBlocked(true);
+        }
+        // Même en cas d'erreur, on évite la page blanche
+        setSubscription(null);
+        setStats({ exercises: 0, quizzes: 0, activeChallenges: 0 });
+        setPendingChallenges([]);
+        setStudentStats(null);
+        setGamification({ xp: { total_xp: 0, level: 1 }, badges: [] });
       } finally {
         setLoading(false);
       }
@@ -78,6 +94,27 @@ const StudentDashboard = () => {
     fetchData();
   }, []);
 
+  // --- Affichage en cas de blocage d'abonnement ---
+  if (blocked) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-6 p-8">
+        <div className="w-20 h-20 rounded-full bg-red-500/20 flex items-center justify-center">
+          <AlertTriangle size={40} className="text-red-400" />
+        </div>
+        <h1 className="text-2xl font-bold text-white text-center">Accès restreint</h1>
+        <p className="text-slate-400 text-center max-w-md">{blockReason}</p>
+        <Link
+          to="/student/subscription"
+          className="inline-flex items-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-violet-700 hover:to-cyan-700 transition-all shadow-lg"
+        >
+          <CreditCard size={20} />
+          Souscrire maintenant
+        </Link>
+      </div>
+    );
+  }
+
+  // --- Affichage normal (inchangé) ---
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -176,7 +213,7 @@ const StudentDashboard = () => {
         />
       </div>
 
-      {/* 🆕 Graphiques de progression (après les cartes de statistiques) */}
+      {/* Graphiques de progression */}
       <ProgressCharts />
 
       {/* Performances et graphiques */}
