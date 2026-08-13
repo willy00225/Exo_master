@@ -11,7 +11,7 @@ const { generateWithAI } = require("../config/ai");
 const ALLOWED_SUBJECTS = [
   'Mathématiques', 'Physique-Chimie', 'SVT', 'Histoire-Géographie',
   'Informatique', 'Technologie', 'Philosophie', 'Économie',
-  'Toutes matières'  // ← ajout temporaire
+  'Toutes matières'
 ];
 
 // ------------------------------------------------------------------
@@ -40,9 +40,8 @@ function getLanguageFromSubject(subject) {
     'Anglais': 'anglais',
     'Espagnol': 'espagnol',
     'Allemand': 'allemand',
-    // Ajoutez d'autres langues si nécessaire
   };
-  return langMap[subject] || 'français'; // par défaut le français
+  return langMap[subject] || 'français';
 }
 
 // ------------------------------------------------------------------
@@ -53,7 +52,6 @@ async function generateSingleExercise({ group_id, chapter_id, difficulty, curric
   if (group.rows.length === 0) throw new Error("Groupe non trouvé.");
 
   const subject = group.rows[0].subject;
-  // Vérification : seules les matières autorisées peuvent générer des exercices
   if (!ALLOWED_SUBJECTS.includes(subject)) {
     throw new Error(`La génération d'exercices pour la matière "${subject}" est temporairement désactivée.`);
   }
@@ -212,97 +210,124 @@ router.use(admin);
 
 // ------------------------------------------------------------------
 // 🚀 POST /api/ai/generate-all-quizzes – Génération automatique massive
+// par matière et par classe
 // ------------------------------------------------------------------
 router.post("/generate-all-quizzes", async (req, res) => {
   try {
     const {
       difficulties = ['easy', 'medium', 'hard', 'very_hard'],
       questions_per_quiz = 10,
-      exclude_subjects = ['Français', 'Espagnol', 'Allemand']
+      exclude_subjects = ['Français', 'Espagnol', 'Allemand'] // langues exclues
     } = req.body;
 
-    // 1. Récupérer tous les groupes (classes) autorisés
+    // Récupérer tous les groupes
     const groups = await pool.query("SELECT id, name, subject FROM groups");
-    const eligibleGroups = groups.rows.filter(g =>
-      !exclude_subjects.includes(g.subject)
-    );
-
-    if (eligibleGroups.length === 0) {
-      return res.status(404).json({ error: "Aucune classe éligible trouvée." });
-    }
 
     const results = [];
     let totalQuizzesCreated = 0;
 
-    // 2. Boucler sur chaque classe et chaque difficulté
-    for (const group of eligibleGroups) {
-      for (const difficulty of difficulties) {
-        try {
-          // Vérifier si un quiz existe déjà pour ce groupe et cette difficulté
-          const existingQuiz = await pool.query(
-            "SELECT id FROM quizzes WHERE group_id = $1 AND difficulty_filter = $2",
-            [group.id, difficulty]
-          );
-          if (existingQuiz.rows.length > 0) {
-            results.push({
-              group: group.name,
-              difficulty,
-              status: 'skipped',
-              message: 'Quiz déjà existant'
-            });
-            continue;
-          }
+    // Pour chaque groupe
+    for (const group of groups.rows) {
+      // Déterminer les matières à traiter
+      let subjectIds = [];
 
-          // Générer les questions (appel à la fonction interne)
-          const questions = await generateQuestionsForGroup(group.id, difficulty, questions_per_quiz);
-          if (questions.length === 0) {
+      if (group.subject === 'Toutes matières') {
+        // Récupérer les matières associées via la table chapters
+        const subjects = await pool.query(
+          `SELECT DISTINCT s.id, s.name
+           FROM subjects s
+           JOIN chapters c ON c.subject_id = s.id
+           WHERE c.group_id = $1`,
+          [group.id]
+        );
+        subjectIds = subjects.rows;
+      } else {
+        // Groupe avec une matière spécifique : retrouver son ID dans subjects
+        const subject = await pool.query("SELECT id, name FROM subjects WHERE name = $1", [group.subject]);
+        if (subject.rows.length > 0) {
+          subjectIds = subject.rows;
+        }
+      }
+
+      // Filtrer les matières exclues
+      subjectIds = subjectIds.filter(s => !exclude_subjects.includes(s.name));
+      if (subjectIds.length === 0) continue;
+
+      // Pour chaque matière et difficulté
+      for (const subject of subjectIds) {
+        for (const difficulty of difficulties) {
+          try {
+            // Vérifier si un quiz existe déjà pour ce groupe, cette matière et cette difficulté
+            const existingQuiz = await pool.query(
+              "SELECT id FROM quizzes WHERE group_id = $1 AND difficulty_filter = $2 AND subject_id = $3",
+              [group.id, difficulty, subject.id]
+            );
+            if (existingQuiz.rows.length > 0) {
+              results.push({
+                group: group.name,
+                subject: subject.name,
+                difficulty,
+                status: 'skipped',
+                message: 'Quiz déjà existant'
+              });
+              continue;
+            }
+
+            // Générer les questions
+            const questions = await generateQuestionsForGroup(group.id, subject.id, difficulty, questions_per_quiz);
+            if (questions.length === 0) {
+              results.push({
+                group: group.name,
+                subject: subject.name,
+                difficulty,
+                status: 'error',
+                message: 'Aucune question générée'
+              });
+              continue;
+            }
+
+            // Créer le quiz
+            const quizTitle = `Quiz ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} ${subject.name} – ${group.name}`;
+            const time_limit = 60 * questions.length;
+
+            const quizResult = await pool.query(
+              `INSERT INTO quizzes (title, description, group_id, subject_id, difficulty, question_count, difficulty_filter, time_limit)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+              [
+                quizTitle,
+                `Quiz de ${difficulty} en ${subject.name} pour la classe ${group.name}`,
+                group.id,
+                subject.id,
+                difficulty,
+                questions.length,
+                difficulty,
+                time_limit
+              ]
+            );
+
+            totalQuizzesCreated++;
             results.push({
               group: group.name,
+              subject: subject.name,
+              difficulty,
+              status: 'created',
+              quiz_id: quizResult.rows[0].id,
+              questions: questions.length
+            });
+
+            // Petite pause pour éviter de dépasser les limites d'API
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
+          } catch (err) {
+            console.error(`Erreur pour ${group.name} / ${subject.name} / ${difficulty}:`, err.message);
+            results.push({
+              group: group.name,
+              subject: subject.name,
               difficulty,
               status: 'error',
-              message: 'Aucune question générée'
+              message: err.message
             });
-            continue;
           }
-
-          // Créer le quiz
-          const quizTitle = `Quiz ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} – ${group.name}`;
-          const time_limit = 60 * questions.length; // 1 minute par question
-
-          const quizResult = await pool.query(
-            `INSERT INTO quizzes (title, description, group_id, difficulty, question_count, difficulty_filter, time_limit)
-             VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
-            [
-              quizTitle,
-              `Quiz de ${difficulty} pour la classe ${group.name}`,
-              group.id,
-              difficulty,
-              questions.length,
-              difficulty,
-              time_limit
-            ]
-          );
-
-          totalQuizzesCreated++;
-          results.push({
-            group: group.name,
-            difficulty,
-            status: 'created',
-            quiz_id: quizResult.rows[0].id,
-            questions: questions.length
-          });
-
-          // Petite pause pour éviter de dépasser les limites d'API
-          await new Promise(resolve => setTimeout(resolve, 5000));
-
-        } catch (err) {
-          console.error(`Erreur pour ${group.name} / ${difficulty}:`, err.message);
-          results.push({
-            group: group.name,
-            difficulty,
-            status: 'error',
-            message: err.message
-          });
         }
       }
     }
@@ -319,36 +344,23 @@ router.post("/generate-all-quizzes", async (req, res) => {
 });
 
 // ------------------------------------------------------------------
-// 🔧 Fonction interne pour générer des questions pour un groupe/difficulté
-// avec gestion du cas "Toutes matières"
+// 🔧 Fonction interne : générer des questions pour un groupe + matière + difficulté
 // ------------------------------------------------------------------
-async function generateQuestionsForGroup(groupId, difficulty, count = 10) {
-  const group = await pool.query("SELECT name, subject, level FROM groups WHERE id = $1", [groupId]);
+async function generateQuestionsForGroup(groupId, subjectId, difficulty, count = 10) {
+  const group = await pool.query("SELECT name, level FROM groups WHERE id = $1", [groupId]);
   if (group.rows.length === 0) throw new Error("Groupe non trouvé.");
 
-  const subject = group.rows[0].subject;
+  const subject = await pool.query("SELECT name FROM subjects WHERE id = $1", [subjectId]);
+  if (subject.rows.length === 0) throw new Error("Matière non trouvée.");
+
   const level = group.rows[0].level;
-  const language = getLanguageFromSubject(subject);
-  const isGlobal = subject === 'Toutes matières';
+  const language = getLanguageFromSubject(subject.rows[0].name);
 
   // Règle absolue de langue
   const languageRule = `**RÈGLE ABSOLUE DE LANGUE :** Le contenu doit être exclusivement en ${language}. Aucun mot étranger n'est accepté, sauf les termes scientifiques universels (ex. ADN, pH). Toute infraction rendra la génération invalide.`;
 
   const systemInstruction = "Tu es un professeur certifié. Réponds UNIQUEMENT avec un objet JSON valide.";
-  const prompt = isGlobal
-    ? `Tu es un professeur de culture générale, niveau ${level}.
-Génère ${count} questions à choix multiples pour la classe ${group.rows[0].name}.
-Ces questions doivent couvrir plusieurs matières (mathématiques, sciences, histoire-géographie, logique, etc.) et être adaptées à ce niveau.
-Difficulté : ${difficulty}.
-${languageRule}
-
-**PROCÉDURE OBLIGATOIRE :**
-1. Pour chaque question, effectue TOI-MÊME le calcul ou la résolution.
-2. Vérifie que la réponse que tu désignes comme correcte correspond EXACTEMENT à ton propre calcul.
-3. Si tu détectes une incohérence, corrige-la avant de finaliser la question.
-
-Format JSON exact : { "questions": [ { "text": "énoncé", "options": ["Option A", "Option B", "Option C", "Option D"], "correct": 0 } ] }`
-    : `Tu es un professeur de ${subject}, niveau ${level}.
+  const prompt = `Tu es un professeur de ${subject.rows[0].name}, niveau ${level}.
 Génère ${count} questions à choix multiples pour la classe ${group.rows[0].name}.
 Difficulté : ${difficulty}.
 ${languageRule}
@@ -404,7 +416,7 @@ Format JSON exact : { "questions": [ { "text": "énoncé", "options": ["Option A
   for (const q of parsed.questions) {
     const verifyPrompt = `
 Tu es un vérificateur pédagogique strict.
-Voici une question à choix multiples destinée à la matière ${subject} (niveau ${level}).
+Voici une question à choix multiples destinée à la matière ${subject.rows[0].name} (niveau ${level}).
 
 Énoncé : ${q.text}
 Options : ${JSON.stringify(q.options)}
