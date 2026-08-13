@@ -210,14 +210,15 @@ router.use(admin);
 
 // ------------------------------------------------------------------
 // 🚀 POST /api/ai/generate-all-quizzes – Génération automatique massive
-// par matière et par classe
+// par matière et par classe, avec option allow_duplicates
 // ------------------------------------------------------------------
 router.post("/generate-all-quizzes", async (req, res) => {
   try {
     const {
       difficulties = ['easy', 'medium', 'hard', 'very_hard'],
       questions_per_quiz = 10,
-      exclude_subjects = ['Français', 'Espagnol', 'Allemand'] // langues exclues
+      exclude_subjects = [],   // ✅ Par défaut, aucune matière exclue
+      allow_duplicates = false // ✅ Si true, on crée un nouveau quiz même s'il en existe déjà un
     } = req.body;
 
     // Récupérer tous les groupes
@@ -249,28 +250,32 @@ router.post("/generate-all-quizzes", async (req, res) => {
         }
       }
 
-      // Filtrer les matières exclues
-      subjectIds = subjectIds.filter(s => !exclude_subjects.includes(s.name));
+      // Filtrer les matières exclues (si exclude_subjects est fourni)
+      if (exclude_subjects.length > 0) {
+        subjectIds = subjectIds.filter(s => !exclude_subjects.includes(s.name));
+      }
       if (subjectIds.length === 0) continue;
 
       // Pour chaque matière et difficulté
       for (const subject of subjectIds) {
         for (const difficulty of difficulties) {
           try {
-            // Vérifier si un quiz existe déjà pour ce groupe, cette matière et cette difficulté
-            const existingQuiz = await pool.query(
-              "SELECT id FROM quizzes WHERE group_id = $1 AND difficulty_filter = $2 AND subject_id = $3",
-              [group.id, difficulty, subject.id]
-            );
-            if (existingQuiz.rows.length > 0) {
-              results.push({
-                group: group.name,
-                subject: subject.name,
-                difficulty,
-                status: 'skipped',
-                message: 'Quiz déjà existant'
-              });
-              continue;
+            // Si allow_duplicates est false, on vérifie l'existence et on saute si déjà présent
+            if (!allow_duplicates) {
+              const existingQuiz = await pool.query(
+                "SELECT id FROM quizzes WHERE group_id = $1 AND difficulty_filter = $2 AND subject_id = $3",
+                [group.id, difficulty, subject.id]
+              );
+              if (existingQuiz.rows.length > 0) {
+                results.push({
+                  group: group.name,
+                  subject: subject.name,
+                  difficulty,
+                  status: 'skipped',
+                  message: 'Quiz déjà existant'
+                });
+                continue;
+              }
             }
 
             // Générer les questions
