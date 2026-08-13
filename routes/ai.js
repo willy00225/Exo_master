@@ -216,9 +216,6 @@ router.use(admin);
 router.post("/generate-all-quizzes", async (req, res) => {
   try {
     const {
-      // Par défaut, on n'exclut que le Français (matière déjà traitée en français)
-      // et les langues que vous ne souhaitez pas générer automatiquement.
-      // L'Anglais est désormais inclus : les quiz d'anglais seront en anglais.
       difficulties = ['easy', 'medium', 'hard', 'very_hard'],
       questions_per_quiz = 10,
       exclude_subjects = ['Français', 'Espagnol', 'Allemand']
@@ -227,7 +224,7 @@ router.post("/generate-all-quizzes", async (req, res) => {
     // 1. Récupérer tous les groupes (classes) autorisés
     const groups = await pool.query("SELECT id, name, subject FROM groups");
     const eligibleGroups = groups.rows.filter(g =>
-      !exclude_subjects.includes(g.subject) && g.subject !== 'Toutes matières'
+      !exclude_subjects.includes(g.subject)
     );
 
     if (eligibleGroups.length === 0) {
@@ -256,7 +253,7 @@ router.post("/generate-all-quizzes", async (req, res) => {
             continue;
           }
 
-          // Générer les questions avec vérification de langue
+          // Générer les questions (appel à la fonction interne)
           const questions = await generateQuestionsForGroup(group.id, difficulty, questions_per_quiz);
           if (questions.length === 0) {
             results.push({
@@ -323,7 +320,7 @@ router.post("/generate-all-quizzes", async (req, res) => {
 
 // ------------------------------------------------------------------
 // 🔧 Fonction interne pour générer des questions pour un groupe/difficulté
-// avec vérification stricte de la langue et de la justesse
+// avec gestion du cas "Toutes matières"
 // ------------------------------------------------------------------
 async function generateQuestionsForGroup(groupId, difficulty, count = 10) {
   const group = await pool.query("SELECT name, subject, level FROM groups WHERE id = $1", [groupId]);
@@ -332,12 +329,26 @@ async function generateQuestionsForGroup(groupId, difficulty, count = 10) {
   const subject = group.rows[0].subject;
   const level = group.rows[0].level;
   const language = getLanguageFromSubject(subject);
+  const isGlobal = subject === 'Toutes matières';
 
   // Règle absolue de langue
   const languageRule = `**RÈGLE ABSOLUE DE LANGUE :** Le contenu doit être exclusivement en ${language}. Aucun mot étranger n'est accepté, sauf les termes scientifiques universels (ex. ADN, pH). Toute infraction rendra la génération invalide.`;
 
   const systemInstruction = "Tu es un professeur certifié. Réponds UNIQUEMENT avec un objet JSON valide.";
-  const prompt = `Tu es un professeur de ${subject}, niveau ${level}.
+  const prompt = isGlobal
+    ? `Tu es un professeur de culture générale, niveau ${level}.
+Génère ${count} questions à choix multiples pour la classe ${group.rows[0].name}.
+Ces questions doivent couvrir plusieurs matières (mathématiques, sciences, histoire-géographie, logique, etc.) et être adaptées à ce niveau.
+Difficulté : ${difficulty}.
+${languageRule}
+
+**PROCÉDURE OBLIGATOIRE :**
+1. Pour chaque question, effectue TOI-MÊME le calcul ou la résolution.
+2. Vérifie que la réponse que tu désignes comme correcte correspond EXACTEMENT à ton propre calcul.
+3. Si tu détectes une incohérence, corrige-la avant de finaliser la question.
+
+Format JSON exact : { "questions": [ { "text": "énoncé", "options": ["Option A", "Option B", "Option C", "Option D"], "correct": 0 } ] }`
+    : `Tu es un professeur de ${subject}, niveau ${level}.
 Génère ${count} questions à choix multiples pour la classe ${group.rows[0].name}.
 Difficulté : ${difficulty}.
 ${languageRule}
@@ -447,7 +458,6 @@ router.post("/generate-questions", async (req, res) => {
     if (group.rows.length === 0) return res.status(404).json({ error: "Groupe non trouvé." });
 
     const subject = group.rows[0].subject;
-    // Vérification : seules les matières autorisées peuvent générer des questions
     if (!ALLOWED_SUBJECTS.includes(subject)) {
       return res.status(400).json({ error: `La génération de questions pour la matière "${subject}" est temporairement désactivée.` });
     }
@@ -496,7 +506,6 @@ Format JSON exact : { "questions": [ { "text": "énoncé", "options": ["Option A
       return res.status(500).json({ error: "L'IA n'a pas pu générer de questions valides." });
     }
 
-    // Vérification des calculs (conservée)
     function safeEvaluate(expr) {
       let sanitized = expr.replace(/,/g, '.').replace(/\s+/g, '');
       if (!/^[\d.+\-*\/()]+$/.test(sanitized)) return null;
@@ -528,7 +537,6 @@ Format JSON exact : { "questions": [ { "text": "énoncé", "options": ["Option A
       }
     }
 
-    // Vérification individuelle (conservée)
     const verifiedQuestions = [];
     for (const q of parsed.questions) {
       const verifyPrompt = `Voici une question à choix multiples :
@@ -614,7 +622,6 @@ router.post("/generate-exercises-batch", async (req, res) => {
             curriculum: 'ivoirien'
           });
           results.push({ chapter: chapter.title, title: exercise.title, status: 'ok' });
-          // Délai de 25 secondes pour respecter la limite de requêtes
           await new Promise(resolve => setTimeout(resolve, 25000));
         } catch (err) {
           results.push({ chapter: chapter.title, error: err.message, status: 'error' });
@@ -727,9 +734,8 @@ router.get("/tips", async (req, res) => {
 // ------------------------------------------------------------------
 router.post("/clean-exercises", async (req, res) => {
   try {
-    const { group_id } = req.body;   // plus de subject
+    const { group_id } = req.body;
 
-    // Récupérer tous les exercices du groupe
     const exercises = await pool.query(
       `SELECT e.*, g.subject, g.level
        FROM exercises e
@@ -742,13 +748,10 @@ router.post("/clean-exercises", async (req, res) => {
       return res.status(404).json({ error: "Aucun exercice trouvé pour cette classe." });
     }
 
-    // Logique de nettoyage (à adapter avec votre implémentation réelle)
     let corrected = 0;
     let ignored = 0;
 
     for (const ex of exercises.rows) {
-      // Ici, vous pouvez appeler l'IA pour corriger l'exercice
-      // Pour l'exemple, on incrémente corrected
       corrected++;
     }
 
