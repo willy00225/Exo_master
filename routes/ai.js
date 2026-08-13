@@ -211,6 +211,232 @@ router.use(auth);
 router.use(admin);
 
 // ------------------------------------------------------------------
+// 🚀 POST /api/ai/generate-all-quizzes – Génération automatique massive
+// ------------------------------------------------------------------
+router.post("/generate-all-quizzes", async (req, res) => {
+  try {
+    const {
+      // Par défaut, on n'exclut que le Français (matière déjà traitée en français)
+      // et les langues que vous ne souhaitez pas générer automatiquement.
+      // L'Anglais est désormais inclus : les quiz d'anglais seront en anglais.
+      difficulties = ['easy', 'medium', 'hard', 'very_hard'],
+      questions_per_quiz = 10,
+      exclude_subjects = ['Français', 'Espagnol', 'Allemand']
+    } = req.body;
+
+    // 1. Récupérer tous les groupes (classes) autorisés
+    const groups = await pool.query("SELECT id, name, subject FROM groups");
+    const eligibleGroups = groups.rows.filter(g =>
+      !exclude_subjects.includes(g.subject) && g.subject !== 'Toutes matières'
+    );
+
+    if (eligibleGroups.length === 0) {
+      return res.status(404).json({ error: "Aucune classe éligible trouvée." });
+    }
+
+    const results = [];
+    let totalQuizzesCreated = 0;
+
+    // 2. Boucler sur chaque classe et chaque difficulté
+    for (const group of eligibleGroups) {
+      for (const difficulty of difficulties) {
+        try {
+          // Vérifier si un quiz existe déjà pour ce groupe et cette difficulté
+          const existingQuiz = await pool.query(
+            "SELECT id FROM quizzes WHERE group_id = $1 AND difficulty_filter = $2",
+            [group.id, difficulty]
+          );
+          if (existingQuiz.rows.length > 0) {
+            results.push({
+              group: group.name,
+              difficulty,
+              status: 'skipped',
+              message: 'Quiz déjà existant'
+            });
+            continue;
+          }
+
+          // Générer les questions avec vérification de langue
+          const questions = await generateQuestionsForGroup(group.id, difficulty, questions_per_quiz);
+          if (questions.length === 0) {
+            results.push({
+              group: group.name,
+              difficulty,
+              status: 'error',
+              message: 'Aucune question générée'
+            });
+            continue;
+          }
+
+          // Créer le quiz
+          const quizTitle = `Quiz ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} – ${group.name}`;
+          const time_limit = 60 * questions.length; // 1 minute par question
+
+          const quizResult = await pool.query(
+            `INSERT INTO quizzes (title, description, group_id, difficulty, question_count, difficulty_filter, time_limit)
+             VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+            [
+              quizTitle,
+              `Quiz de ${difficulty} pour la classe ${group.name}`,
+              group.id,
+              difficulty,
+              questions.length,
+              difficulty,
+              time_limit
+            ]
+          );
+
+          totalQuizzesCreated++;
+          results.push({
+            group: group.name,
+            difficulty,
+            status: 'created',
+            quiz_id: quizResult.rows[0].id,
+            questions: questions.length
+          });
+
+          // Petite pause pour éviter de dépasser les limites d'API
+          await new Promise(resolve => setTimeout(resolve, 5000));
+
+        } catch (err) {
+          console.error(`Erreur pour ${group.name} / ${difficulty}:`, err.message);
+          results.push({
+            group: group.name,
+            difficulty,
+            status: 'error',
+            message: err.message
+          });
+        }
+      }
+    }
+
+    res.json({
+      message: `Génération automatique terminée. ${totalQuizzesCreated} quiz créés.`,
+      total_quizzes_created: totalQuizzesCreated,
+      results
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erreur lors de la génération automatique." });
+  }
+});
+
+// ------------------------------------------------------------------
+// 🔧 Fonction interne pour générer des questions pour un groupe/difficulté
+// avec vérification stricte de la langue et de la justesse
+// ------------------------------------------------------------------
+async function generateQuestionsForGroup(groupId, difficulty, count = 10) {
+  const group = await pool.query("SELECT name, subject, level FROM groups WHERE id = $1", [groupId]);
+  if (group.rows.length === 0) throw new Error("Groupe non trouvé.");
+
+  const subject = group.rows[0].subject;
+  const level = group.rows[0].level;
+  const language = getLanguageFromSubject(subject);
+
+  // Règle absolue de langue
+  const languageRule = `**RÈGLE ABSOLUE DE LANGUE :** Le contenu doit être exclusivement en ${language}. Aucun mot étranger n'est accepté, sauf les termes scientifiques universels (ex. ADN, pH). Toute infraction rendra la génération invalide.`;
+
+  const systemInstruction = "Tu es un professeur certifié. Réponds UNIQUEMENT avec un objet JSON valide.";
+  const prompt = `Tu es un professeur de ${subject}, niveau ${level}.
+Génère ${count} questions à choix multiples pour la classe ${group.rows[0].name}.
+Difficulté : ${difficulty}.
+${languageRule}
+
+**PROCÉDURE OBLIGATOIRE :**
+1. Pour chaque question, effectue TOI-MÊME le calcul ou la résolution.
+2. Vérifie que la réponse que tu désignes comme correcte correspond EXACTEMENT à ton propre calcul.
+3. Si tu détectes une incohérence, corrige-la avant de finaliser la question.
+
+Format JSON exact : { "questions": [ { "text": "énoncé", "options": ["Option A", "Option B", "Option C", "Option D"], "correct": 0 } ] }`;
+
+  const raw = await generateWithAI(prompt, systemInstruction);
+  const parsed = parseAIResponse(raw);
+
+  if (!parsed || !Array.isArray(parsed.questions) || parsed.questions.length === 0) {
+    throw new Error("L'IA n'a pas pu générer de questions valides.");
+  }
+
+  // Vérification des calculs (simple)
+  function safeEvaluate(expr) {
+    let sanitized = expr.replace(/,/g, '.').replace(/\s+/g, '');
+    if (!/^[\d.+\-*\/()]+$/.test(sanitized)) return null;
+    try {
+      const result = Function('"use strict"; return (' + sanitized + ')')();
+      return Number(result);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Correction arithmétique basique
+  for (const q of parsed.questions) {
+    const match = q.text.match(/(\d+[\.,]?\d*)\s*([+\-])\s*(\d+[\.,]?\d*)/);
+    if (match) {
+      const a = match[1].replace(',', '.');
+      const op = match[2];
+      const b = match[3].replace(',', '.');
+      const expr = `${a} ${op} ${b}`;
+      const result = safeEvaluate(expr);
+      if (result !== null && !isNaN(result)) {
+        const correctIndex = q.options.findIndex(opt => {
+          const optValue = parseFloat(String(opt).replace(',', '.'));
+          return Math.abs(optValue - result) < 0.001;
+        });
+        if (correctIndex !== -1) {
+          q.correct = correctIndex;
+        }
+      }
+    }
+  }
+
+  // 🔍 Vérification pédagogique et linguistique de chaque question
+  for (const q of parsed.questions) {
+    const verifyPrompt = `
+Tu es un vérificateur pédagogique strict.
+Voici une question à choix multiples destinée à la matière ${subject} (niveau ${level}).
+
+Énoncé : ${q.text}
+Options : ${JSON.stringify(q.options)}
+Index de la réponse correcte désigné : ${q.correct}
+
+Vérifie scrupuleusement :
+1. L'exactitude de la réponse (calcul, logique, connaissance).
+2. Que tout le contenu est en ${language} (aucun mot étranger, sauf termes scientifiques universels).
+3. Que la grammaire et l'orthographe sont irréprochables.
+
+Si une erreur est détectée, corrige-la et retourne le JSON complet corrigé :
+{ "text": "...", "options": [...], "correct": index }
+
+Si tout est parfait, retourne exactement le JSON fourni.
+
+Réponds UNIQUEMENT avec ce JSON.`;
+
+    try {
+      const rawVerif = await generateWithAI(verifyPrompt, "Tu es un vérificateur pédagogique strict. Réponds uniquement en JSON.");
+      const verif = parseAIResponse(rawVerif);
+      if (verif && verif.text && Array.isArray(verif.options) && verif.correct !== undefined) {
+        q.text = verif.text;
+        q.options = verif.options;
+        q.correct = verif.correct;
+      }
+    } catch (e) {
+      console.warn(`⚠️ Vérification échouée pour la question, on garde l'originale.`);
+    }
+  }
+
+  // Insérer les questions dans la banque
+  for (const q of parsed.questions) {
+    await pool.query(
+      `INSERT INTO question_bank (group_id, difficulty, question_text, options, correct_option)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [groupId, difficulty, q.text, JSON.stringify(q.options), q.correct]
+    );
+  }
+
+  return parsed.questions;
+}
+
+// ------------------------------------------------------------------
 // 📝 POST /api/ai/generate-questions – Génération de questions via IA
 // ------------------------------------------------------------------
 router.post("/generate-questions", async (req, res) => {
