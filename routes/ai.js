@@ -217,23 +217,19 @@ router.post("/generate-all-quizzes", async (req, res) => {
     const {
       difficulties = ['easy', 'medium', 'hard', 'very_hard'],
       questions_per_quiz = 10,
-      exclude_subjects = [],   // ✅ Par défaut, aucune matière exclue
-      allow_duplicates = false // ✅ Si true, on crée un nouveau quiz même s'il en existe déjà un
+      exclude_subjects = [],
+      allow_duplicates = false
     } = req.body;
 
-    // Récupérer tous les groupes
     const groups = await pool.query("SELECT id, name, subject FROM groups");
 
     const results = [];
     let totalQuizzesCreated = 0;
 
-    // Pour chaque groupe
     for (const group of groups.rows) {
-      // Déterminer les matières à traiter
       let subjectIds = [];
 
       if (group.subject === 'Toutes matières') {
-        // Récupérer les matières associées via la table chapters
         const subjects = await pool.query(
           `SELECT DISTINCT s.id, s.name
            FROM subjects s
@@ -243,24 +239,20 @@ router.post("/generate-all-quizzes", async (req, res) => {
         );
         subjectIds = subjects.rows;
       } else {
-        // Groupe avec une matière spécifique : retrouver son ID dans subjects
         const subject = await pool.query("SELECT id, name FROM subjects WHERE name = $1", [group.subject]);
         if (subject.rows.length > 0) {
           subjectIds = subject.rows;
         }
       }
 
-      // Filtrer les matières exclues (si exclude_subjects est fourni)
       if (exclude_subjects.length > 0) {
         subjectIds = subjectIds.filter(s => !exclude_subjects.includes(s.name));
       }
       if (subjectIds.length === 0) continue;
 
-      // Pour chaque matière et difficulté
       for (const subject of subjectIds) {
         for (const difficulty of difficulties) {
           try {
-            // Si allow_duplicates est false, on vérifie l'existence et on saute si déjà présent
             if (!allow_duplicates) {
               const existingQuiz = await pool.query(
                 "SELECT id FROM quizzes WHERE group_id = $1 AND difficulty_filter = $2 AND subject_id = $3",
@@ -278,7 +270,7 @@ router.post("/generate-all-quizzes", async (req, res) => {
               }
             }
 
-            // Générer les questions
+            // Génère les questions et récupère leurs IDs
             const questions = await generateQuestionsForGroup(group.id, subject.id, difficulty, questions_per_quiz);
             if (questions.length === 0) {
               results.push({
@@ -291,7 +283,7 @@ router.post("/generate-all-quizzes", async (req, res) => {
               continue;
             }
 
-            // Créer le quiz
+            // Crée le quiz
             const quizTitle = `Quiz ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} ${subject.name} – ${group.name}`;
             const time_limit = 60 * questions.length;
 
@@ -310,17 +302,26 @@ router.post("/generate-all-quizzes", async (req, res) => {
               ]
             );
 
+            const quizId = quizResult.rows[0].id;
+
+            // Insère les liaisons quiz_questions
+            for (const question of questions) {
+              await pool.query(
+                `INSERT INTO quiz_questions (quiz_id, question_id) VALUES ($1, $2)`,
+                [quizId, question.id]
+              );
+            }
+
             totalQuizzesCreated++;
             results.push({
               group: group.name,
               subject: subject.name,
               difficulty,
               status: 'created',
-              quiz_id: quizResult.rows[0].id,
+              quiz_id: quizId,
               questions: questions.length
             });
 
-            // Petite pause pour éviter de dépasser les limites d'API
             await new Promise(resolve => setTimeout(resolve, 2000));
 
           } catch (err) {
@@ -350,6 +351,7 @@ router.post("/generate-all-quizzes", async (req, res) => {
 
 // ------------------------------------------------------------------
 // 🔧 Fonction interne : générer des questions pour un groupe + matière + difficulté
+// Retourne un tableau d'objets question avec leur ID (id, text, options, correct)
 // ------------------------------------------------------------------
 async function generateQuestionsForGroup(groupId, subjectId, difficulty, count = 10) {
   const group = await pool.query("SELECT name, level FROM groups WHERE id = $1", [groupId]);
@@ -361,7 +363,6 @@ async function generateQuestionsForGroup(groupId, subjectId, difficulty, count =
   const level = group.rows[0].level;
   const language = getLanguageFromSubject(subject.rows[0].name);
 
-  // Règle absolue de langue
   const languageRule = `**RÈGLE ABSOLUE DE LANGUE :** Le contenu doit être exclusivement en ${language}. Aucun mot étranger n'est accepté, sauf les termes scientifiques universels (ex. ADN, pH). Toute infraction rendra la génération invalide.`;
 
   const systemInstruction = "Tu es un professeur certifié. Réponds UNIQUEMENT avec un objet JSON valide.";
@@ -384,7 +385,7 @@ Format JSON exact : { "questions": [ { "text": "énoncé", "options": ["Option A
     throw new Error("L'IA n'a pas pu générer de questions valides.");
   }
 
-  // Vérification des calculs (simple)
+  // Vérification arithmétique basique
   function safeEvaluate(expr) {
     let sanitized = expr.replace(/,/g, '.').replace(/\s+/g, '');
     if (!/^[\d.+\-*\/()]+$/.test(sanitized)) return null;
@@ -396,7 +397,6 @@ Format JSON exact : { "questions": [ { "text": "énoncé", "options": ["Option A
     }
   }
 
-  // Correction arithmétique basique
   for (const q of parsed.questions) {
     const match = q.text.match(/(\d+[\.,]?\d*)\s*([+\-])\s*(\d+[\.,]?\d*)/);
     if (match) {
@@ -417,7 +417,7 @@ Format JSON exact : { "questions": [ { "text": "énoncé", "options": ["Option A
     }
   }
 
-  // 🔍 Vérification pédagogique et linguistique de chaque question
+  // Vérification pédagogique et linguistique de chaque question
   for (const q of parsed.questions) {
     const verifyPrompt = `
 Tu es un vérificateur pédagogique strict.
@@ -428,8 +428,8 @@ Options : ${JSON.stringify(q.options)}
 Index de la réponse correcte désigné : ${q.correct}
 
 Vérifie scrupuleusement :
-1. L'exactitude de la réponse (calcul, logique, connaissance).
-2. Que tout le contenu est en ${language} (aucun mot étranger, sauf termes scientifiques universels).
+1. L'exactitude de la réponse.
+2. Que tout le contenu est en ${language}.
 3. Que la grammaire et l'orthographe sont irréprochables.
 
 Si une erreur est détectée, corrige-la et retourne le JSON complet corrigé :
@@ -452,16 +452,23 @@ Réponds UNIQUEMENT avec ce JSON.`;
     }
   }
 
-  // Insérer les questions dans la banque
+  // Insérer les questions dans la banque avec subject_id et récupérer leurs IDs
+  const insertedQuestions = [];
   for (const q of parsed.questions) {
-    await pool.query(
-      `INSERT INTO question_bank (group_id, difficulty, question_text, options, correct_option)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [groupId, difficulty, q.text, JSON.stringify(q.options), q.correct]
+    const result = await pool.query(
+      `INSERT INTO question_bank (group_id, subject_id, difficulty, question_text, options, correct_option)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+      [groupId, subjectId, difficulty, q.text, JSON.stringify(q.options), q.correct]
     );
+    insertedQuestions.push({
+      id: result.rows[0].id,
+      text: q.text,
+      options: q.options,
+      correct: q.correct
+    });
   }
 
-  return parsed.questions;
+  return insertedQuestions; // retourne les questions avec leur ID
 }
 
 // ------------------------------------------------------------------
