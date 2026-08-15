@@ -52,20 +52,16 @@ router.post("/:id/start", auth, subscription, async (req, res) => {
     const quizData = quiz.rows[0];
     const { group_id, chapter_id, difficulty_filter, question_count } = quizData;
 
-    let query = "SELECT * FROM question_bank WHERE group_id = $1";
-    const params = [group_id];
-    if (chapter_id) {
-      query += ` AND chapter_id = $${params.length + 1}`;
-      params.push(chapter_id);
-    }
-    if (difficulty_filter) {
-      query += ` AND difficulty = $${params.length + 1}`;
-      params.push(difficulty_filter);
-    }
-    query += ` ORDER BY RANDOM() LIMIT $${params.length + 1}`;
-    params.push(question_count);
-
-    const questionsResult = await pool.query(query, params);
+    // Récupérer les questions associées à ce quiz via la table de liaison
+    const questionsResult = await pool.query(
+      `SELECT qb.*
+       FROM question_bank qb
+       JOIN quiz_questions qq ON qb.id = qq.question_id
+       WHERE qq.quiz_id = $1
+       ORDER BY qq.question_id
+       LIMIT $2`,
+      [quizId, question_count]
+    );
     const questions = questionsResult.rows;
 
     if (questions.length === 0) {
