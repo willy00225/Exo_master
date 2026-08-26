@@ -457,6 +457,9 @@ app.use("/api/student/leaderboard", require("./routes/student/leaderboard"));
 // Import et utilisation des routes pour la progression lors des exercices
 app.use("/api/student/chapters-progress", require("./routes/student/chapters-progress"));
 
+// Import et utilisation des routes pour les quizzs en fonction des chapitres
+app.use("/api/student/quiz-chapters", require("./routes/student/quizChapters"));
+
 // Port
 const PORT = process.env.PORT || 5000;
 

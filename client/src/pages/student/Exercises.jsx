@@ -490,6 +490,11 @@ const Exercises = () => {
               </h2>
             </div>
 
+            {/* 🔥 ENCART AJOUTÉ */}
+            <div className="bg-blue-500/10 border border-blue-500/30 text-blue-300 text-sm p-2 rounded-lg">
+              Pour débloquer le niveau suivant, réussissez le quiz de ce chapitre avec au moins 70 %.
+            </div>
+
             <div className="space-y-3">
               {getChapterExercises(selectedChapter.id).map(ex => (
                 <ExerciseItem key={ex.id} ex={ex} apiBaseURL={api.defaults.baseURL} />

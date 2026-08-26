@@ -211,6 +211,7 @@ router.use(admin);
 // ------------------------------------------------------------------
 // 🚀 POST /api/ai/generate-all-quizzes – Génération automatique massive
 // par matière et par classe, avec option allow_duplicates
+// et option generate_chapter_quizzes pour les quiz par chapitre
 // ------------------------------------------------------------------
 router.post("/generate-all-quizzes", async (req, res) => {
   try {
@@ -218,7 +219,8 @@ router.post("/generate-all-quizzes", async (req, res) => {
       difficulties = ['easy', 'medium', 'hard', 'very_hard'],
       questions_per_quiz = 10,
       exclude_subjects = [],
-      allow_duplicates = false
+      allow_duplicates = false,
+      generate_chapter_quizzes = false   // ✅ nouveau paramètre
     } = req.body;
 
     const groups = await pool.query("SELECT id, name, subject FROM groups");
@@ -251,31 +253,33 @@ router.post("/generate-all-quizzes", async (req, res) => {
       if (subjectIds.length === 0) continue;
 
       for (const subject of subjectIds) {
+        // ---- Quiz globaux (révision générale) ----
         for (const difficulty of difficulties) {
           try {
             if (!allow_duplicates) {
               const existingQuiz = await pool.query(
-                "SELECT id FROM quizzes WHERE group_id = $1 AND difficulty_filter = $2 AND subject_id = $3",
+                "SELECT id FROM quizzes WHERE group_id = $1 AND difficulty_filter = $2 AND subject_id = $3 AND chapter_id IS NULL",
                 [group.id, difficulty, subject.id]
               );
               if (existingQuiz.rows.length > 0) {
                 results.push({
                   group: group.name,
                   subject: subject.name,
+                  chapter: null,
                   difficulty,
                   status: 'skipped',
-                  message: 'Quiz déjà existant'
+                  message: 'Quiz global déjà existant'
                 });
                 continue;
               }
             }
 
-            // Génère les questions et récupère leurs IDs
-            const questions = await generateQuestionsForGroup(group.id, subject.id, difficulty, questions_per_quiz);
+            const questions = await generateQuestionsForGroup(group.id, subject.id, difficulty, questions_per_quiz, null);
             if (questions.length === 0) {
               results.push({
                 group: group.name,
                 subject: subject.name,
+                chapter: null,
                 difficulty,
                 status: 'error',
                 message: 'Aucune question générée'
@@ -283,18 +287,18 @@ router.post("/generate-all-quizzes", async (req, res) => {
               continue;
             }
 
-            // Crée le quiz
             const quizTitle = `Quiz ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} ${subject.name} – ${group.name}`;
             const time_limit = 60 * questions.length;
 
             const quizResult = await pool.query(
-              `INSERT INTO quizzes (title, description, group_id, subject_id, difficulty, question_count, difficulty_filter, time_limit)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+              `INSERT INTO quizzes (title, description, group_id, subject_id, chapter_id, difficulty, question_count, difficulty_filter, time_limit)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
               [
                 quizTitle,
                 `Quiz de ${difficulty} en ${subject.name} pour la classe ${group.name}`,
                 group.id,
                 subject.id,
+                null, // pas de chapitre
                 difficulty,
                 questions.length,
                 difficulty,
@@ -303,8 +307,6 @@ router.post("/generate-all-quizzes", async (req, res) => {
             );
 
             const quizId = quizResult.rows[0].id;
-
-            // Insère les liaisons quiz_questions
             for (const question of questions) {
               await pool.query(
                 `INSERT INTO quiz_questions (quiz_id, question_id) VALUES ($1, $2)`,
@@ -316,6 +318,7 @@ router.post("/generate-all-quizzes", async (req, res) => {
             results.push({
               group: group.name,
               subject: subject.name,
+              chapter: null,
               difficulty,
               status: 'created',
               quiz_id: quizId,
@@ -325,14 +328,111 @@ router.post("/generate-all-quizzes", async (req, res) => {
             await new Promise(resolve => setTimeout(resolve, 2000));
 
           } catch (err) {
-            console.error(`Erreur pour ${group.name} / ${subject.name} / ${difficulty}:`, err.message);
+            console.error(`Erreur pour ${group.name} / ${subject.name} / ${difficulty} (global):`, err.message);
             results.push({
               group: group.name,
               subject: subject.name,
+              chapter: null,
               difficulty,
               status: 'error',
               message: err.message
             });
+          }
+        }
+
+        // ---- Quiz par chapitre (si demandé) ----
+        if (generate_chapter_quizzes) {
+          const chapters = await pool.query(
+            `SELECT id, title FROM chapters WHERE group_id = $1 AND subject_id = $2 ORDER BY order_index`,
+            [group.id, subject.id]
+          );
+
+          for (const chapter of chapters.rows) {
+            for (const difficulty of difficulties) {
+              try {
+                if (!allow_duplicates) {
+                  const existingChapterQuiz = await pool.query(
+                    "SELECT id FROM quizzes WHERE group_id = $1 AND difficulty_filter = $2 AND subject_id = $3 AND chapter_id = $4",
+                    [group.id, difficulty, subject.id, chapter.id]
+                  );
+                  if (existingChapterQuiz.rows.length > 0) {
+                    results.push({
+                      group: group.name,
+                      subject: subject.name,
+                      chapter: chapter.title,
+                      difficulty,
+                      status: 'skipped',
+                      message: 'Quiz de chapitre déjà existant'
+                    });
+                    continue;
+                  }
+                }
+
+                const questions = await generateQuestionsForGroup(group.id, subject.id, difficulty, questions_per_quiz, chapter.id);
+                if (questions.length === 0) {
+                  results.push({
+                    group: group.name,
+                    subject: subject.name,
+                    chapter: chapter.title,
+                    difficulty,
+                    status: 'error',
+                    message: 'Aucune question générée pour ce chapitre'
+                  });
+                  continue;
+                }
+
+                const quizTitle = `Quiz ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} ${subject.name} – ${chapter.title}`;
+                const time_limit = 60 * questions.length;
+
+                const quizResult = await pool.query(
+                  `INSERT INTO quizzes (title, description, group_id, subject_id, chapter_id, difficulty, question_count, difficulty_filter, time_limit)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+                  [
+                    quizTitle,
+                    `Quiz de ${difficulty} sur le chapitre "${chapter.title}" en ${subject.name} pour la classe ${group.name}`,
+                    group.id,
+                    subject.id,
+                    chapter.id,
+                    difficulty,
+                    questions.length,
+                    difficulty,
+                    time_limit
+                  ]
+                );
+
+                const quizId = quizResult.rows[0].id;
+                for (const question of questions) {
+                  await pool.query(
+                    `INSERT INTO quiz_questions (quiz_id, question_id) VALUES ($1, $2)`,
+                    [quizId, question.id]
+                  );
+                }
+
+                totalQuizzesCreated++;
+                results.push({
+                  group: group.name,
+                  subject: subject.name,
+                  chapter: chapter.title,
+                  difficulty,
+                  status: 'created',
+                  quiz_id: quizId,
+                  questions: questions.length
+                });
+
+                await new Promise(resolve => setTimeout(resolve, 2000));
+
+              } catch (err) {
+                console.error(`Erreur pour ${group.name} / ${subject.name} / ${chapter.title} / ${difficulty} (chapitre):`, err.message);
+                results.push({
+                  group: group.name,
+                  subject: subject.name,
+                  chapter: chapter.title,
+                  difficulty,
+                  status: 'error',
+                  message: err.message
+                });
+              }
+            }
           }
         }
       }
@@ -350,15 +450,21 @@ router.post("/generate-all-quizzes", async (req, res) => {
 });
 
 // ------------------------------------------------------------------
-// 🔧 Fonction interne : générer des questions pour un groupe + matière + difficulté
+// 🔧 Fonction interne : générer des questions pour un groupe + matière + difficulté (+ chapitre optionnel)
 // Retourne un tableau d'objets question avec leur ID (id, text, options, correct)
 // ------------------------------------------------------------------
-async function generateQuestionsForGroup(groupId, subjectId, difficulty, count = 10) {
+async function generateQuestionsForGroup(groupId, subjectId, difficulty, count = 10, chapterId = null) {
   const group = await pool.query("SELECT name, level FROM groups WHERE id = $1", [groupId]);
   if (group.rows.length === 0) throw new Error("Groupe non trouvé.");
 
   const subject = await pool.query("SELECT name FROM subjects WHERE id = $1", [subjectId]);
   if (subject.rows.length === 0) throw new Error("Matière non trouvée.");
+
+  let chapterTitle = null;
+  if (chapterId) {
+    const chapter = await pool.query("SELECT title FROM chapters WHERE id = $1", [chapterId]);
+    if (chapter.rows.length > 0) chapterTitle = chapter.rows[0].title;
+  }
 
   const level = group.rows[0].level;
   const language = getLanguageFromSubject(subject.rows[0].name);
@@ -366,8 +472,11 @@ async function generateQuestionsForGroup(groupId, subjectId, difficulty, count =
   const languageRule = `**RÈGLE ABSOLUE DE LANGUE :** Le contenu doit être exclusivement en ${language}. Aucun mot étranger n'est accepté, sauf les termes scientifiques universels (ex. ADN, pH). Toute infraction rendra la génération invalide.`;
 
   const systemInstruction = "Tu es un professeur certifié. Réponds UNIQUEMENT avec un objet JSON valide.";
+  const chapterContext = chapterTitle
+    ? ` pour le chapitre "${chapterTitle}"`
+    : "";
   const prompt = `Tu es un professeur de ${subject.rows[0].name}, niveau ${level}.
-Génère ${count} questions à choix multiples pour la classe ${group.rows[0].name}.
+Génère ${count} questions à choix multiples pour la classe ${group.rows[0].name}${chapterContext}.
 Difficulté : ${difficulty}.
 ${languageRule}
 
@@ -421,7 +530,7 @@ Format JSON exact : { "questions": [ { "text": "énoncé", "options": ["Option A
   for (const q of parsed.questions) {
     const verifyPrompt = `
 Tu es un vérificateur pédagogique strict.
-Voici une question à choix multiples destinée à la matière ${subject.rows[0].name} (niveau ${level}).
+Voici une question à choix multiples destinée à la matière ${subject.rows[0].name} (niveau ${level})${chapterTitle ? `, chapitre "${chapterTitle}"` : ''}.
 
 Énoncé : ${q.text}
 Options : ${JSON.stringify(q.options)}
@@ -452,13 +561,13 @@ Réponds UNIQUEMENT avec ce JSON.`;
     }
   }
 
-  // Insérer les questions dans la banque avec subject_id et récupérer leurs IDs
+  // Insérer les questions dans la banque avec subject_id et chapter_id et récupérer leurs IDs
   const insertedQuestions = [];
   for (const q of parsed.questions) {
     const result = await pool.query(
-      `INSERT INTO question_bank (group_id, subject_id, difficulty, question_text, options, correct_option)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-      [groupId, subjectId, difficulty, q.text, JSON.stringify(q.options), q.correct]
+      `INSERT INTO question_bank (group_id, subject_id, chapter_id, difficulty, question_text, options, correct_option)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+      [groupId, subjectId, chapterId, difficulty, q.text, JSON.stringify(q.options), q.correct]
     );
     insertedQuestions.push({
       id: result.rows[0].id,
@@ -468,7 +577,7 @@ Réponds UNIQUEMENT avec ce JSON.`;
     });
   }
 
-  return insertedQuestions; // retourne les questions avec leur ID
+  return insertedQuestions;
 }
 
 // ------------------------------------------------------------------
