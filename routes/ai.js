@@ -6,11 +6,12 @@ const admin = require("../middleware/admin");
 const { generateWithAI } = require("../config/ai");
 
 // ------------------------------------------------------------------
-// Liste des matières autorisées pour la génération (langues exclues)
+// Liste des matières autorisées pour la génération (langues incluses)
 // ------------------------------------------------------------------
 const ALLOWED_SUBJECTS = [
   'Mathématiques', 'Physique-Chimie', 'SVT', 'Histoire-Géographie',
   'Informatique', 'Technologie', 'Philosophie', 'Économie',
+  'Français', 'Anglais', 'Espagnol', 'Allemand',
   'Toutes matières'
 ];
 
