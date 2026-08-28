@@ -29,10 +29,12 @@ router.get("/available", auth, subscription, async (req, res) => {
 
     const result = await pool.query(
       `SELECT q.*, g.name as group_name, g.subject, g.level,
-              c.title as chapter_title
+              c.title as chapter_title,
+              s.name as subject_name
        FROM quizzes q
        JOIN groups g ON q.group_id = g.id
        LEFT JOIN chapters c ON q.chapter_id = c.id
+       LEFT JOIN subjects s ON q.subject_id = s.id
        WHERE q.group_id = ANY($1::int[])
        ORDER BY q.created_at DESC`,
       [groupIds]

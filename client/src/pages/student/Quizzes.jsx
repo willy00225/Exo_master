@@ -28,10 +28,8 @@ const Quizzes = () => {
   const [loadError, setLoadError] = useState(null);
   const [activeQuiz, setActiveQuiz] = useState(null);
 
-  // État de la vue : 'chapters' (par défaut) ou 'global'
   const [viewMode, setViewMode] = useState('chapters');
 
-  // Filtres
   const [selectedSubject, setSelectedSubject] = useState('all');
   const [selectedChapter, setSelectedChapter] = useState('all');
   const [selectedDifficulty, setSelectedDifficulty] = useState('all');
@@ -56,7 +54,6 @@ const Quizzes = () => {
     fetchData();
   }, []);
 
-  // Réinitialiser la pagination et les filtres lors du changement de vue
   const switchView = (mode) => {
     setViewMode(mode);
     setPage(1);
@@ -66,16 +63,16 @@ const Quizzes = () => {
     setSelectedSubject('all');
   };
 
-  // Extraire les matières uniques (tous les quiz)
+  // Extraire les matières uniques à partir de subject_name
   const subjects = useMemo(() => {
-    const set = new Set(quizzes.map(q => q.subject).filter(Boolean));
+    const set = new Set(quizzes.map(q => q.subject_name).filter(Boolean));
     return Array.from(set).sort();
   }, [quizzes]);
 
   // Chapitres disponibles pour la vue "chapters" selon la matière sélectionnée
   const chapters = useMemo(() => {
     if (viewMode !== 'chapters' || selectedSubject === 'all') return [];
-    const filtered = quizzes.filter(q => q.chapter_id && q.subject === selectedSubject);
+    const filtered = quizzes.filter(q => q.chapter_id && q.subject_name === selectedSubject);
     const map = new Map();
     filtered.forEach(q => {
       map.set(q.chapter_id, q.chapter_title || `Chapitre ${q.chapter_id}`);
@@ -83,18 +80,15 @@ const Quizzes = () => {
     return Array.from(map.entries()).map(([id, title]) => ({ id, title }));
   }, [quizzes, selectedSubject, viewMode]);
 
-  // Quiz à afficher selon le mode et les filtres
   const filteredQuizzes = useMemo(() => {
     let result = [...quizzes];
 
-    // Filtrer par type de quiz
     result = viewMode === 'chapters'
       ? result.filter(q => q.chapter_id !== null)
       : result.filter(q => q.chapter_id === null);
 
-    // Filtres communs
     if (selectedSubject !== 'all') {
-      result = result.filter(q => q.subject === selectedSubject);
+      result = result.filter(q => q.subject_name === selectedSubject);
     }
 
     if (selectedDifficulty !== 'all') {
@@ -109,12 +103,10 @@ const Quizzes = () => {
       );
     }
 
-    // Pour la vue chapitres, on peut filtrer par chapitre spécifique
     if (viewMode === 'chapters' && selectedChapter !== 'all') {
       result = result.filter(q => q.chapter_id == selectedChapter);
     }
 
-    // 🔥 Tri pédagogique : du plus facile au plus difficile, puis par titre
     result.sort((a, b) => {
       const diffA = difficultyOrder[a.difficulty_filter] ?? 0;
       const diffB = difficultyOrder[b.difficulty_filter] ?? 0;
@@ -125,7 +117,6 @@ const Quizzes = () => {
     return result;
   }, [quizzes, viewMode, selectedSubject, selectedChapter, selectedDifficulty, searchTerm]);
 
-  // Pagination
   const totalPages = Math.ceil(filteredQuizzes.length / ITEMS_PER_PAGE);
   const currentPageQuizzes = useMemo(() => {
     const start = (page - 1) * ITEMS_PER_PAGE;
@@ -174,7 +165,6 @@ const Quizzes = () => {
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto px-4 sm:px-6">
-      {/* En-tête */}
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
         <h1 className="text-3xl font-bold text-white">Quiz disponibles</h1>
         <p className="text-slate-400 mt-1">
@@ -184,7 +174,6 @@ const Quizzes = () => {
         </p>
       </motion.div>
 
-      {/* Bouton bascule vers quiz globaux / retour */}
       <div className="flex justify-end">
         <button
           onClick={() => switchView(viewMode === 'chapters' ? 'global' : 'chapters')}
@@ -204,7 +193,6 @@ const Quizzes = () => {
         </button>
       </div>
 
-      {/* Filtres */}
       <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-4 space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {/* Matière */}
@@ -223,7 +211,6 @@ const Quizzes = () => {
             <ChevronLeft className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 rotate-[-90deg]" size={16} />
           </div>
 
-          {/* Chapitre (uniquement en vue chapitres et si une matière est choisie) */}
           {viewMode === 'chapters' && (
             <div className="relative">
               <BookOpen size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
@@ -244,7 +231,6 @@ const Quizzes = () => {
             </div>
           )}
 
-          {/* Difficulté */}
           <div className="relative">
             <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             <select
@@ -260,7 +246,6 @@ const Quizzes = () => {
             <ChevronLeft className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 rotate-[-90deg]" size={16} />
           </div>
 
-          {/* Recherche */}
           <div className="relative">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             <input
@@ -291,7 +276,6 @@ const Quizzes = () => {
         </div>
       </div>
 
-      {/* Liste des quiz */}
       <AnimatePresence>
         {currentPageQuizzes.length === 0 ? (
           <motion.div
@@ -347,7 +331,6 @@ const Quizzes = () => {
         )}
       </AnimatePresence>
 
-      {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-3 mt-6">
           <button
