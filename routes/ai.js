@@ -51,19 +51,34 @@ async function generateSingleExercise({ group_id, chapter_id, difficulty, curric
   const group = await pool.query("SELECT name, subject, level FROM groups WHERE id = $1", [group_id]);
   if (group.rows.length === 0) throw new Error("Groupe non trouvé.");
 
-  const subject = group.rows[0].subject;
+  let subject = group.rows[0].subject;
+  const level = group.rows[0].level;
+  let chapterTitle = "général";
+
+  if (chapter_id) {
+    const chapter = await pool.query(
+      `SELECT c.title, s.id AS subject_id, s.name AS subject_name
+       FROM chapters c
+       JOIN subjects s ON c.subject_id = s.id
+       WHERE c.id = $1`,
+      [chapter_id]
+    );
+    if (chapter.rows.length > 0) {
+      chapterTitle = chapter.rows[0].title;
+      subject = chapter.rows[0].subject_name;
+    }
+  } else {
+    // Si pas de chapitre et que le groupe est "Toutes matières", on ne peut pas deviner la matière
+    if (subject === 'Toutes matières') {
+      throw new Error("Matière indéterminée : un chapitre est requis pour les classes générales.");
+    }
+  }
+
   if (!ALLOWED_SUBJECTS.includes(subject)) {
     throw new Error(`La génération d'exercices pour la matière "${subject}" est temporairement désactivée.`);
   }
 
-  const level = group.rows[0].level;
   const language = getLanguageFromSubject(subject);
-  
-  let chapterTitle = "général";
-  if (chapter_id) {
-    const chapter = await pool.query("SELECT title FROM chapters WHERE id = $1", [chapter_id]);
-    if (chapter.rows.length > 0) chapterTitle = chapter.rows[0].title;
-  }
 
   const curriculumIntro = curriculum === 'ivoirien'
     ? "Tu es un professeur certifié du système éducatif ivoirien, enseignant selon les programmes officiels de la Côte d'Ivoire. "
