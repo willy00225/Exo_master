@@ -7,17 +7,16 @@ const subscription = require("../../middleware/subscription");
 router.use(auth);
 router.use(subscription);
 
-// GET /api/student/quiz-chapters – Liste des chapitres ayant au moins un quiz pour l'élève
+// GET /api/student/quiz-chapters – Liste des chapitres disponibles pour l'élève
 router.get("/", async (req, res) => {
   try {
     const userId = req.user.id;
     const result = await pool.query(
-      `SELECT DISTINCT c.id, c.title
-       FROM quizzes q
-       JOIN groups g ON q.group_id = g.id
-       JOIN chapters c ON q.chapter_id = c.id
-       JOIN user_groups ug ON g.id = ug.group_id
-       WHERE ug.user_id = $1 AND q.chapter_id IS NOT NULL
+      `SELECT DISTINCT c.id, c.title, c.order_index
+       FROM user_groups ug
+       JOIN groups g ON ug.group_id = g.id
+       JOIN chapters c ON c.group_id = g.id
+       WHERE ug.user_id = $1
        ORDER BY c.order_index`,
       [userId]
     );
