@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Play, Clock, Loader, HelpCircle, BookOpen, Search,
-  Filter, ChevronLeft, ChevronRight, RotateCcw, X, ArrowRight,
+  Filter, ChevronLeft, ChevronRight, RotateCcw, X,
   BookMarked, GraduationCap
 } from 'lucide-react';
 import api from '../../services/api';
@@ -13,6 +13,13 @@ const difficultyLabels = {
   medium: { label: 'Moyen', color: 'text-amber-400 bg-amber-500/20 border-amber-500/30' },
   hard: { label: 'Difficile', color: 'text-orange-400 bg-orange-500/20 border-orange-500/30' },
   very_hard: { label: 'Très difficile', color: 'text-red-400 bg-red-500/20 border-red-500/30' },
+};
+
+const difficultyOrder = {
+  easy: 0,
+  medium: 1,
+  hard: 2,
+  very_hard: 3,
 };
 
 const Quizzes = () => {
@@ -65,12 +72,10 @@ const Quizzes = () => {
     return Array.from(set).sort();
   }, [quizzes]);
 
-  // Chapitres disponibles pour la vue "chapters"
+  // Chapitres disponibles pour la vue "chapters" selon la matière sélectionnée
   const chapters = useMemo(() => {
-    if (viewMode !== 'chapters') return [];
-    const filtered = selectedSubject === 'all'
-      ? quizzes.filter(q => q.chapter_id)
-      : quizzes.filter(q => q.chapter_id && q.subject === selectedSubject);
+    if (viewMode !== 'chapters' || selectedSubject === 'all') return [];
+    const filtered = quizzes.filter(q => q.chapter_id && q.subject === selectedSubject);
     const map = new Map();
     filtered.forEach(q => {
       map.set(q.chapter_id, q.chapter_title || `Chapitre ${q.chapter_id}`);
@@ -78,7 +83,7 @@ const Quizzes = () => {
     return Array.from(map.entries()).map(([id, title]) => ({ id, title }));
   }, [quizzes, selectedSubject, viewMode]);
 
-  // Quiz à afficher selon le mode
+  // Quiz à afficher selon le mode et les filtres
   const filteredQuizzes = useMemo(() => {
     let result = [...quizzes];
 
@@ -109,8 +114,13 @@ const Quizzes = () => {
       result = result.filter(q => q.chapter_id == selectedChapter);
     }
 
-    // Trier par date (ou titre) pour une meilleure lisibilité
-    result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    // 🔥 Tri pédagogique : du plus facile au plus difficile, puis par titre
+    result.sort((a, b) => {
+      const diffA = difficultyOrder[a.difficulty_filter] ?? 0;
+      const diffB = difficultyOrder[b.difficulty_filter] ?? 0;
+      if (diffA !== diffB) return diffA - diffB;
+      return (a.title || '').localeCompare(b.title || '');
+    });
 
     return result;
   }, [quizzes, viewMode, selectedSubject, selectedChapter, selectedDifficulty, searchTerm]);
@@ -213,17 +223,19 @@ const Quizzes = () => {
             <ChevronLeft className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 rotate-[-90deg]" size={16} />
           </div>
 
-          {/* Chapitre (uniquement en vue chapitres) */}
+          {/* Chapitre (uniquement en vue chapitres et si une matière est choisie) */}
           {viewMode === 'chapters' && (
             <div className="relative">
               <BookOpen size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               <select
                 value={selectedChapter}
                 onChange={(e) => setSelectedChapter(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/20 rounded-lg text-white appearance-none focus:outline-none focus:ring-2 focus:ring-violet-500"
-                disabled={chapters.length === 0}
+                className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/20 rounded-lg text-white appearance-none focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50"
+                disabled={selectedSubject === 'all' || chapters.length === 0}
               >
-                <option value="all">Tous les chapitres</option>
+                <option value="all">
+                  {selectedSubject === 'all' ? 'Choisissez d\'abord une matière' : 'Tous les chapitres'}
+                </option>
                 {chapters.map(ch => (
                   <option key={ch.id} value={ch.id}>{ch.title}</option>
                 ))}
