@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, Filter, Users, Loader, ChevronLeft, ChevronRight,
-  UserPlus, Swords, CheckCircle2
+  Swords, CheckCircle2
 } from 'lucide-react';
 import api from '../../services/api';
 
@@ -29,6 +29,7 @@ const OpponentList = ({ onChallengeCreated }) => {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
+  const [totalOpponents, setTotalOpponents] = useState(0);
   const [loadingOpponents, setLoadingOpponents] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [sendingChallengeId, setSendingChallengeId] = useState(null);
@@ -51,7 +52,7 @@ const OpponentList = ({ onChallengeCreated }) => {
         const res = await api.get('/quizzes/available');
         const quizData = res.data;
 
-        // Matières uniques
+        // Matières uniques avec ID et nom
         const subjectMap = new Map();
         quizData.forEach(q => {
           if (q.subject_id && q.subject_name) {
@@ -86,7 +87,7 @@ const OpponentList = ({ onChallengeCreated }) => {
     return chapters.filter(ch => ch.subject_id === selectedSubjectId);
   }, [chapters, selectedSubjectId]);
 
-  // Filtrer les quiz disponibles selon les filtres
+  // Filtrer les quiz selon matière, chapitre, difficulté
   const filteredQuizzes = useMemo(() => {
     let result = quizzes;
     if (selectedSubjectId !== 'all') {
@@ -114,6 +115,7 @@ const OpponentList = ({ onChallengeCreated }) => {
       const res = await api.get('/challenges/available-opponents', { params });
       setOpponents(res.data.opponents || []);
       setTotalPages(res.data.totalPages || 0);
+      setTotalOpponents(res.data.total || 0);
     } catch (err) {
       console.error(err);
       setLoadError('Impossible de charger les adversaires.');
@@ -128,7 +130,7 @@ const OpponentList = ({ onChallengeCreated }) => {
     return () => clearInterval(interval);
   }, [fetchOpponents]);
 
-  // Envoyer le défi avec gestion d'erreur améliorée
+  // Envoyer le défi
   const handleChallenge = async (opponentId) => {
     if (!selectedQuizId) {
       alert('Veuillez sélectionner un quiz pour lancer le défi.');
@@ -145,7 +147,6 @@ const OpponentList = ({ onChallengeCreated }) => {
       alert('Défi envoyé !');
     } catch (err) {
       console.error(err);
-      // 🔥 Afficher le message exact renvoyé par le backend, sinon message générique
       const message = err.response?.data?.error || "Erreur lors de l'envoi du défi.";
       alert(message);
     } finally {
@@ -248,7 +249,7 @@ const OpponentList = ({ onChallengeCreated }) => {
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-white flex items-center gap-2">
             <Users size={20} className="text-violet-400" />
-            Élèves de votre classe
+            Adversaires disponibles ({totalOpponents})
           </h3>
           <span className="text-xs text-slate-400">
             En ligne : {opponents.filter(o => o.is_online).length}

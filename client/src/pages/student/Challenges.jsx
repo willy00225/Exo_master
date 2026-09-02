@@ -1,16 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Swords, Clock, Trophy, Loader, Check, X, Play, History, User } from 'lucide-react';
 import api from '../../services/api';
-import ChallengeForm from '../../components/student/ChallengeForm';
 import QuizGame from '../../components/student/QuizGame';
-import OpponentList from '../../components/student/OpponentList'; // Ajout de l'import
+import OpponentList from '../../components/student/OpponentList';
 
 const Challenges = () => {
   const [challenges, setChallenges] = useState({ received: [], sent: [] });
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeChallenge, setActiveChallenge] = useState(null);
-  const [activeTab, setActiveTab] = useState('pending'); // 'pending' | 'history'
+  const [activeTab, setActiveTab] = useState('pending');
 
   const fetchChallenges = useCallback(async () => {
     try {
@@ -27,7 +26,6 @@ const Challenges = () => {
     }
   }, []);
 
-  // Rafraîchissement automatique toutes les 10 secondes
   useEffect(() => {
     fetchChallenges();
     const interval = setInterval(fetchChallenges, 10000);
@@ -44,7 +42,6 @@ const Challenges = () => {
     fetchChallenges();
   };
 
-  // Si un défi est en cours, on affiche le jeu
   if (activeChallenge) {
     return (
       <QuizGame
@@ -73,8 +70,8 @@ const Challenges = () => {
         <p className="text-slate-400 mt-1">Affrontez vos camarades et mesurez votre niveau</p>
       </div>
 
-      <ChallengeForm onChallengeSent={fetchChallenges} />
-      <OpponentList onChallengeCreated={fetchChallenges} /> {/* Ajout du composant */}
+      {/* Bloc principal : sélection du quiz + adversaires */}
+      <OpponentList onChallengeCreated={fetchChallenges} />
 
       {/* Onglets */}
       <div className="flex gap-2">
