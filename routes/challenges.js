@@ -3,259 +3,343 @@ const router = express.Router();
 const pool = require("../config/db");
 const auth = require("../middleware/auth");
 const subscription = require("../middleware/subscription");
-const { createNotification } = require("../utils/notificationHelper");
-const { addXP, checkAndAwardBadge, XP_VALUES, BADGES } = require("../utils/gamification"); // 🆕
+const presence = require("../middleware/presence"); // 🆕 middleware de présence
 
-// Toutes les routes nécessitent authentification et abonnement actif
+// Appliquer auth, présence et subscription à toutes les routes de ce routeur
 router.use(auth);
+router.use(presence);
 router.use(subscription);
 
-// POST /api/challenges - Créer un défi
+// ------------------------------------------------------------------
+// GET /api/challenges/pending – Défis reçus et envoyés en cours
+// ------------------------------------------------------------------
+router.get("/pending", async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Défis reçus
+    const received = await pool.query(
+      `SELECT c.id, c.challenger_id, c.challenged_id, c.quiz_id, c.status,
+              u.name AS challenger_name, q.title AS quiz_title,
+              CASE WHEN c.challenged_id = $1 THEN true ELSE false END AS has_played
+       FROM challenges c
+       JOIN users u ON c.challenger_id = u.id
+       JOIN quizzes q ON c.quiz_id = q.id
+       WHERE c.challenged_id = $1
+         AND c.status IN ('pending', 'accepted')
+         AND c.winner_id IS NULL
+       ORDER BY c.created_at DESC`,
+      [userId]
+    );
+
+    // Défis envoyés
+    const sent = await pool.query(
+      `SELECT c.id, c.challenger_id, c.challenged_id, c.quiz_id, c.status,
+              u.name AS challenged_name, q.title AS quiz_title,
+              CASE WHEN c.challenger_id = $1 THEN true ELSE false END AS has_played
+       FROM challenges c
+       JOIN users u ON c.challenged_id = u.id
+       JOIN quizzes q ON c.quiz_id = q.id
+       WHERE c.challenger_id = $1
+         AND c.status IN ('pending', 'accepted')
+         AND c.winner_id IS NULL
+       ORDER BY c.created_at DESC`,
+      [userId]
+    );
+
+    res.json({
+      received: received.rows,
+      sent: sent.rows,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erreur lors de la récupération des défis." });
+  }
+});
+
+// ------------------------------------------------------------------
+// GET /api/challenges/history – Historique des défis terminés
+// ------------------------------------------------------------------
+router.get("/history", async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const result = await pool.query(
+      `SELECT c.id, c.challenger_id, c.challenged_id, c.quiz_id,
+              c.challenger_score, c.challenged_score, c.winner_id,
+              u1.name AS challenger_name, u2.name AS challenged_name,
+              q.title AS quiz_title
+       FROM challenges c
+       JOIN users u1 ON c.challenger_id = u1.id
+       JOIN users u2 ON c.challenged_id = u2.id
+       JOIN quizzes q ON c.quiz_id = q.id
+       WHERE (c.challenger_id = $1 OR c.challenged_id = $1)
+         AND c.winner_id IS NOT NULL
+       ORDER BY c.completed_at DESC`,
+      [userId]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erreur lors de la récupération de l'historique." });
+  }
+});
+
+// ------------------------------------------------------------------
+// POST /api/challenges – Créer un défi (avec vérification anti-doublon)
+// ------------------------------------------------------------------
 router.post("/", async (req, res) => {
   try {
-    const challengerId = req.user.id;
     const { challenged_id, quiz_id } = req.body;
 
-    // Vérifier que le quiz existe et appartient à un groupe de l'utilisateur
-    const quizCheck = await pool.query(
-      `SELECT q.* FROM quizzes q
-       JOIN user_groups ug ON q.group_id = ug.group_id
-       WHERE q.id = $1 AND ug.user_id = $2`,
-      [quiz_id, challengerId]
+    // Vérifier que le destinataire n'a pas déjà un challenge en cours
+    const existingChallenge = await pool.query(
+      `SELECT id FROM challenges
+       WHERE challenged_id = $1
+         AND winner_id IS NULL
+         AND status NOT IN ('declined', 'completed')
+       LIMIT 1`,
+      [challenged_id]
     );
-    if (quizCheck.rows.length === 0) {
-      return res.status(400).json({ error: "Quiz non accessible." });
+
+    if (existingChallenge.rows.length > 0) {
+      const userRes = await pool.query("SELECT name FROM users WHERE id = $1", [challenged_id]);
+      const name = userRes.rows[0]?.name || "Cet élève";
+      return res.status(400).json({ error: `${name} a déjà un challenge en cours.` });
     }
 
-    // Vérifier que le challenged existe et est dans le même groupe
-    const userCheck = await pool.query(
-      `SELECT u.id FROM users u
-       JOIN user_groups ug ON u.id = ug.user_id
-       WHERE u.id = $1 AND ug.group_id = $2`,
-      [challenged_id, quizCheck.rows[0].group_id]
-    );
-    if (userCheck.rows.length === 0) {
-      return res.status(400).json({ error: "L'élève défié n'appartient pas au même groupe." });
-    }
-
-    // Éviter les doublons en attente
-    const existing = await pool.query(
-      `SELECT id FROM challenges 
-       WHERE challenger_id = $1 AND challenged_id = $2 AND quiz_id = $3 AND status = 'pending'`,
-      [challengerId, challenged_id, quiz_id]
-    );
-    if (existing.rows.length > 0) {
-      return res.status(400).json({ error: "Un défi est déjà en attente pour ce quiz." });
-    }
-
+    // Créer le challenge
     const result = await pool.query(
       `INSERT INTO challenges (challenger_id, challenged_id, quiz_id, status)
        VALUES ($1, $2, $3, 'pending') RETURNING *`,
-      [challengerId, challenged_id, quiz_id]
+      [req.user.id, challenged_id, quiz_id]
     );
-
-    // Récupération du nom du challenger et du titre du quiz pour la notification
-    const challenger = await pool.query("SELECT name FROM users WHERE id = $1", [challengerId]);
-    const challengerName = challenger.rows[0]?.name || "Un élève";
-    const quizTitle = quizCheck.rows[0]?.title || "Quiz inconnu";
-
-    // Notification au défié
-    try {
-      await createNotification({
-        userId: challenged_id,
-        message: `${challengerName} vous a défié sur le quiz "${quizTitle}".`,
-        type: "challenge",
-        link: "/student/challenges"
-      });
-    } catch (notifErr) {
-      console.error("Erreur notification défi:", notifErr.message);
-      // Ne pas faire échouer la création du défi
-    }
 
     res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Erreur création du défi." });
+    res.status(500).json({ error: "Erreur lors de la création du défi." });
   }
 });
 
-// GET /api/challenges/pending - Défis en attente ou acceptés (reçus ou envoyés)
-router.get("/pending", async (req, res) => {
+// ------------------------------------------------------------------
+// GET /api/challenges/available-opponents – Adversaires avec pagination
+// ------------------------------------------------------------------
+router.get("/available-opponents", async (req, res) => {
   try {
     const userId = req.user.id;
-    // Défis reçus (pending ou accepted) avec indicateur has_played
-    const received = await pool.query(
-      `SELECT c.*, u.name as challenger_name, q.title as quiz_title,
-         (SELECT COUNT(*) FROM quiz_attempts qa WHERE qa.challenge_id = c.id AND qa.user_id = $1) > 0 AS has_played
-       FROM challenges c
-       JOIN users u ON c.challenger_id = u.id
-       JOIN quizzes q ON c.quiz_id = q.id
-       WHERE c.challenged_id = $1 AND c.status IN ('pending', 'accepted')`,
+    const { subject_id, chapter_id, page = 1, limit = 10, search = '' } = req.query;
+
+    // Récupérer le groupe de l'utilisateur
+    const userGroup = await pool.query(
+      `SELECT group_id FROM user_groups WHERE user_id = $1 LIMIT 1`,
       [userId]
     );
-    // Défis envoyés (pending ou accepted) avec indicateur has_played
-    const sent = await pool.query(
-      `SELECT c.*, u.name as challenged_name, q.title as quiz_title,
-         (SELECT COUNT(*) FROM quiz_attempts qa WHERE qa.challenge_id = c.id AND qa.user_id = $1) > 0 AS has_played
-       FROM challenges c
-       JOIN users u ON c.challenged_id = u.id
-       JOIN quizzes q ON c.quiz_id = q.id
-       WHERE c.challenger_id = $1 AND c.status IN ('pending', 'accepted')`,
-      [userId]
-    );
-    res.json({ received: received.rows, sent: sent.rows });
+    if (userGroup.rows.length === 0) {
+      return res.json({ opponents: [], total: 0, page: 1, totalPages: 0 });
+    }
+
+    const groupId = userGroup.rows[0].group_id;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    // Requête de base
+    let query = `
+      SELECT u.id, u.name, u.last_seen,
+             (u.last_seen > NOW() - INTERVAL '5 minutes') AS is_online
+      FROM users u
+      JOIN user_groups ug ON u.id = ug.user_id
+      WHERE ug.group_id = $1
+        AND u.id <> $2
+        AND u.role = 'student'
+    `;
+    const params = [groupId, userId];
+
+    // Filtres matière/chapitre (via les quiz disponibles)
+    if (subject_id) {
+      query += ` AND EXISTS (
+        SELECT 1 FROM quizzes q
+        WHERE q.group_id = $1 AND q.subject_id = $${params.length + 1}
+          AND ($3::int IS NULL OR q.chapter_id = $3)
+      )`;
+      params.push(subject_id, chapter_id || null);
+    }
+
+    if (search.trim()) {
+      query += ` AND u.name ILIKE $${params.length + 1}`;
+      params.push(`%${search.trim()}%`);
+    }
+
+    // Compter le total
+    const countQuery = `SELECT COUNT(*) FROM (${query}) AS total`;
+    const countResult = await pool.query(countQuery, params);
+    const total = parseInt(countResult.rows[0].count);
+
+    // Pagination
+    query += ` ORDER BY is_online DESC, u.name ASC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    params.push(parseInt(limit), offset);
+
+    const opponents = await pool.query(query, params);
+
+    res.json({
+      opponents: opponents.rows,
+      total,
+      page: parseInt(page),
+      totalPages: Math.ceil(total / parseInt(limit)),
+    });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Erreur récupération." });
+    res.status(500).json({ error: "Erreur lors de la récupération des adversaires." });
   }
 });
 
-// PUT /api/challenges/:id/accept - Accepter un défi
+// ------------------------------------------------------------------
+// POST /api/challenges/:id/accept – Accepter un défi
+// ------------------------------------------------------------------
 router.put("/:id/accept", async (req, res) => {
   try {
-    const userId = req.user.id;
     const challengeId = req.params.id;
+    const userId = req.user.id;
 
     const challenge = await pool.query(
-      `SELECT * FROM challenges WHERE id = $1 AND challenged_id = $2 AND status = 'pending'`,
+      `SELECT * FROM challenges WHERE id = $1 AND challenged_id = $2`,
       [challengeId, userId]
     );
     if (challenge.rows.length === 0) {
-      return res.status(404).json({ error: "Défi non trouvé ou déjà traité." });
+      return res.status(404).json({ error: "Challenge non trouvé." });
     }
 
     await pool.query(
       `UPDATE challenges SET status = 'accepted', accepted_at = NOW() WHERE id = $1`,
       [challengeId]
     );
-
-    res.json({ message: "Défi accepté. Vous pouvez maintenant passer le quiz." });
+    res.json({ message: "Défi accepté." });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Erreur acceptation." });
+    res.status(500).json({ error: "Erreur lors de l'acceptation." });
   }
 });
 
-// PUT /api/challenges/:id/decline - Refuser un défi
+// ------------------------------------------------------------------
+// PUT /api/challenges/:id/decline – Refuser un défi
+// ------------------------------------------------------------------
 router.put("/:id/decline", async (req, res) => {
   try {
-    const userId = req.user.id;
     const challengeId = req.params.id;
-
-    const result = await pool.query(
-      `UPDATE challenges SET status = 'declined' WHERE id = $1 AND challenged_id = $2 AND status = 'pending' RETURNING id`,
-      [challengeId, userId]
-    );
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Défi non trouvé ou déjà traité." });
-    }
-    res.json({ message: "Défi refusé." });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Erreur." });
-  }
-});
-
-// POST /api/challenges/:id/start - Démarrer le quiz du défi
-router.post("/:id/start", auth, subscription, async (req, res) => {
-  try {
     const userId = req.user.id;
-    const challengeId = req.params.id;
 
-    // Vérifier que le défi est accepté et que l'utilisateur est participant
     const challenge = await pool.query(
-      `SELECT * FROM challenges WHERE id = $1 AND status = 'accepted' AND (challenger_id = $2 OR challenged_id = $2)`,
+      `SELECT * FROM challenges WHERE id = $1 AND challenged_id = $2`,
       [challengeId, userId]
     );
     if (challenge.rows.length === 0) {
-      return res.status(404).json({ error: "Défi non trouvé ou non accepté." });
+      return res.status(404).json({ error: "Challenge non trouvé." });
     }
 
-    const quizId = challenge.rows[0].quiz_id;
-    const quiz = await pool.query("SELECT * FROM quizzes WHERE id = $1", [quizId]);
-    if (quiz.rows.length === 0) return res.status(404).json({ error: "Quiz non trouvé." });
+    await pool.query(
+      `UPDATE challenges SET status = 'declined' WHERE id = $1`,
+      [challengeId]
+    );
+    res.json({ message: "Défi refusé." });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erreur lors du refus." });
+  }
+});
 
-    const quizData = quiz.rows[0];
-    const { group_id, chapter_id, difficulty_filter, question_count } = quizData;
+// ------------------------------------------------------------------
+// POST /api/challenges/:id/start – Démarrer le quiz d'un challenge
+// ------------------------------------------------------------------
+router.post("/:id/start", async (req, res) => {
+  try {
+    const challengeId = req.params.id;
+    const userId = req.user.id;
 
-    // Piocher des questions aléatoires dans la banque
-    let query = "SELECT * FROM question_bank WHERE group_id = $1";
-    const params = [group_id];
-    if (chapter_id) {
-      query += ` AND chapter_id = $${params.length + 1}`;
-      params.push(chapter_id);
+    const challenge = await pool.query(
+      `SELECT c.*, q.title, q.difficulty_filter, q.question_count, q.time_limit
+       FROM challenges c
+       JOIN quizzes q ON c.quiz_id = q.id
+       WHERE c.id = $1
+         AND (c.challenger_id = $2 OR c.challenged_id = $2)`,
+      [challengeId, userId]
+    );
+    if (challenge.rows.length === 0) {
+      return res.status(404).json({ error: "Challenge non trouvé." });
     }
-    if (difficulty_filter) {
-      query += ` AND difficulty = $${params.length + 1}`;
-      params.push(difficulty_filter);
-    }
-    query += ` ORDER BY RANDOM() LIMIT $${params.length + 1}`;
-    params.push(question_count);
 
-    const questionsResult = await pool.query(query, params);
+    const challengeData = challenge.rows[0];
+
+    // Récupérer les questions liées au quiz via la table de liaison
+    const questionsResult = await pool.query(
+      `SELECT qb.*
+       FROM question_bank qb
+       JOIN quiz_questions qq ON qb.id = qq.question_id
+       WHERE qq.quiz_id = $1
+       ORDER BY qq.question_id
+       LIMIT $2`,
+      [challengeData.quiz_id, challengeData.question_count]
+    );
     const questions = questionsResult.rows;
 
     if (questions.length === 0) {
       return res.status(404).json({ error: "Aucune question disponible." });
     }
 
-    // Préparer les questions pour l'étudiant (sans réponses)
     const questionsForStudent = questions.map(q => ({
       id: q.id,
       text: q.question_text,
-      options: q.options,
+      options: Array.isArray(q.options) ? q.options : (typeof q.options === 'string' ? q.options.split(' ').filter(Boolean) : []),
     }));
 
-    // Créer la tentative en enregistrant les questions complètes pour la correction
+    // Créer une tentative (stockée dans quiz_attempts, mais on pourrait aussi utiliser challenge_attempts)
     const attempt = await pool.query(
-      `INSERT INTO quiz_attempts (user_id, quiz_id, score, total_questions, started_at, challenge_id, questions)
-       VALUES ($1, $2, 0, $3, NOW(), $4, $5) RETURNING id`,
-      [userId, quizId, questions.length, challengeId, JSON.stringify(questions)]
+      `INSERT INTO quiz_attempts (user_id, quiz_id, score, total_questions, started_at, questions)
+       VALUES ($1, $2, 0, $3, NOW(), $4) RETURNING id`,
+      [userId, challengeData.quiz_id, questions.length, JSON.stringify(questions)]
     );
 
     res.json({
       attempt_id: attempt.rows[0].id,
-      title: quizData.title,
-      time_limit: quizData.time_limit,
+      title: challengeData.title,
+      time_limit: challengeData.time_limit,
       questions: questionsForStudent,
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Erreur démarrage." });
+    res.status(500).json({ error: "Erreur lors du démarrage du challenge." });
   }
 });
 
-// POST /api/challenges/:id/submit - Soumettre les réponses pour un défi (avec corrections et gamification)
+// ------------------------------------------------------------------
+// POST /api/challenges/:id/submit – Soumettre le score d'un challenge
+// ------------------------------------------------------------------
 router.post("/:id/submit", async (req, res) => {
   try {
-    const userId = req.user.id;
     const challengeId = req.params.id;
-    let { attempt_id, answers, time_spent } = req.body;
+    const userId = req.user.id;
+    const { attempt_id, answers, time_spent } = req.body;
 
-    // S'assurer que answers est un tableau
-    if (typeof answers === 'string') {
-      try { answers = JSON.parse(answers); } catch (e) { answers = []; }
-    }
-    if (!Array.isArray(answers)) {
-      return res.status(400).json({ error: "Format de réponses invalide." });
-    }
-
-    // Vérifier que la tentative appartient bien à ce challenge et utilisateur
-    const attemptCheck = await pool.query(
-      `SELECT * FROM quiz_attempts WHERE id = $1 AND user_id = $2 AND challenge_id = $3`,
-      [attempt_id, userId, challengeId]
+    const challenge = await pool.query(
+      `SELECT * FROM challenges WHERE id = $1
+         AND (challenger_id = $2 OR challenged_id = $2)`,
+      [challengeId, userId]
     );
-    if (attemptCheck.rows.length === 0) {
-      return res.status(400).json({ error: "Tentative invalide." });
+    if (challenge.rows.length === 0) {
+      return res.status(404).json({ error: "Challenge non trouvé." });
     }
 
-    // Récupérer les questions sauvegardées dans la tentative
-    const questions = attemptCheck.rows[0].questions;
-    if (!questions || questions.length === 0) {
-      return res.status(400).json({ error: "Aucune question trouvée pour cette tentative." });
+    // Récupérer la tentative (quiz_attempts) pour obtenir les questions
+    const attempt = await pool.query(
+      `SELECT * FROM quiz_attempts WHERE id = $1 AND user_id = $2`,
+      [attempt_id, userId]
+    );
+    if (attempt.rows.length === 0) {
+      return res.status(404).json({ error: "Tentative introuvable." });
     }
 
-    // Fonction de parsing numérique tolérant
+    const questions = attempt.rows[0].questions;
+
+    // Calculer le score
     const parseNumeric = (val) => {
       if (typeof val === 'number') return val;
       if (typeof val === 'string') return Number(val.replace(',', '.'));
@@ -263,11 +347,11 @@ router.post("/:id/submit", async (req, res) => {
     };
 
     let score = 0;
-    // Construire les corrections
-    const corrections = questions.map((q) => {
+    questions.forEach((q) => {
       const userAnswer = answers.find(a => a.questionId === q.id);
       const selectedOption = userAnswer ? userAnswer.selectedOption : null;
       const correctIndex = q.correct_option;
+
       let correct = (selectedOption === correctIndex);
       if (!correct && selectedOption !== null && selectedOption !== undefined) {
         const correctValue = parseNumeric(q.options[correctIndex]);
@@ -277,15 +361,6 @@ router.post("/:id/submit", async (req, res) => {
         }
       }
       if (correct) score++;
-      return {
-        questionId: q.id,
-        text: q.question_text,
-        options: q.options,
-        correctOption: correctIndex,
-        explanation: q.explanation || "",
-        selectedOption: selectedOption,
-        isCorrect: correct,
-      };
     });
 
     // Mettre à jour la tentative
@@ -294,109 +369,149 @@ router.post("/:id/submit", async (req, res) => {
       [score, time_spent, attempt_id]
     );
 
-    // Mettre à jour le challenge avec le score du joueur
-    const challenge = await pool.query("SELECT * FROM challenges WHERE id = $1", [challengeId]);
-    const chal = challenge.rows[0];
-    const isChallenger = (chal.challenger_id === userId);
-    const updateField = isChallenger ? "challenger_score" : "challenged_score";
-    const timeField = isChallenger ? "challenger_time" : "challenged_time";
-
-    await pool.query(
-      `UPDATE challenges SET ${updateField} = $1, ${timeField} = $2 WHERE id = $3`,
-      [score, time_spent, challengeId]
-    );
-
-    // Vérifier si les deux ont soumis pour clôturer le challenge
-    const updated = await pool.query("SELECT * FROM challenges WHERE id = $1", [challengeId]);
-    const c = updated.rows[0];
-    if (c.challenger_score !== null && c.challenged_score !== null) {
-      let winnerId = null;
-      if (c.challenger_score > c.challenged_score) winnerId = c.challenger_id;
-      else if (c.challenged_score > c.challenger_score) winnerId = c.challenged_id;
-      else {
-        if (c.challenger_time < c.challenged_time) winnerId = c.challenger_id;
-        else if (c.challenged_time < c.challenger_time) winnerId = c.challenged_id;
-      }
+    // Enregistrer le score dans le challenge
+    if (userId === challenge.rows[0].challenger_id) {
       await pool.query(
-        `UPDATE challenges SET status = 'completed', completed_at = NOW(), winner_id = $1 WHERE id = $2`,
-        [winnerId, challengeId]
+        `UPDATE challenges SET challenger_score = $1, challenger_time = $2 WHERE id = $3`,
+        [score, time_spent, challengeId]
       );
-
-      // 🎮 GAMIFICATION : Récompenser le vainqueur
-      if (winnerId) {
-        await addXP(winnerId, XP_VALUES.challenge_won, "Défi remporté");
-        await checkAndAwardBadge(winnerId, BADGES.challenge_winner.key);
-      }
+    } else {
+      await pool.query(
+        `UPDATE challenges SET challenged_score = $1, challenged_time = $2 WHERE id = $3`,
+        [score, time_spent, challengeId]
+      );
     }
 
-    res.json({ score, total: questions.length, corrections });
+    // Vérifier si les deux ont joué pour terminer le challenge
+    const updated = await pool.query(`SELECT * FROM challenges WHERE id = $1`, [challengeId]);
+    const chal = updated.rows[0];
+    if (chal.challenger_score !== null && chal.challenged_score !== null) {
+      // Déterminer le gagnant
+      let winner_id = null;
+      if (chal.challenger_score > chal.challenged_score) {
+        winner_id = chal.challenger_id;
+      } else if (chal.challenged_score > chal.challenger_score) {
+        winner_id = chal.challenged_id;
+      }
+      // Mettre à jour le challenge comme terminé
+      await pool.query(
+        `UPDATE challenges SET winner_id = $1, status = 'completed', completed_at = NOW() WHERE id = $2`,
+        [winner_id, challengeId]
+      );
+    }
+
+    // Retourner les corrections (à adapter selon votre logique)
+    res.json({
+      score,
+      total: questions.length,
+      percentage: Math.round((score / questions.length) * 100),
+      corrections: questions.map(q => ({
+        questionId: q.id,
+        text: q.question_text,
+        options: q.options,
+        correctOption: q.correct_option,
+        selectedOption: answers.find(a => a.questionId === q.id)?.selectedOption,
+        isCorrect: (answers.find(a => a.questionId === q.id)?.selectedOption === q.correct_option),
+      })),
+    });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Erreur soumission." });
+    res.status(500).json({ error: "Erreur lors de la soumission." });
   }
 });
 
-// GET /api/challenges/:id/status - Voir l'état d'un défi
+// ------------------------------------------------------------------
+// GET /api/challenges/:id/status – Statut du challenge
+// ------------------------------------------------------------------
 router.get("/:id/status", async (req, res) => {
   try {
-    const { id } = req.params;
+    const challengeId = req.params.id;
     const result = await pool.query(
-      `SELECT c.*, 
-        u1.name as challenger_name, 
-        u2.name as challenged_name,
-        q.title as quiz_title
-       FROM challenges c
-       JOIN users u1 ON c.challenger_id = u1.id
-       JOIN users u2 ON c.challenged_id = u2.id
-       JOIN quizzes q ON c.quiz_id = q.id
-       WHERE c.id = $1`,
-      [id]
+      `SELECT * FROM challenges WHERE id = $1`,
+      [challengeId]
     );
-    if (result.rows.length === 0) return res.status(404).json({ error: "Défi non trouvé." });
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Challenge non trouvé." });
+    }
     res.json(result.rows[0]);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Erreur." });
+    res.status(500).json({ error: "Erreur lors de la récupération du statut." });
   }
 });
 
-// GET /api/challenges/leaderboard - Classement global des duels
-router.get("/leaderboard", async (req, res) => {
-  try {
-    const result = await pool.query(
-      `SELECT u.id, u.name, COUNT(c.id) as duels_won
-       FROM users u
-       LEFT JOIN challenges c ON u.id = c.winner_id
-       WHERE c.status = 'completed'
-       GROUP BY u.id
-       ORDER BY duels_won DESC
-       LIMIT 20`
-    );
-    res.json(result.rows);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Erreur classement." });
-  }
-});
+// ------------------------------------------------------------------
+// 💬 Messagerie d'un challenge
+// ------------------------------------------------------------------
 
-// GET /api/challenges/history - Historique des défis terminés
-router.get("/history", async (req, res) => {
+// GET /api/challenges/:challengeId/messages
+router.get("/:challengeId/messages", async (req, res) => {
   try {
+    const { challengeId } = req.params;
     const userId = req.user.id;
-    const result = await pool.query(
-      `SELECT c.*, u1.name as challenger_name, u2.name as challenged_name, q.title as quiz_title
-       FROM challenges c
-       JOIN users u1 ON c.challenger_id = u1.id
-       JOIN users u2 ON c.challenged_id = u2.id
-       JOIN quizzes q ON c.quiz_id = q.id
-       WHERE (c.challenger_id = $1 OR c.challenged_id = $1) AND c.status = 'completed'
-       ORDER BY c.completed_at DESC`,
-      [userId]
+
+    const challenge = await pool.query(
+      `SELECT challenger_id, challenged_id FROM challenges WHERE id = $1`,
+      [challengeId]
     );
+    if (challenge.rows.length === 0) {
+      return res.status(404).json({ error: "Challenge non trouvé." });
+    }
+    const { challenger_id, challenged_id } = challenge.rows[0];
+    if (userId !== challenger_id && userId !== challenged_id) {
+      return res.status(403).json({ error: "Vous ne participez pas à ce challenge." });
+    }
+
+    const result = await pool.query(
+      `SELECT cm.id, cm.sender_id, u.name AS sender_name, cm.message, cm.created_at
+       FROM challenge_messages cm
+       JOIN users u ON cm.sender_id = u.id
+       WHERE cm.challenge_id = $1
+       ORDER BY cm.created_at ASC`,
+      [challengeId]
+    );
+
     res.json(result.rows);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Erreur historique." });
+    res.status(500).json({ error: "Erreur lors de la récupération des messages." });
+  }
+});
+
+// POST /api/challenges/:challengeId/messages
+router.post("/:challengeId/messages", async (req, res) => {
+  try {
+    const { challengeId } = req.params;
+    const userId = req.user.id;
+    const { message } = req.body;
+
+    if (!message || message.trim() === "") {
+      return res.status(400).json({ error: "Le message ne peut pas être vide." });
+    }
+
+    const challenge = await pool.query(
+      `SELECT challenger_id, challenged_id FROM challenges WHERE id = $1`,
+      [challengeId]
+    );
+    if (challenge.rows.length === 0) {
+      return res.status(404).json({ error: "Challenge non trouvé." });
+    }
+    const { challenger_id, challenged_id } = challenge.rows[0];
+    if (userId !== challenger_id && userId !== challenged_id) {
+      return res.status(403).json({ error: "Vous ne participez pas à ce challenge." });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO challenge_messages (challenge_id, sender_id, message)
+       VALUES ($1, $2, $3)
+       RETURNING id, challenge_id, sender_id, message, created_at`,
+      [challengeId, userId, message.trim()]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erreur lors de l'envoi du message." });
   }
 });
 

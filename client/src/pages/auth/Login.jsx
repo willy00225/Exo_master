@@ -13,10 +13,11 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [verificationSent, setVerificationSent] = useState(false);
   const [resending, setResending] = useState(false);
+  const [emailNotVerified, setEmailNotVerified] = useState(false); // 🆕
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  // 🔥 Lecture du paramètre expired
+  // Lecture du paramètre expired
   const [searchParams] = useSearchParams();
   const expired = searchParams.get('expired');
 
@@ -26,6 +27,7 @@ const Login = () => {
     try {
       await api.post('/auth/resend-verification', { email });
       setVerificationSent(true);
+      setEmailNotVerified(false);
       setError('');
     } catch (err) {
       setError(err.response?.data?.error || 'Erreur lors du renvoi.');
@@ -38,15 +40,20 @@ const Login = () => {
     e.preventDefault();
     setError('');
     setVerificationSent(false);
+    setEmailNotVerified(false);
     setLoading(true);
     try {
       await login(email, password);
       navigate('/');
     } catch (err) {
       const data = err.response?.data;
-      // La vérification email est temporairement désactivée
-      // if (data?.code === 'EMAIL_NOT_VERIFIED' || data?.error?.includes('Email non vérifié')) { ... }
-      setError(data?.error || 'Erreur de connexion');
+      if (data?.code === 'EMAIL_NOT_VERIFIED' || data?.error?.includes('Email non vérifié')) {
+        // 🆕 Afficher le message et le bouton de renvoi
+        setEmailNotVerified(true);
+        setError(data.error);
+      } else {
+        setError(data?.error || 'Erreur de connexion');
+      }
     } finally {
       setLoading(false);
     }
@@ -78,7 +85,7 @@ const Login = () => {
           Connexion
         </h1>
 
-        {/* 🔥 Message session expirée */}
+        {/* Message session expirée */}
         {expired && (
           <div className="bg-amber-500/20 border border-amber-500/30 text-amber-300 p-3 rounded-lg mb-4 text-sm">
             Votre session a expiré. Veuillez vous reconnecter.
@@ -145,6 +152,20 @@ const Login = () => {
             {loading ? 'Connexion...' : 'Se connecter'}
           </button>
         </form>
+
+        {/* 🆕 Bouton renvoyer l'email de vérification si nécessaire */}
+        {emailNotVerified && (
+          <div className="mt-4 text-center">
+            <button
+              onClick={handleResendVerification}
+              disabled={resending}
+              className="inline-flex items-center gap-2 text-sm bg-violet-500/10 hover:bg-violet-500/20 text-violet-300 px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
+            >
+              <Send size={16} />
+              {resending ? 'Envoi...' : 'Renvoyer le lien de vérification'}
+            </button>
+          </div>
+        )}
 
         <p className="text-slate-400 text-sm text-center mt-6">
           Pas encore de compte ?{' '}

@@ -3,6 +3,7 @@ import { Swords, Clock, Trophy, Loader, Check, X, Play, History, User } from 'lu
 import api from '../../services/api';
 import ChallengeForm from '../../components/student/ChallengeForm';
 import QuizGame from '../../components/student/QuizGame';
+import OpponentList from '../../components/student/OpponentList'; // Ajout de l'import
 
 const Challenges = () => {
   const [challenges, setChallenges] = useState({ received: [], sent: [] });
@@ -73,6 +74,7 @@ const Challenges = () => {
       </div>
 
       <ChallengeForm onChallengeSent={fetchChallenges} />
+      <OpponentList onChallengeCreated={fetchChallenges} /> {/* Ajout du composant */}
 
       {/* Onglets */}
       <div className="flex gap-2">
