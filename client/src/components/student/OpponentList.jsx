@@ -18,7 +18,7 @@ const OpponentList = ({ onChallengeCreated }) => {
   const [subjects, setSubjects] = useState([]);
   const [chapters, setChapters] = useState([]);
   const [quizzes, setQuizzes] = useState([]);
-  const [selectedSubjectId, setSelectedSubjectId] = useState('all');
+  const [selectedSubjectId, setSelectedSubjectId] = useState(null); // plus de 'all'
   const [selectedChapterId, setSelectedChapterId] = useState('all');
   const [selectedDifficulty, setSelectedDifficulty] = useState('all');
   const [selectedQuizId, setSelectedQuizId] = useState(null);
@@ -59,7 +59,8 @@ const OpponentList = ({ onChallengeCreated }) => {
             subjectMap.set(q.subject_id, q.subject_name);
           }
         });
-        setSubjects(Array.from(subjectMap.entries()).map(([id, name]) => ({ id, name })));
+        const subjectList = Array.from(subjectMap.entries()).map(([id, name]) => ({ id, name }));
+        setSubjects(subjectList);
 
         // Chapitres uniques
         const chapterMap = new Map();
@@ -73,6 +74,12 @@ const OpponentList = ({ onChallengeCreated }) => {
         setChapters(Array.from(chapterMap.values()));
 
         setQuizzes(quizData);
+
+        // 🔥 Définir Mathématiques comme matière par défaut
+        const mathSubject = subjectList.find(s => s.name === 'Mathématiques') || subjectList[0];
+        if (mathSubject) {
+          setSelectedSubjectId(mathSubject.id);
+        }
       } catch (err) {
         console.error(err);
         setLoadError('Impossible de charger les quiz.');
@@ -83,14 +90,14 @@ const OpponentList = ({ onChallengeCreated }) => {
 
   // Filtrer les chapitres selon la matière choisie
   const filteredChapters = useMemo(() => {
-    if (selectedSubjectId === 'all') return chapters;
+    if (!selectedSubjectId) return [];
     return chapters.filter(ch => ch.subject_id === selectedSubjectId);
   }, [chapters, selectedSubjectId]);
 
   // Filtrer les quiz selon matière, chapitre, difficulté
   const filteredQuizzes = useMemo(() => {
     let result = quizzes;
-    if (selectedSubjectId !== 'all') {
+    if (selectedSubjectId) {
       result = result.filter(q => q.subject_id === selectedSubjectId);
     }
     if (selectedChapterId !== 'all') {
@@ -155,7 +162,9 @@ const OpponentList = ({ onChallengeCreated }) => {
   };
 
   const resetFilters = () => {
-    setSelectedSubjectId('all');
+    // On garde Mathématiques, on réinitialise chapitre, difficulté et quiz
+    const mathSubject = subjects.find(s => s.name === 'Mathématiques') || subjects[0];
+    setSelectedSubjectId(mathSubject ? mathSubject.id : null);
     setSelectedChapterId('all');
     setSelectedDifficulty('all');
     setSelectedQuizId(null);
@@ -174,11 +183,10 @@ const OpponentList = ({ onChallengeCreated }) => {
           <div className="relative">
             <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             <select
-              value={selectedSubjectId}
-              onChange={(e) => { setSelectedSubjectId(e.target.value); setSelectedChapterId('all'); setSelectedQuizId(null); }}
+              value={selectedSubjectId || ''}
+              onChange={(e) => { setSelectedSubjectId(parseInt(e.target.value)); setSelectedChapterId('all'); setSelectedQuizId(null); }}
               className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/20 rounded-lg text-white appearance-none focus:outline-none focus:ring-2 focus:ring-violet-500"
             >
-              <option value="all">Toutes les matières</option>
               {subjects.map(subject => (
                 <option key={subject.id} value={subject.id}>{subject.name}</option>
               ))}
@@ -192,11 +200,9 @@ const OpponentList = ({ onChallengeCreated }) => {
               value={selectedChapterId}
               onChange={(e) => { setSelectedChapterId(e.target.value); setSelectedQuizId(null); }}
               className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/20 rounded-lg text-white appearance-none focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50"
-              disabled={selectedSubjectId === 'all'}
+              disabled={!selectedSubjectId}
             >
-              <option value="all">
-                {selectedSubjectId === 'all' ? 'Choisissez d\'abord une matière' : 'Tous les chapitres'}
-              </option>
+              <option value="all">Tous les chapitres</option>
               {filteredChapters.map(ch => (
                 <option key={ch.id} value={ch.id}>{ch.title}</option>
               ))}
