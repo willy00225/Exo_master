@@ -1,29 +1,28 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Search, Filter, Users, Loader, ChevronLeft, ChevronRight,
-  Swords, CheckCircle2
+  Search, Users, Loader, ChevronLeft, ChevronRight,
+  Swords, BookOpen, Filter, CheckCircle2
 } from 'lucide-react';
 import api from '../../services/api';
+import BottomSheetSelect from '../common/BottomSheetSelect';
 
-const difficultyLabels = {
-  easy: { label: 'Facile', color: 'text-emerald-400 bg-emerald-500/20 border-emerald-500/30' },
-  medium: { label: 'Moyen', color: 'text-amber-400 bg-amber-500/20 border-amber-500/30' },
-  hard: { label: 'Difficile', color: 'text-orange-400 bg-orange-500/20 border-orange-500/30' },
-  very_hard: { label: 'Très difficile', color: 'text-red-400 bg-red-500/20 border-red-500/30' },
-};
+const difficultyOptions = [
+  { value: 'easy', label: 'Facile' },
+  { value: 'medium', label: 'Moyen' },
+  { value: 'hard', label: 'Difficile' },
+  { value: 'very_hard', label: 'Très difficile' },
+];
 
 const OpponentList = ({ onChallengeCreated }) => {
-  // Données pour la sélection du quiz
   const [subjects, setSubjects] = useState([]);
   const [chapters, setChapters] = useState([]);
   const [quizzes, setQuizzes] = useState([]);
-  const [selectedSubjectId, setSelectedSubjectId] = useState(null); // plus de 'all'
+  const [selectedSubjectId, setSelectedSubjectId] = useState(null);
   const [selectedChapterId, setSelectedChapterId] = useState('all');
   const [selectedDifficulty, setSelectedDifficulty] = useState('all');
   const [selectedQuizId, setSelectedQuizId] = useState(null);
 
-  // Liste des adversaires
   const [opponents, setOpponents] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -36,7 +35,6 @@ const OpponentList = ({ onChallengeCreated }) => {
 
   const limit = 10;
 
-  // Debounce pour la recherche
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchTerm);
@@ -45,14 +43,12 @@ const OpponentList = ({ onChallengeCreated }) => {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // Charger matières, chapitres et quiz disponibles
   useEffect(() => {
     const fetchData = async () => {
       try {
         const res = await api.get('/quizzes/available');
         const quizData = res.data;
 
-        // Matières uniques avec ID et nom
         const subjectMap = new Map();
         quizData.forEach(q => {
           if (q.subject_id && q.subject_name) {
@@ -62,7 +58,6 @@ const OpponentList = ({ onChallengeCreated }) => {
         const subjectList = Array.from(subjectMap.entries()).map(([id, name]) => ({ id, name }));
         setSubjects(subjectList);
 
-        // Chapitres uniques
         const chapterMap = new Map();
         quizData.filter(q => q.chapter_id).forEach(q => {
           chapterMap.set(q.chapter_id, {
@@ -75,7 +70,6 @@ const OpponentList = ({ onChallengeCreated }) => {
 
         setQuizzes(quizData);
 
-        // 🔥 Définir Mathématiques comme matière par défaut
         const mathSubject = subjectList.find(s => s.name === 'Mathématiques') || subjectList[0];
         if (mathSubject) {
           setSelectedSubjectId(mathSubject.id);
@@ -88,13 +82,11 @@ const OpponentList = ({ onChallengeCreated }) => {
     fetchData();
   }, []);
 
-  // Filtrer les chapitres selon la matière choisie
   const filteredChapters = useMemo(() => {
     if (!selectedSubjectId) return [];
     return chapters.filter(ch => ch.subject_id === selectedSubjectId);
   }, [chapters, selectedSubjectId]);
 
-  // Filtrer les quiz selon matière, chapitre, difficulté
   const filteredQuizzes = useMemo(() => {
     let result = quizzes;
     if (selectedSubjectId) {
@@ -109,7 +101,6 @@ const OpponentList = ({ onChallengeCreated }) => {
     return result;
   }, [quizzes, selectedSubjectId, selectedChapterId, selectedDifficulty]);
 
-  // Charger les adversaires de la même classe
   const fetchOpponents = useCallback(async () => {
     setLoadingOpponents(true);
     setLoadError(null);
@@ -137,7 +128,6 @@ const OpponentList = ({ onChallengeCreated }) => {
     return () => clearInterval(interval);
   }, [fetchOpponents]);
 
-  // Envoyer le défi
   const handleChallenge = async (opponentId) => {
     if (!selectedQuizId) {
       alert('Veuillez sélectionner un quiz pour lancer le défi.');
@@ -162,7 +152,6 @@ const OpponentList = ({ onChallengeCreated }) => {
   };
 
   const resetFilters = () => {
-    // On garde Mathématiques, on réinitialise chapitre, difficulté et quiz
     const mathSubject = subjects.find(s => s.name === 'Mathématiques') || subjects[0];
     setSelectedSubjectId(mathSubject ? mathSubject.id : null);
     setSelectedChapterId('all');
@@ -180,67 +169,58 @@ const OpponentList = ({ onChallengeCreated }) => {
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
           {/* Matière */}
-          <div className="relative">
-            <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            <select
-              value={selectedSubjectId || ''}
-              onChange={(e) => { setSelectedSubjectId(parseInt(e.target.value)); setSelectedChapterId('all'); setSelectedQuizId(null); }}
-              className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/20 rounded-lg text-white appearance-none focus:outline-none focus:ring-2 focus:ring-violet-500"
-            >
-              {subjects.map(subject => (
-                <option key={subject.id} value={subject.id}>{subject.name}</option>
-              ))}
-            </select>
-          </div>
+          <BottomSheetSelect
+            value={selectedSubjectId}
+            onChange={(newVal) => {
+              setSelectedSubjectId(parseInt(newVal));
+              setSelectedChapterId('all');
+              setSelectedQuizId(null);
+            }}
+            placeholder="Choisir une matière"
+            icon={BookOpen}
+            options={subjects.map(s => ({ value: s.id, label: s.name }))}
+          />
 
           {/* Chapitre */}
-          <div className="relative">
-            <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            <select
-              value={selectedChapterId}
-              onChange={(e) => { setSelectedChapterId(e.target.value); setSelectedQuizId(null); }}
-              className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/20 rounded-lg text-white appearance-none focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50"
-              disabled={!selectedSubjectId}
-            >
-              <option value="all">Tous les chapitres</option>
-              {filteredChapters.map(ch => (
-                <option key={ch.id} value={ch.id}>{ch.title}</option>
-              ))}
-            </select>
-          </div>
+          <BottomSheetSelect
+            value={selectedChapterId}
+            onChange={(newVal) => {
+              setSelectedChapterId(newVal);
+              setSelectedQuizId(null);
+            }}
+            placeholder="Tous les chapitres"
+            icon={Filter}
+            options={[
+              { value: 'all', label: 'Tous les chapitres' },
+              ...filteredChapters.map(ch => ({ value: ch.id, label: ch.title }))
+            ]}
+            disabled={!selectedSubjectId}
+          />
 
           {/* Difficulté */}
-          <div className="relative">
-            <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            <select
-              value={selectedDifficulty}
-              onChange={(e) => { setSelectedDifficulty(e.target.value); setSelectedQuizId(null); }}
-              className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/20 rounded-lg text-white appearance-none focus:outline-none focus:ring-2 focus:ring-violet-500"
-            >
-              <option value="all">Toutes les difficultés</option>
-              {Object.entries(difficultyLabels).map(([key, { label }]) => (
-                <option key={key} value={key}>{label}</option>
-              ))}
-            </select>
-          </div>
+          <BottomSheetSelect
+            value={selectedDifficulty}
+            onChange={(newVal) => {
+              setSelectedDifficulty(newVal);
+              setSelectedQuizId(null);
+            }}
+            placeholder="Toutes les difficultés"
+            icon={Filter}
+            options={[
+              { value: 'all', label: 'Toutes les difficultés' },
+              ...difficultyOptions
+            ]}
+          />
 
           {/* Quiz précis */}
-          <div className="relative">
-            <CheckCircle2 size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            <select
-              value={selectedQuizId || ''}
-              onChange={(e) => setSelectedQuizId(e.target.value ? parseInt(e.target.value) : null)}
-              className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/20 rounded-lg text-white appearance-none focus:outline-none focus:ring-2 focus:ring-violet-500"
-              disabled={filteredQuizzes.length === 0}
-            >
-              <option value="">Sélectionner un quiz</option>
-              {filteredQuizzes.map(q => (
-                <option key={q.id} value={q.id}>
-                  {q.title}
-                </option>
-              ))}
-            </select>
-          </div>
+          <BottomSheetSelect
+            value={selectedQuizId}
+            onChange={(newVal) => setSelectedQuizId(parseInt(newVal))}
+            placeholder="Sélectionner un quiz"
+            icon={CheckCircle2}
+            options={filteredQuizzes.map(q => ({ value: q.id, label: q.title }))}
+            disabled={filteredQuizzes.length === 0}
+          />
         </div>
 
         {selectedQuizId && (
@@ -262,7 +242,6 @@ const OpponentList = ({ onChallengeCreated }) => {
           </span>
         </div>
 
-        {/* Recherche */}
         <div className="relative mt-3">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
           <input
@@ -274,7 +253,6 @@ const OpponentList = ({ onChallengeCreated }) => {
           />
         </div>
 
-        {/* Liste */}
         {loadingOpponents ? (
           <div className="flex justify-center py-8">
             <Loader className="animate-spin text-violet-400" size={32} />
@@ -322,7 +300,6 @@ const OpponentList = ({ onChallengeCreated }) => {
           </div>
         )}
 
-        {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex items-center justify-center gap-3 mt-4">
             <button

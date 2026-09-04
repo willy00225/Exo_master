@@ -9,9 +9,9 @@ import {
 import logo from '../../assets/exo_master_logo.png';
 import NotificationBell from '../../components/common/NotificationBell';
 import WhatsAppButton from '../../components/common/WhatsAppButton';
+import BottomNav from '../../components/common/BottomNav'; // 🆕 import
 import api from '../../services/api';
 
-// Pages accessibles même sans abonnement actif
 const UNRESTRICTED_ROUTES = [
   '/student/subscription',
   '/student/payments',
@@ -36,7 +36,6 @@ const StudentLayout = () => {
         const res = await api.get('/payments/status');
         setIsSubscriptionActive(res.data.is_active === true);
       } catch (err) {
-        // Si la route est protégée et renvoie 403, on considère l'abonnement inactif
         setIsSubscriptionActive(false);
       } finally {
         setCheckingSubscription(false);
@@ -50,7 +49,6 @@ const StudentLayout = () => {
     navigate('/login');
   };
 
-  // Vérifier si la page actuelle est dans la liste des routes non restreintes
   const isUnrestrictedPage = UNRESTRICTED_ROUTES.some(route =>
     location.pathname.startsWith(route)
   );
@@ -70,7 +68,6 @@ const StudentLayout = () => {
 
   const NavContent = () => (
     <>
-      {/* Logo */}
       <div className="p-6 border-b border-white/10 flex flex-col items-center">
         <img src={logo} alt="EXO MASTER" className="h-14 w-auto mb-2" />
         <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">
@@ -78,7 +75,6 @@ const StudentLayout = () => {
         </p>
       </div>
 
-      {/* Profil utilisateur + notifications */}
       <div className="p-4 border-b border-white/10 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 flex items-center justify-center text-white font-semibold shadow-lg">
@@ -92,7 +88,6 @@ const StudentLayout = () => {
         <NotificationBell />
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         {navItems.map((item) => (
           <NavLink
@@ -115,7 +110,6 @@ const StudentLayout = () => {
         ))}
       </nav>
 
-      {/* Déconnexion */}
       <div className="p-4 border-t border-white/10">
         <button
           onClick={handleLogout}
@@ -163,7 +157,7 @@ const StudentLayout = () => {
       </aside>
 
       {/* Zone principale */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[#0B0E1A] lg:pl-0 pt-14 lg:pt-0">
+      <div className="flex-1 flex flex-col min-w-0 bg-[#0B0E1A] lg:pl-0 pt-14 lg:pt-0 pb-20 lg:pb-0"> {/* 🆕 pb-20 pour mobile */}
         <main className="flex-1 overflow-y-auto p-4 md:p-8">
           {checkingSubscription ? (
             <div className="flex items-center justify-center h-full">
@@ -191,7 +185,7 @@ const StudentLayout = () => {
           )}
         </main>
 
-        <footer className="border-t border-white/10 bg-white/5 backdrop-blur-md px-4 md:px-8 py-4">
+        <footer className="border-t border-white/10 bg-white/5 backdrop-blur-md px-4 md:px-8 py-4 hidden lg:block"> {/* 🆕 caché sur mobile */}
           <div className="flex flex-col md:flex-row md:justify-between items-center text-sm text-slate-400 gap-2">
             <p>© 2026 EXO MASTER. Tous droits réservés.</p>
             <p className="flex items-center gap-2">
@@ -203,7 +197,9 @@ const StudentLayout = () => {
         </footer>
       </div>
 
-      {/* Bouton WhatsApp / Support */}
+      {/* 🆕 Bottom Navigation mobile */}
+      <BottomNav />
+
       <WhatsAppButton />
     </div>
   );

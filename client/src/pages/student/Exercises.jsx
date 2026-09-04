@@ -3,27 +3,23 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Download, Loader, FileText, BookOpen, ChevronRight, Filter,
   Unlock, Lock, CheckCircle, Info, Search, ArrowRight, AlertTriangle,
-  ChevronLeft, X
+  ChevronLeft, X, Layers, Target, Clock
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
 
-// ------------------------------------------------------------------
-// 🧮 Formatage mathématique (exposants, indices, racines)
-// ------------------------------------------------------------------
+// Formatage mathématique (inchangé)
 const formatMathText = (text) => {
   if (!text) return '';
   return text
-    .replace(/\^(\d+)/g, '<sup>$1</sup>')           // x^2 → x²
-    .replace(/\^\{([^}]+)\}/g, '<sup>$1</sup>')     // x^{2} → x²
-    .replace(/_\{(\d+)\}/g, '<sub>$1</sub>')        // H_{2}O → H₂O
-    .replace(/sqrt\{([^}]+)\}/g, '√($1)')           // sqrt{...} → √(...)
-    .replace(/\b(sqrt)\b/g, '√');                   // sqrt → √
+    .replace(/\^(\d+)/g, '<sup>$1</sup>')
+    .replace(/\^\{([^}]+)\}/g, '<sup>$1</sup>')
+    .replace(/_\{(\d+)\}/g, '<sub>$1</sub>')
+    .replace(/sqrt\{([^}]+)\}/g, '√($1)')
+    .replace(/\b(sqrt)\b/g, '√');
 };
 
-// ------------------------------------------------------------------
-// 🎨 Labels de difficulté
-// ------------------------------------------------------------------
+// Labels de difficulté (inchangé)
 const difficultyLabels = {
   easy: { label: 'Facile', color: 'text-emerald-400 bg-emerald-500/20 border-emerald-500/30' },
   medium: { label: 'Moyen', color: 'text-amber-400 bg-amber-500/20 border-amber-500/30' },
@@ -31,9 +27,7 @@ const difficultyLabels = {
   very_hard: { label: 'Très difficile', color: 'text-red-400 bg-red-500/20 border-red-500/30' },
 };
 
-// ------------------------------------------------------------------
-// 🧩 Composant ExerciseItem (version complète)
-// ------------------------------------------------------------------
+// Composant ExerciseItem (version améliorée avec timer circulaire)
 const ExerciseItem = ({ ex, apiBaseURL }) => {
   const [showContent, setShowContent] = useState(false);
   const [showCorrection, setShowCorrection] = useState(false);
@@ -80,40 +74,71 @@ const ExerciseItem = ({ ex, apiBaseURL }) => {
     return `${min}min ${sec}s`;
   };
 
+  const progress = attemptStarted ? ((requiredSeconds - remainingSeconds) / requiredSeconds) * 100 : 0;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
       className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-5 hover:bg-white/10 transition-all"
     >
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h3 className="font-semibold text-white">{ex.title}</h3>
-          <p className="text-sm text-slate-400">{ex.group_name}</p>
-          <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium border ${difficultyLabels[ex.difficulty]?.color}`}>
-            {difficultyLabels[ex.difficulty]?.label}
-          </span>
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center shrink-0">
+            <FileText size={20} className="text-violet-400" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-white">{ex.title}</h3>
+            <div className="flex items-center gap-2 mt-1">
+              <span className={`text-xs px-2 py-0.5 rounded border ${difficultyLabels[ex.difficulty]?.color}`}>
+                {difficultyLabels[ex.difficulty]?.label}
+              </span>
+              {ex.group_name && (
+                <span className="text-xs text-slate-400">{ex.group_name}</span>
+              )}
+            </div>
+          </div>
         </div>
 
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center flex-wrap">
           {ex.content && (
-            <button onClick={() => setShowContent(!showContent)} className="text-blue-400 hover:underline text-sm">
+            <button
+              onClick={() => setShowContent(!showContent)}
+              className="text-blue-400 hover:underline text-sm flex items-center gap-1"
+            >
               {showContent ? 'Cacher l’énoncé' : 'Voir l’énoncé'}
             </button>
           )}
 
           {ex.correction && !attemptStarted && (
-            <button onClick={startAttempt} className="text-emerald-400 hover:underline text-sm">
+            <button
+              onClick={startAttempt}
+              className="text-emerald-400 hover:underline text-sm flex items-center gap-1"
+            >
               Commencer l’exercice
             </button>
           )}
 
           {ex.correction && attemptStarted && !canViewCorrection && (
-            <span className="text-amber-400 text-sm">Corrigé dans {formatTime(remainingSeconds)}</span>
+            <div className="flex items-center gap-2">
+              <div className="w-20 h-2 bg-white/10 rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full bg-gradient-to-r from-violet-500 to-cyan-500"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${progress}%` }}
+                  transition={{ duration: 1 }}
+                />
+              </div>
+              <span className="text-amber-400 text-sm">{formatTime(remainingSeconds)}</span>
+            </div>
           )}
 
           {ex.correction && canViewCorrection && (
-            <button onClick={() => setShowCorrection(!showCorrection)} className="text-emerald-400 hover:underline text-sm">
+            <button
+              onClick={() => setShowCorrection(!showCorrection)}
+              className="text-emerald-400 hover:underline text-sm flex items-center gap-1"
+            >
               {showCorrection ? 'Cacher le corrigé' : 'Voir le corrigé'}
             </button>
           )}
@@ -129,27 +154,28 @@ const ExerciseItem = ({ ex, apiBaseURL }) => {
           )}
 
           {attemptCompleted && (
-            <span className="text-emerald-400 ml-2"><CheckCircle size={18} /></span>
+            <span className="text-emerald-400 ml-1"><CheckCircle size={18} /></span>
           )}
         </div>
       </div>
 
       {showContent && ex.content && (
-        <div className="mt-4 p-4 bg-white/5 border border-white/10 rounded-xl text-slate-300 whitespace-pre-wrap"
-             dangerouslySetInnerHTML={{ __html: formatMathText(ex.content) }} />
+        <div
+          className="mt-4 p-4 bg-white/5 border border-white/10 rounded-xl text-slate-300 whitespace-pre-wrap"
+          dangerouslySetInnerHTML={{ __html: formatMathText(ex.content) }}
+        />
       )}
 
       {showCorrection && ex.correction && (
-        <div className="mt-4 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-slate-300 whitespace-pre-wrap"
-             dangerouslySetInnerHTML={{ __html: formatMathText(ex.correction) }} />
+        <div
+          className="mt-4 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-slate-300 whitespace-pre-wrap"
+          dangerouslySetInnerHTML={{ __html: formatMathText(ex.correction) }}
+        />
       )}
     </motion.div>
   );
 };
 
-// ------------------------------------------------------------------
-// 🧠 Composant principal
-// ------------------------------------------------------------------
 const Exercises = () => {
   const [data, setData] = useState({ groups: [], subjects: [] });
   const [progress, setProgress] = useState([]);
@@ -164,7 +190,6 @@ const Exercises = () => {
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
-  // Chargement initial (groupes / matières)
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -189,7 +214,6 @@ const Exercises = () => {
     fetchData();
   }, []);
 
-  // Chargement de la progression détaillée
   useEffect(() => {
     if (!activeSubject || !activeGroupId) return;
     const fetchChaptersProgress = async () => {
@@ -209,7 +233,6 @@ const Exercises = () => {
     fetchChaptersProgress();
   }, [activeSubject, activeGroupId]);
 
-  // Changement de matière
   const handleSubjectChange = (subjectId) => {
     setActiveSubject(subjectId);
     setSelectedChapter(null);
@@ -223,16 +246,12 @@ const Exercises = () => {
     }
   };
 
-  // Recherche & sélection d'un chapitre
   const handleChapterSearch = (e) => {
     e.preventDefault();
     setMessage(null);
     const term = searchChapter.trim().toLowerCase();
     if (!term) return;
-
-    const found = chaptersProgress.find(ch =>
-      ch.title.toLowerCase().includes(term)
-    );
+    const found = chaptersProgress.find(ch => ch.title.toLowerCase().includes(term));
     if (!found) {
       setMessage({ type: 'error', text: 'Aucun chapitre trouvé avec ce nom.' });
       setSelectedChapter(null);
@@ -263,7 +282,6 @@ const Exercises = () => {
     setSelectedChapter(chapter);
   };
 
-  // Déverrouillage manuel (passer à la suite)
   const handleUnlock = async (chapterId) => {
     try {
       const res = await api.post('/student/check-unlock', { chapter_id: chapterId });
@@ -284,7 +302,6 @@ const Exercises = () => {
     }
   };
 
-  // Récupération des exercices du chapitre selon la difficulté actuelle
   const getChapterExercises = (chapterId) => {
     const subject = data.subjects.find(s => s.id === activeSubject);
     if (!subject) return [];
@@ -308,7 +325,8 @@ const Exercises = () => {
   const currentSubject = subjects.find(s => s.id === activeSubject);
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
+    <div className="space-y-6 max-w-6xl mx-auto px-4 sm:px-6">
+      {/* En-tête */}
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
         <h1 className="text-3xl font-bold text-white font-space-grotesk">Exercices</h1>
         <p className="text-slate-400 mt-1">
@@ -316,24 +334,27 @@ const Exercises = () => {
         </p>
       </motion.div>
 
+      {/* Onglets matières avec indicateur animé */}
       {subjects.length > 0 && (
-        <div className="flex flex-wrap gap-2 overflow-x-auto pb-2" role="tablist">
-          {subjects.map(subject => (
-            <button
-              key={subject.id || 'none'}
-              onClick={() => handleSubjectChange(subject.id)}
-              role="tab"
-              aria-selected={activeSubject === subject.id}
-              className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
-                activeSubject === subject.id
-                  ? 'bg-violet-600/20 border border-violet-400/30 text-violet-200 shadow-lg shadow-violet-500/10'
-                  : 'bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10 hover:text-white'
-              }`}
-            >
-              <BookOpen size={16} />
-              {subject.name}
-            </button>
-          ))}
+        <div className="relative">
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none" role="tablist">
+            {subjects.map(subject => (
+              <button
+                key={subject.id || 'none'}
+                onClick={() => handleSubjectChange(subject.id)}
+                role="tab"
+                aria-selected={activeSubject === subject.id}
+                className={`relative px-4 py-2 rounded-full font-medium transition-all flex items-center gap-2 whitespace-nowrap ${
+                  activeSubject === subject.id
+                    ? 'bg-gradient-to-r from-violet-600 to-cyan-600 text-white shadow-lg'
+                    : 'bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                <BookOpen size={16} />
+                {subject.name}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
@@ -356,7 +377,7 @@ const Exercises = () => {
                 placeholder="Rechercher un chapitre par nom…"
                 value={searchChapter}
                 onChange={(e) => setSearchChapter(e.target.value)}
-                className="w-full pl-10 pr-10 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                className="w-full pl-10 pr-10 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
               />
               {searchChapter && (
                 <button
@@ -371,7 +392,7 @@ const Exercises = () => {
             </div>
             <button
               type="submit"
-              className="bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-6 py-3 rounded-lg font-semibold hover:shadow-lg hover:shadow-violet-500/20 transition-all"
+              className="bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg hover:shadow-violet-500/20 transition-all"
             >
               <ArrowRight size={20} />
             </button>
@@ -399,7 +420,8 @@ const Exercises = () => {
 
           {!selectedChapter && (
             <div>
-              <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3">
+              <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3 flex items-center gap-2">
+                <Layers size={16} className="text-violet-400" />
                 Chapitres disponibles
               </h3>
               {chaptersLoading ? (
@@ -423,11 +445,11 @@ const Exercises = () => {
                         whileTap={{ scale: 0.98 }}
                         onClick={() => handleChapterClick(ch)}
                         disabled={isLocked}
-                        className={`text-left p-4 rounded-xl border transition-all flex flex-col gap-2 ${
+                        className={`text-left p-4 rounded-2xl border transition-all flex flex-col gap-2 ${
                           isLocked
                             ? 'bg-white/5 border-white/10 text-slate-500 cursor-not-allowed'
                             : isCompleted
-                            ? 'bg-green-500/10 border-green-500/30 hover:bg-green-500/20'
+                            ? 'bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/20'
                             : 'bg-white/5 border-white/10 hover:border-violet-400/40 hover:bg-white/10'
                         }`}
                         aria-disabled={isLocked}
@@ -437,7 +459,7 @@ const Exercises = () => {
                             {ch.title}
                           </span>
                           {isCompleted ? (
-                            <CheckCircle size={18} className="text-green-400" />
+                            <CheckCircle size={18} className="text-emerald-400" />
                           ) : isLocked ? (
                             <Lock size={18} className="text-slate-500" />
                           ) : (
@@ -490,8 +512,7 @@ const Exercises = () => {
               </h2>
             </div>
 
-            {/* 🔥 ENCART AJOUTÉ */}
-            <div className="bg-blue-500/10 border border-blue-500/30 text-blue-300 text-sm p-2 rounded-lg">
+            <div className="bg-blue-500/10 border border-blue-500/30 text-blue-300 text-sm p-3 rounded-xl">
               Pour débloquer le niveau suivant, réussissez le quiz de ce chapitre avec au moins 70 %.
             </div>
 

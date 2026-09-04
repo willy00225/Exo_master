@@ -1,6 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { Swords, Loader, CheckCircle, AlertCircle, Send, Copy, Link, Search, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Swords, Loader, CheckCircle, AlertCircle, Send, Copy, Link, Search, X, User
+} from 'lucide-react';
 import api from '../../services/api';
+import BottomSheetSelect from '../common/BottomSheetSelect';
 
 const ChallengeForm = ({ onChallengeSent }) => {
   const [quizzes, setQuizzes] = useState([]);
@@ -10,12 +14,10 @@ const ChallengeForm = ({ onChallengeSent }) => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
 
-  // Recherche
   const [searchTerm, setSearchTerm] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
 
-  // Lien d'invitation
   const [inviteLink, setInviteLink] = useState('');
   const [generatingLink, setGeneratingLink] = useState(false);
 
@@ -31,7 +33,6 @@ const ChallengeForm = ({ onChallengeSent }) => {
       .catch(console.error);
   }, []);
 
-  // Fermer le dropdown si clic à l'extérieur
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -69,7 +70,6 @@ const ChallengeForm = ({ onChallengeSent }) => {
       setSelectedQuiz('');
       setSelectedUser(null);
       setSearchTerm('');
-      // Rafraîchir la liste parent
       if (onChallengeSent) onChallengeSent();
     } catch (err) {
       setMessage({
@@ -104,7 +104,7 @@ const ChallengeForm = ({ onChallengeSent }) => {
 
   const handleCopyLink = async () => {
     await navigator.clipboard.writeText(inviteLink);
-    setMessage({ type: 'success', text: 'Lien copié dans le presse‑papier !' });
+    setMessage({ type: 'success', text: 'Lien copié dans le presse-papier !' });
   };
 
   return (
@@ -127,7 +127,6 @@ const ChallengeForm = ({ onChallengeSent }) => {
         </div>
       )}
 
-      {/* Lien d'invitation généré */}
       {inviteLink && (
         <div className="mb-4 p-3 bg-violet-500/10 border border-violet-500/30 rounded-lg flex items-center gap-2">
           <Link size={16} className="text-violet-400" />
@@ -148,20 +147,16 @@ const ChallengeForm = ({ onChallengeSent }) => {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Choix du quiz avec BottomSheetSelect */}
         <div>
           <label className="block text-sm font-medium text-slate-300 mb-1">Choisir un quiz</label>
-          <select
+          <BottomSheetSelect
             value={selectedQuiz}
-            onChange={(e) => setSelectedQuiz(e.target.value)}
-            className="w-full px-4 py-3 bg-slate-700/60 border border-amber-400/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all"
-          >
-            <option value="">Sélectionnez un quiz</option>
-            {quizzes.map((q) => (
-              <option key={q.id} value={q.id}>
-                {q.title}
-              </option>
-            ))}
-          </select>
+            onChange={setSelectedQuiz}
+            placeholder="Sélectionner un quiz"
+            icon={Swords}
+            options={quizzes.map(q => ({ value: q.id, label: q.title }))}
+          />
         </div>
 
         {/* Adversaire avec recherche */}
@@ -169,7 +164,9 @@ const ChallengeForm = ({ onChallengeSent }) => {
           <label className="block text-sm font-medium text-slate-300 mb-1">
             Adversaire
             {users.length > 0 && (
-              <span className="text-slate-400 ml-1">({users.length} disponible{users.length > 1 ? 's' : ''})</span>
+              <span className="text-slate-400 ml-1">
+                ({users.length} disponible{users.length > 1 ? 's' : ''})
+              </span>
             )}
           </label>
           <div className="relative">
@@ -197,26 +194,34 @@ const ChallengeForm = ({ onChallengeSent }) => {
             )}
           </div>
 
-          {showDropdown && searchTerm && (
-            <div className="absolute z-20 w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg max-h-48 overflow-y-auto shadow-lg">
-              {filteredUsers.length === 0 ? (
-                <div className="px-4 py-3 text-sm text-slate-400">Aucun élève trouvé.</div>
-              ) : (
-                filteredUsers.map((u) => (
-                  <button
-                    key={u.id}
-                    type="button"
-                    onClick={() => handleSelectUser(u)}
-                    className={`w-full text-left px-4 py-3 text-sm text-white hover:bg-amber-500/20 transition-all ${
-                      selectedUser?.id === u.id ? 'bg-amber-500/30' : ''
-                    }`}
-                  >
-                    {u.name}
-                  </button>
-                ))
-              )}
-            </div>
-          )}
+          <AnimatePresence>
+            {showDropdown && searchTerm && (
+              <motion.div
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -5 }}
+                className="absolute z-20 w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg max-h-48 overflow-y-auto shadow-lg"
+              >
+                {filteredUsers.length === 0 ? (
+                  <div className="px-4 py-3 text-sm text-slate-400">Aucun élève trouvé.</div>
+                ) : (
+                  filteredUsers.map((u) => (
+                    <button
+                      key={u.id}
+                      type="button"
+                      onClick={() => handleSelectUser(u)}
+                      className={`w-full flex items-center gap-2 text-left px-4 py-3 text-sm text-white hover:bg-amber-500/20 transition-all ${
+                        selectedUser?.id === u.id ? 'bg-amber-500/30' : ''
+                      }`}
+                    >
+                      <User size={16} className="text-slate-400" />
+                      {u.name}
+                    </button>
+                  ))
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">

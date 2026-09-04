@@ -1,23 +1,26 @@
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
-import { LogIn, Mail, Lock, ArrowLeft, UserPlus, Send, CheckCircle } from 'lucide-react';
+import {
+  LogIn, Mail, Lock, ArrowLeft, UserPlus, Send, CheckCircle,
+  Eye, EyeOff, AlertCircle, Loader
+} from 'lucide-react';
 import logo from '../../assets/exo_master_logo.png';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [verificationSent, setVerificationSent] = useState(false);
   const [resending, setResending] = useState(false);
-  const [emailNotVerified, setEmailNotVerified] = useState(false); // 🆕
+  const [emailNotVerified, setEmailNotVerified] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  // Lecture du paramètre expired
   const [searchParams] = useSearchParams();
   const expired = searchParams.get('expired');
 
@@ -48,7 +51,6 @@ const Login = () => {
     } catch (err) {
       const data = err.response?.data;
       if (data?.code === 'EMAIL_NOT_VERIFIED' || data?.error?.includes('Email non vérifié')) {
-        // 🆕 Afficher le message et le bouton de renvoi
         setEmailNotVerified(true);
         setError(data.error);
       } else {
@@ -63,23 +65,28 @@ const Login = () => {
     <div className="min-h-screen bg-[#0B0E1A] flex items-center justify-center p-4 font-sans relative overflow-hidden">
       {/* Fond décoratif */}
       <div className="absolute inset-0 -z-10">
-        <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/3 left-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl" />
+        <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-1/3 left-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl animate-pulse" />
       </div>
 
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: 'easeOut' }}
-        className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl w-full max-w-md p-8"
+        transition={{ duration: 0.5, ease: 'easeOut' }}
+        className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl w-full max-w-md p-8"
       >
         {/* Logo */}
-        <div className="flex flex-col items-center mb-6">
+        <motion.div
+          initial={{ scale: 0.9 }}
+          animate={{ scale: 1 }}
+          transition={{ duration: 0.3 }}
+          className="flex flex-col items-center mb-6"
+        >
           <img src={logo} alt="EXO MASTER" className="h-14 w-auto mb-2" />
           <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">
             DEVENEZ LE MEILLEUR
           </p>
-        </div>
+        </motion.div>
 
         <h1 className="text-2xl font-bold text-white text-center mb-6 font-space-grotesk">
           Connexion
@@ -87,23 +94,41 @@ const Login = () => {
 
         {/* Message session expirée */}
         {expired && (
-          <div className="bg-amber-500/20 border border-amber-500/30 text-amber-300 p-3 rounded-lg mb-4 text-sm">
+          <motion.div
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-amber-500/20 border border-amber-500/30 text-amber-300 p-3 rounded-xl mb-4 text-sm flex items-center gap-2"
+          >
+            <AlertCircle size={16} />
             Votre session a expiré. Veuillez vous reconnecter.
-          </div>
+          </motion.div>
         )}
 
-        {error && (
-          <div className="bg-red-500/20 border border-red-500/50 text-red-200 p-3 rounded-lg mb-4 text-sm">
-            {error}
-          </div>
-        )}
+        {/* Messages dynamiques */}
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -5 }}
+              className="bg-red-500/20 border border-red-500/50 text-red-200 p-3 rounded-xl mb-4 text-sm flex items-center gap-2"
+            >
+              <AlertCircle size={16} /> {error}
+            </motion.div>
+          )}
 
-        {verificationSent && (
-          <div className="bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 p-3 rounded-lg mb-4 text-sm flex items-center gap-2">
-            <CheckCircle size={16} />
-            Un nouveau lien de vérification a été envoyé.
-          </div>
-        )}
+          {verificationSent && (
+            <motion.div
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -5 }}
+              className="bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 p-3 rounded-xl mb-4 text-sm flex items-center gap-2"
+            >
+              <CheckCircle size={16} />
+              Un nouveau lien de vérification a été envoyé.
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -115,7 +140,7 @@ const Login = () => {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
               placeholder="exemple@email.com"
               required
             />
@@ -126,17 +151,25 @@ const Login = () => {
               <Lock size={16} className="inline mr-1" />
               Mot de passe
             </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-              placeholder="Votre mot de passe"
-              required
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all pr-12"
+                placeholder="Votre mot de passe"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
           </div>
 
-          {/* Lien Mot de passe oublié */}
           <div className="text-right">
             <Link to="/forgot-password" className="text-xs text-violet-400 hover:text-violet-300 transition-colors">
               Mot de passe oublié ?
@@ -146,25 +179,36 @@ const Login = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white py-3 rounded-lg font-semibold hover:from-violet-700 hover:to-cyan-700 transition-all disabled:opacity-50 shadow-lg hover:shadow-xl"
+            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white py-3 rounded-xl font-semibold hover:from-violet-700 hover:to-cyan-700 transition-all disabled:opacity-50 shadow-lg hover:shadow-xl"
           >
-            <LogIn size={20} />
-            {loading ? 'Connexion...' : 'Se connecter'}
+            {loading ? (
+              <>
+                <Loader size={20} className="animate-spin" /> Connexion...
+              </>
+            ) : (
+              <>
+                <LogIn size={20} /> Se connecter
+              </>
+            )}
           </button>
         </form>
 
-        {/* 🆕 Bouton renvoyer l'email de vérification si nécessaire */}
+        {/* Bouton renvoyer l'email de vérification */}
         {emailNotVerified && (
-          <div className="mt-4 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-4 text-center"
+          >
             <button
               onClick={handleResendVerification}
               disabled={resending}
-              className="inline-flex items-center gap-2 text-sm bg-violet-500/10 hover:bg-violet-500/20 text-violet-300 px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-2 text-sm bg-violet-500/10 hover:bg-violet-500/20 text-violet-300 px-4 py-2 rounded-xl transition-colors disabled:opacity-50"
             >
               <Send size={16} />
               {resending ? 'Envoi...' : 'Renvoyer le lien de vérification'}
             </button>
-          </div>
+          </motion.div>
         )}
 
         <p className="text-slate-400 text-sm text-center mt-6">
@@ -174,7 +218,6 @@ const Login = () => {
           </Link>
         </p>
 
-        {/* Retour à l'accueil */}
         <div className="mt-4 text-center">
           <Link
             to="/"

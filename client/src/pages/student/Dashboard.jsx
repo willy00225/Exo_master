@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   BookOpen, Trophy, Swords, AlertCircle, CheckCircle,
-  BarChart3, TrendingUp, CreditCard, Star, AlertTriangle,
+  BarChart3, TrendingUp, CreditCard, Star, AlertTriangle, Sparkles,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -13,16 +13,17 @@ import api from '../../services/api';
 import GamificationCard from '../../components/student/GamificationCard';
 import LeaderboardCard from '../../components/student/LeaderboardCard';
 import ProgressCharts from '../../components/student/ProgressCharts';
+import { useAuth } from '../../context/AuthContext'; // 🆕 pour personnaliser
 
 const COLORS = ['#8B5CF6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444'];
 
-const StatCard = ({ icon: Icon, value, label, gradient, to }) => {
+const StatCard = ({ icon: Icon, value, label, gradient, to, delay = 0 }) => {
   const CardContent = (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-4 md:p-6 flex items-center gap-4 hover:bg-white/10 transition-all cursor-pointer"
+      transition={{ duration: 0.4, delay }}
+      className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-4 md:p-6 flex items-center gap-4 hover:bg-white/10 transition-all cursor-pointer active:scale-[0.98]"
     >
       <div className={`w-12 h-12 md:w-14 md:h-14 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center shadow-lg`}>
         <Icon size={24} className="text-white" />
@@ -34,21 +35,17 @@ const StatCard = ({ icon: Icon, value, label, gradient, to }) => {
     </motion.div>
   );
 
-  if (to) {
-    return <Link to={to}>{CardContent}</Link>;
-  }
-  return CardContent;
+  return to ? <Link to={to}>{CardContent}</Link> : CardContent;
 };
 
 const StudentDashboard = () => {
+  const { user } = useAuth(); // 🆕
   const [stats, setStats] = useState({ exercises: 0, quizzes: 0, activeChallenges: 0 });
   const [subscription, setSubscription] = useState(null);
   const [pendingChallenges, setPendingChallenges] = useState([]);
   const [studentStats, setStudentStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [gamification, setGamification] = useState({ xp: { total_xp: 0, level: 1 }, badges: [] });
-
-  // État pour le blocage d'abonnement
   const [blocked, setBlocked] = useState(false);
   const [blockReason, setBlockReason] = useState('');
 
@@ -73,15 +70,13 @@ const StudentDashboard = () => {
         setPendingChallenges(challRes.data.received || []);
         setStudentStats(studentStatsRes.data);
         setGamification(gamificationRes.data);
-        setBlocked(false); // tout va bien
+        setBlocked(false);
       } catch (err) {
         console.error(err);
-        // Si une des requêtes renvoie 403, on bloque l'accès
         if (err.response && err.response.status === 403) {
           setBlockReason(err.response.data?.error || "Votre abonnement a expiré.");
           setBlocked(true);
         }
-        // Même en cas d'erreur, on évite la page blanche
         setSubscription(null);
         setStats({ exercises: 0, quizzes: 0, activeChallenges: 0 });
         setPendingChallenges([]);
@@ -94,7 +89,6 @@ const StudentDashboard = () => {
     fetchData();
   }, []);
 
-  // --- Affichage en cas de blocage d'abonnement ---
   if (blocked) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-6 p-8">
@@ -114,11 +108,13 @@ const StudentDashboard = () => {
     );
   }
 
-  // --- Affichage normal (inchangé) ---
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <p className="text-slate-400 text-lg">Chargement de votre espace…</p>
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-400"></div>
+          <p className="text-slate-400 text-lg">Chargement de votre espace…</p>
+        </div>
       </div>
     );
   }
@@ -127,20 +123,21 @@ const StudentDashboard = () => {
   const daysRemaining = subscription?.days_remaining || 0;
 
   return (
-    <div className="space-y-6 md:space-y-8">
-      {/* En-tête */}
+    <div className="space-y-6 md:space-y-8 max-w-6xl mx-auto px-4 sm:px-6">
+      {/* En-tête personnalisé */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
+        className="flex flex-col gap-1"
       >
         <h1 className="text-2xl md:text-3xl font-bold text-white font-space-grotesk">
-          Bonjour, bienvenue sur EXO MASTER
+          Bonjour {user?.name || 'élève'} 👋
         </h1>
-        <p className="text-slate-400 mt-1">Votre espace d’apprentissage personnalisé</p>
+        <p className="text-slate-400">Prêt à apprendre aujourd'hui ?</p>
       </motion.div>
 
-      {/* Statut abonnement */}
+      {/* Statut abonnement amélioré */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -164,12 +161,11 @@ const StudentDashboard = () => {
               <p className="text-white font-semibold text-lg">
                 {isActive ? 'Abonnement actif' : 'Aucun abonnement actif'}
               </p>
-              {isActive && (
+              {isActive ? (
                 <p className="text-slate-400 text-sm">
                   Expire dans <span className="text-emerald-400 font-bold">{daysRemaining} jour{daysRemaining > 1 ? 's' : ''}</span>
                 </p>
-              )}
-              {!isActive && (
+              ) : (
                 <p className="text-red-400 text-sm">
                   Votre essai a expiré ou vous n’avez pas d’abonnement.
                 </p>
@@ -194,22 +190,19 @@ const StudentDashboard = () => {
         <LeaderboardCard />
       </div>
 
-      {/* Cartes statistiques principales */}
+      {/* Cartes statistiques principales avec délais */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
         <StatCard
           icon={BookOpen} value={stats.exercises} label="Exercices disponibles"
-          gradient="from-violet-500 to-violet-700"
-          to="/student/exercises"
+          gradient="from-violet-500 to-violet-700" to="/student/exercises" delay={0.2}
         />
         <StatCard
           icon={Trophy} value={stats.quizzes} label="Quiz à faire"
-          gradient="from-cyan-500 to-cyan-700"
-          to="/student/quizzes"
+          gradient="from-cyan-500 to-cyan-700" to="/student/quizzes" delay={0.3}
         />
         <StatCard
           icon={Swords} value={stats.activeChallenges} label="Défis en attente"
-          gradient="from-amber-500 to-amber-700"
-          to="/student/challenges"
+          gradient="from-amber-500 to-amber-700" to="/student/challenges" delay={0.4}
         />
       </div>
 
@@ -224,7 +217,6 @@ const StudentDashboard = () => {
           transition={{ delay: 0.2 }}
           className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6"
         >
-          {/* Résumé chiffré */}
           <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-4 md:p-6">
             <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2 font-space-grotesk">
               <TrendingUp className="text-violet-400" size={22} />
@@ -246,7 +238,6 @@ const StudentDashboard = () => {
             </div>
           </div>
 
-          {/* Graphique par chapitre (barres) */}
           {studentStats.per_chapter?.length > 0 && (
             <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-4 md:p-6">
               <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2 font-space-grotesk">
@@ -258,15 +249,8 @@ const StudentDashboard = () => {
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="chapter_title" tick={{ fontSize: 12, fill: '#9CA3AF' }} />
                   <YAxis unit="%" domain={[0, 100]} tick={{ fill: '#9CA3AF' }} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #4B5563', borderRadius: '8px' }}
-                  />
-                  <Bar
-                    dataKey="average_score"
-                    fill="#8B5CF6"
-                    radius={[6, 6, 0, 0]}
-                    barSize={30}
-                  />
+                  <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #4B5563', borderRadius: '8px' }} />
+                  <Bar dataKey="average_score" fill="#8B5CF6" radius={[6, 6, 0, 0]} barSize={30} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -276,7 +260,6 @@ const StudentDashboard = () => {
 
       {/* Défis en attente + graphique circulaire */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-        {/* Défis */}
         {pendingChallenges.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -290,10 +273,7 @@ const StudentDashboard = () => {
             </h2>
             <div className="space-y-3">
               {pendingChallenges.map((challenge, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between bg-white/5 p-4 rounded-xl hover:bg-white/10 transition-all"
-                >
+                <div key={idx} className="flex items-center justify-between bg-white/5 p-4 rounded-xl hover:bg-white/10 transition-all">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
                       <Swords size={18} className="text-amber-400" />
@@ -302,15 +282,10 @@ const StudentDashboard = () => {
                       <p className="text-white font-medium">
                         {challenge.challenger_name || 'Un élève'} vs {challenge.opponent_name || 'Vous'}
                       </p>
-                      <p className="text-sm text-slate-400">
-                        {challenge.exercise_title || 'Défi sans titre'}
-                      </p>
+                      <p className="text-sm text-slate-400">{challenge.exercise_title || 'Défi sans titre'}</p>
                     </div>
                   </div>
-                  <Link
-                    to={`/student/challenges/${challenge.id}`}
-                    className="text-violet-400 hover:text-violet-300 text-sm font-medium"
-                  >
+                  <Link to={`/student/challenges/${challenge.id}`} className="text-violet-400 hover:text-violet-300 text-sm font-medium">
                     Répondre
                   </Link>
                 </div>
@@ -319,7 +294,6 @@ const StudentDashboard = () => {
           </motion.div>
         )}
 
-        {/* Répartition des quiz par matière (PieChart) */}
         {studentStats?.quizzes_by_subject && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -337,11 +311,7 @@ const StudentDashboard = () => {
                   data={studentStats.quizzes_by_subject}
                   dataKey="count"
                   nameKey="subject"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  innerRadius={40}
-                  paddingAngle={5}
+                  cx="50%" cy="50%" outerRadius={80} innerRadius={40} paddingAngle={5}
                   label={({ subject, percent }) => `${subject} ${(percent * 100).toFixed(0)}%`}
                 >
                   {studentStats.quizzes_by_subject.map((entry, index) => (
@@ -368,14 +338,9 @@ const StudentDashboard = () => {
           </h2>
           <ResponsiveContainer width="100%" height={180}>
             <RadialBarChart
-              cx="50%"
-              cy="50%"
-              innerRadius="60%"
-              outerRadius="85%"
-              barSize={20}
+              cx="50%" cy="50%" innerRadius="60%" outerRadius="85%" barSize={20}
               data={[{ name: 'Progression', value: studentStats.overall_progress }]}
-              startAngle={90}
-              endAngle={-270}
+              startAngle={90} endAngle={-270}
             >
               <RadialBar
                 dataKey="value"

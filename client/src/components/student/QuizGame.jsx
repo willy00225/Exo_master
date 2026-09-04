@@ -1,9 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../services/api';
 import Button from '../../components/common/Button';
-import { Timer, CheckCircle, XCircle, ArrowLeft, Trophy, Swords, Send, MessageCircle } from 'lucide-react';
+import {
+  Timer, CheckCircle, XCircle, ArrowLeft, Trophy, Swords,
+  Send, MessageCircle, ChevronRight, ChevronLeft
+} from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
+// Formatage des explications (inchangé)
 const formatExplanation = (text) => {
   if (!text) return null;
   const lines = text.split('\n').filter(line => line.trim() !== '');
@@ -16,24 +21,49 @@ const formatExplanation = (text) => {
   });
 };
 
+// Normalisation des options (inchangé)
 const normalizeOptions = (options) => {
   if (Array.isArray(options)) return options;
   if (typeof options === 'string') return options.split(' ').filter(Boolean);
   return [];
 };
 
-// 🆕 Fonction utilitaire pour afficher le temps relatif
+// Formatage du temps relatif (inchangé)
 const formatRelativeTime = (timestamp) => {
   if (!timestamp) return '';
   const now = new Date();
   const msgTime = new Date(timestamp);
   const diffInSeconds = Math.floor((now - msgTime) / 1000);
-  
   if (diffInSeconds < 5) return "à l'instant";
   if (diffInSeconds < 60) return `il y a ${diffInSeconds} sec`;
   if (diffInSeconds < 3600) return `il y a ${Math.floor(diffInSeconds / 60)} min`;
   if (diffInSeconds < 86400) return `il y a ${Math.floor(diffInSeconds / 3600)} h`;
   return msgTime.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+};
+
+// Composant TimerCirculaire
+const CircularTimer = ({ timeLeft, totalTime }) => {
+  const radius = 24;
+  const circumference = 2 * Math.PI * radius;
+  const progress = timeLeft / totalTime;
+  const strokeDashoffset = circumference * (1 - progress);
+  const color = timeLeft <= 10 ? '#ef4444' : timeLeft <= 30 ? '#f59e0b' : '#8b5cf6';
+
+  return (
+    <div className="relative w-14 h-14">
+      <svg className="w-full h-full -rotate-90" viewBox="0 0 56 56">
+        <circle cx="28" cy="28" r={radius} fill="none" stroke="#ffffff20" strokeWidth="4" />
+        <circle
+          cx="28" cy="28" r={radius} fill="none" stroke={color} strokeWidth="4"
+          strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={strokeDashoffset}
+          style={{ transition: 'stroke-dashoffset 0.5s linear, stroke 0.5s' }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center font-mono text-sm font-semibold text-white">
+        {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}
+      </div>
+    </div>
+  );
 };
 
 const QuizGame = ({ quizId, challengeId, onBack }) => {
@@ -51,7 +81,11 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
   const timerRef = useRef(null);
   const handleSubmitRef = useRef(() => {});
 
-  // 🆕 États pour le chat amélioré
+  // Nouveau state pour le mode une question à la fois
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [chatOpen, setChatOpen] = useState(false);
+
+  // États du chat (inchangés, mais on ajoute chatOpen)
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
@@ -98,7 +132,7 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
     return () => clearInterval(timerRef.current);
   }, [quizId, challengeId]);
 
-  // 🆕 Charger les messages avec polling intelligent
+  // Charger les messages avec polling intelligent (inchangé)
   useEffect(() => {
     if (!isChallenge) return;
 
@@ -106,33 +140,25 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
       try {
         const res = await api.get(`/challenges/${challengeId}/messages`);
         const newMessages = res.data;
-        
-        // Détecter les messages non lus
         if (lastReadMessageId && newMessages.length > 0) {
-          const unread = newMessages.filter(msg => 
+          const unread = newMessages.filter(msg =>
             msg.id > lastReadMessageId && msg.sender_id !== user?.id
           );
           if (unread.length > 0) {
             setUnreadCount(prev => prev + unread.length);
           }
         } else if (newMessages.length > 0) {
-          // Initialisation : marquer le dernier message comme lu
           setLastReadMessageId(newMessages[newMessages.length - 1].id);
         }
-        
         setMessages(newMessages);
         setChatError(null);
         setRetryCount(0);
       } catch (err) {
         console.error(err);
         setRetryCount(prev => prev + 1);
-        
         if (retryCount >= 3) {
           setChatError("Connexion instable. Tentative de reconnexion...");
-          // Réessayer après un délai plus long
-          setTimeout(() => {
-            setRetryCount(0);
-          }, 5000);
+          setTimeout(() => setRetryCount(0), 5000);
         } else {
           setChatError("Impossible de charger les messages. Nouvelle tentative...");
         }
@@ -141,8 +167,6 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
 
     fetchMessages();
     chatPollingRef.current = setInterval(fetchMessages, 3000);
-
-    // 🆕 Mettre en pause le polling quand l'onglet n'est pas visible
     const handleVisibilityChange = () => {
       if (document.hidden) {
         if (chatPollingRef.current) clearInterval(chatPollingRef.current);
@@ -151,7 +175,6 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
         chatPollingRef.current = setInterval(fetchMessages, 3000);
       }
     };
-
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
@@ -160,21 +183,18 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
     };
   }, [challengeId, isChallenge, lastReadMessageId, retryCount, user?.id]);
 
-  // 🆕 Auto-scroll intelligent (seulement si l'utilisateur est en bas)
+  // Auto-scroll et gestion du scroll (inchangé)
   useEffect(() => {
     if (messagesEndRef.current && shouldAutoScroll) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
   }, [messages, shouldAutoScroll]);
 
-  // 🆕 Gestion du scroll pour détecter si l'utilisateur est en bas
   const handleChatScroll = () => {
     if (chatContainerRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
       const isNearBottom = scrollHeight - scrollTop - clientHeight < 50;
       setShouldAutoScroll(isNearBottom);
-      
-      // Marquer les messages comme lus quand l'utilisateur scrolle en bas
       if (isNearBottom && messages.length > 0) {
         setUnreadCount(0);
         setLastReadMessageId(messages[messages.length - 1].id);
@@ -182,14 +202,10 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
     }
   };
 
-  // 🆕 Envoyer un message avec mise à jour optimiste
   const handleSendMessage = async (e) => {
     e.preventDefault();
     const trimmedMessage = newMessage.trim();
-    
     if (!trimmedMessage || sending) return;
-    
-    // Validation de la longueur
     if (trimmedMessage.length > MAX_MESSAGE_LENGTH) {
       setChatError(`Le message ne peut pas dépasser ${MAX_MESSAGE_LENGTH} caractères.`);
       return;
@@ -204,7 +220,6 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
       isTemp: true
     };
 
-    // Mise à jour optimiste
     setMessages(prev => [...prev, tempMessage]);
     setNewMessage('');
     setSending(true);
@@ -212,30 +227,20 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
     setShouldAutoScroll(true);
 
     try {
-      const res = await api.post(`/challenges/${challengeId}/messages`, { 
-        message: trimmedMessage 
-      });
-      
-      // Remplacer le message temporaire par le vrai
-      setMessages(prev => 
-        prev.map(msg => msg.id === tempMessage.id ? { ...res.data, sender_name: user.name || 'Vous' } : msg)
-      );
-      
-      // Mettre à jour lastReadMessageId
+      const res = await api.post(`/challenges/${challengeId}/messages`, { message: trimmedMessage });
+      setMessages(prev => prev.map(msg => msg.id === tempMessage.id ? { ...res.data, sender_name: user.name || 'Vous' } : msg));
       setLastReadMessageId(res.data.id);
       setUnreadCount(0);
     } catch (err) {
       console.error(err);
-      // Retirer le message temporaire en cas d'erreur
       setMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
-      setNewMessage(trimmedMessage); // Restaurer le message
+      setNewMessage(trimmedMessage);
       setChatError("Erreur lors de l'envoi du message. Veuillez réessayer.");
     } finally {
       setSending(false);
     }
   };
 
-  // 🆕 Gestion de la touche Entrée
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -243,7 +248,7 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
     }
   };
 
-  // Soumission du quiz (identique à avant)
+  // Soumission du quiz (inchangé)
   const handleSubmit = useCallback(async () => {
     if (submitted) return;
     clearInterval(timerRef.current);
@@ -304,14 +309,22 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
     setAnswers(prev => ({ ...prev, [questionId]: optionIndex }));
   };
 
-  const optionClass = (qId, optIdx) =>
-    `flex items-center p-3 rounded-lg cursor-pointer border transition-all ${
-      answers[qId] === optIdx
-        ? 'border-violet-400 bg-violet-500/20 text-white'
-        : 'border-white/10 text-slate-300 hover:bg-white/10'
-    }`;
+  const goToNext = () => {
+    if (currentIndex < questions.length - 1) {
+      setCurrentIndex(prev => prev + 1);
+    }
+  };
 
-  // Écran d'erreur
+  const goToPrevious = () => {
+    if (currentIndex > 0) {
+      setCurrentIndex(prev => prev - 1);
+    }
+  };
+
+  const currentQuestion = questions[currentIndex];
+  const isLastQuestion = currentIndex === questions.length - 1;
+  const progressPercent = questions.length > 0 ? ((currentIndex + 1) / questions.length) * 100 : 0;
+
   if (loadError) {
     return (
       <div className="flex items-center justify-center py-12 text-white">
@@ -324,7 +337,6 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
     );
   }
 
-  // Écran de chargement
   if (initialLoading) {
     return (
       <div className="flex items-center justify-center py-12 text-white">
@@ -336,10 +348,8 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
     );
   }
 
-  // Résultats
   if (submitted && result) {
     const hasChallengeResult = challengeResult !== null;
-
     return (
       <div className="space-y-6 text-white">
         {isChallenge && hasChallengeResult && (
@@ -432,142 +442,169 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
     );
   }
 
-  // Quiz en cours (avec chat si challenge)
   return (
-    <div className="space-y-6 text-white">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 className="text-2xl font-bold text-white font-space-grotesk">Quiz en cours</h2>
-        <div className={`flex items-center gap-2 text-xl font-mono ${timeLeft <= 10 ? 'text-red-400' : 'text-violet-400'}`}>
-          <Timer size={20} />
-          {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}
+    <div className="space-y-6 text-white max-w-3xl mx-auto">
+      {/* En-tête avec progression et timer */}
+      <div className="flex items-center justify-between">
+        <button onClick={onBack} className="p-2 rounded-lg bg-white/5 hover:bg-white/10">
+          <ArrowLeft size={20} />
+        </button>
+        <div className="flex-1 mx-4">
+          <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+            <motion.div
+              className="h-full bg-gradient-to-r from-violet-500 to-cyan-500"
+              initial={{ width: 0 }}
+              animate={{ width: `${progressPercent}%` }}
+              transition={{ duration: 0.3 }}
+            />
+          </div>
         </div>
+        <CircularTimer timeLeft={timeLeft} totalTime={timeLimit} />
       </div>
 
-      <div className="space-y-6">
-        {questions.length === 0 ? (
-          <p className="text-slate-400">Aucune question disponible.</p>
+      {/* Question actuelle */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={currentQuestion.id}
+          initial={{ opacity: 0, x: 50 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -50 }}
+          transition={{ duration: 0.3 }}
+          className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6"
+        >
+          <p className="text-sm text-slate-400 mb-2">
+            Question {currentIndex + 1} / {questions.length}
+          </p>
+          <h2 className="text-xl font-semibold mb-6">{currentQuestion.text}</h2>
+
+          <div className="space-y-3">
+            {currentQuestion.options.map((opt, optIdx) => (
+              <button
+                key={optIdx}
+                onClick={() => selectAnswer(currentQuestion.id, optIdx)}
+                className={`w-full flex items-center p-4 rounded-xl border transition-all ${
+                  answers[currentQuestion.id] === optIdx
+                    ? 'border-violet-400 bg-violet-500/20 text-white'
+                    : 'border-white/10 text-slate-300 hover:bg-white/10 hover:border-white/20'
+                }`}
+              >
+                <span className={`w-6 h-6 rounded-full border-2 mr-3 flex items-center justify-center ${
+                  answers[currentQuestion.id] === optIdx ? 'border-violet-400 bg-violet-500' : 'border-slate-500'
+                }`}>
+                  {answers[currentQuestion.id] === optIdx && <CheckCircle size={14} className="text-white" />}
+                </span>
+                <span className="text-left flex-1">{opt}</span>
+              </button>
+            ))}
+          </div>
+        </motion.div>
+      </AnimatePresence>
+
+      {/* Navigation précédent/suivant */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={goToPrevious}
+          disabled={currentIndex === 0}
+          className="flex items-center gap-1 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <ChevronLeft size={18} /> Précédent
+        </button>
+        {!isLastQuestion ? (
+          <button
+            onClick={goToNext}
+            className="flex items-center gap-1 px-4 py-2 rounded-lg bg-violet-600 text-white hover:bg-violet-700 transition"
+          >
+            Suivant <ChevronRight size={18} />
+          </button>
         ) : (
-          questions.map((q, idx) => (
-            <div key={q.id} className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-5 md:p-6">
-              <p className="font-medium text-white text-lg mb-4">
-                {idx + 1}. {q.text}
-              </p>
-              <div className="space-y-3">
-                {q.options.map((opt, optIdx) => (
-                  <label key={optIdx} className={optionClass(q.id, optIdx)}>
-                    <input
-                      type="radio"
-                      name={`q-${q.id}`}
-                      checked={answers[q.id] === optIdx}
-                      onChange={() => selectAnswer(q.id, optIdx)}
-                      className="mr-3 accent-violet-500"
-                    />
-                    <span>{opt}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          ))
+          <Button onClick={handleSubmit} className="px-6 py-2 text-lg">
+            Terminer le quiz
+          </Button>
         )}
       </div>
 
-      {/* 🆕 Zone de chat améliorée pour les challenges */}
+      {/* Chat pour les challenges */}
       {isChallenge && (
-        <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <MessageCircle size={20} className="text-violet-400" />
-            <h3 className="text-lg font-semibold">Discussion</h3>
+        <div className="fixed bottom-20 right-4 z-50">
+          <button
+            onClick={() => setChatOpen(!chatOpen)}
+            className="relative p-3 bg-violet-600 rounded-full shadow-lg hover:bg-violet-700 transition"
+          >
+            <MessageCircle size={24} />
             {unreadCount > 0 && (
-              <span className="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full animate-pulse">
-                {unreadCount} nouveau{unreadCount > 1 ? 'x' : ''}
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold px-1.5 rounded-full">
+                {unreadCount}
               </span>
             )}
-          </div>
-
-          <div 
-            ref={chatContainerRef}
-            onScroll={handleChatScroll}
-            className="space-y-3 max-h-64 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-violet-500/30 scrollbar-track-transparent"
-          >
-            {messages.length === 0 ? (
-              <p className="text-slate-500 text-sm italic text-center py-4">
-                Aucun message pour l'instant. Commencez la conversation !
-              </p>
-            ) : (
-              messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`flex ${msg.sender_id === user?.id ? 'justify-end' : 'justify-start'} ${
-                    msg.isTemp ? 'opacity-70' : ''
-                  }`}
-                >
-                  <div
-                    className={`max-w-[80%] p-3 rounded-xl text-sm transition-all ${
-                      msg.sender_id === user?.id
-                        ? 'bg-violet-600 text-white rounded-br-none'
-                        : 'bg-white/10 text-slate-300 rounded-bl-none'
-                    } ${msg.isTemp ? 'shadow-lg shadow-violet-500/20' : ''}`}
-                  >
-                    <p className="font-semibold text-xs mb-1">
-                      {msg.sender_id === user?.id ? 'Vous' : msg.sender_name}
-                      {msg.isTemp && (
-                        <span className="ml-2 text-[10px] text-violet-200 animate-pulse">
-                          envoi...
-                        </span>
-                      )}
-                    </p>
-                    <p className="break-words">{msg.message}</p>
-                    <p className="text-[10px] mt-1 opacity-70">
-                      {formatRelativeTime(msg.created_at)}
-                    </p>
-                  </div>
+          </button>
+          <AnimatePresence>
+            {chatOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                className="absolute bottom-16 right-0 w-80 bg-slate-900 border border-white/10 rounded-2xl p-4 shadow-2xl"
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <MessageCircle size={18} className="text-violet-400" />
+                  <h4 className="font-semibold text-white">Discussion</h4>
                 </div>
-              ))
+                <div
+                  ref={chatContainerRef}
+                  onScroll={handleChatScroll}
+                  className="space-y-2 max-h-48 overflow-y-auto pr-1 mb-3"
+                >
+                  {messages.length === 0 ? (
+                    <p className="text-slate-500 text-xs italic text-center py-4">Aucun message</p>
+                  ) : (
+                    messages.map((msg) => (
+                      <div
+                        key={msg.id}
+                        className={`flex ${msg.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div
+                          className={`max-w-[85%] p-2 rounded-lg text-xs ${
+                            msg.sender_id === user?.id
+                              ? 'bg-violet-600 text-white rounded-br-none'
+                              : 'bg-white/10 text-slate-300 rounded-bl-none'
+                          }`}
+                        >
+                          <p className="font-semibold mb-0.5">
+                            {msg.sender_id === user?.id ? 'Vous' : msg.sender_name}
+                          </p>
+                          <p className="break-words">{msg.message}</p>
+                          <p className="text-[10px] opacity-70 mt-0.5">
+                            {formatRelativeTime(msg.created_at)}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                  <div ref={messagesEndRef} />
+                </div>
+                <form onSubmit={handleSendMessage} className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder="Écrire..."
+                    maxLength={MAX_MESSAGE_LENGTH}
+                    className="flex-1 bg-white/5 border border-white/20 rounded-lg px-3 py-1.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  />
+                  <button
+                    type="submit"
+                    disabled={sending || !newMessage.trim()}
+                    className="bg-violet-600 text-white p-2 rounded-lg disabled:opacity-50"
+                  >
+                    <Send size={16} />
+                  </button>
+                </form>
+              </motion.div>
             )}
-            <div ref={messagesEndRef} />
-          </div>
-
-          {chatError && (
-            <p className="text-red-400 text-xs mt-2 flex items-center gap-1">
-              <span className="inline-block w-2 h-2 bg-red-400 rounded-full animate-pulse"></span>
-              {chatError}
-            </p>
-          )}
-
-          <form onSubmit={handleSendMessage} className="flex gap-2 mt-4">
-            <input
-              type="text"
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Écrire un message... (Entrée pour envoyer)"
-              maxLength={MAX_MESSAGE_LENGTH}
-              className="flex-1 bg-white/5 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-            />
-            <button
-              type="submit"
-              disabled={sending || !newMessage.trim()}
-              className="flex items-center gap-1 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-4 py-2 rounded-lg font-medium hover:from-violet-700 hover:to-cyan-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-violet-600 disabled:hover:to-cyan-600"
-            >
-              {sending ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  Envoi...
-                </>
-              ) : (
-                <>
-                  <Send size={16} />
-                  Envoyer
-                </>
-              )}
-            </button>
-          </form>
+          </AnimatePresence>
         </div>
       )}
-
-      <Button onClick={handleSubmit} className="w-full py-4 text-lg">
-        Terminer le quiz
-      </Button>
     </div>
   );
 };

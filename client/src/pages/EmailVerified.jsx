@@ -1,5 +1,6 @@
 import { useSearchParams } from 'react-router-dom';
-import { CheckCircle, XCircle, Clock } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { CheckCircle, XCircle, Clock, ArrowRight, Mail } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const EmailVerified = () => {
@@ -7,46 +8,93 @@ const EmailVerified = () => {
   const success = searchParams.get('success');
   const error = searchParams.get('error');
 
-  if (success === 'true') {
-    return (
-      <div className="min-h-screen bg-[#0B0E1A] flex items-center justify-center">
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-8 text-center text-white max-w-md">
-          <CheckCircle size={64} className="mx-auto text-emerald-400 mb-4" />
-          <h1 className="text-2xl font-bold mb-2">Email vérifié !</h1>
-          <p className="text-slate-400 mb-4">Votre compte est maintenant actif.</p>
-          <Link to="/login" className="inline-block bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-6 py-2 rounded-lg">
-            Se connecter
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  const renderContent = () => {
+    if (success === 'true') {
+      return {
+        icon: <CheckCircle size={64} className="mx-auto text-emerald-400 mb-6" />,
+        title: 'Email vérifié !',
+        message: 'Votre compte est maintenant actif.',
+        actionLink: '/login',
+        actionLabel: 'Se connecter',
+      };
+    }
+    if (error === 'expired') {
+      return {
+        icon: <Clock size={64} className="mx-auto text-amber-400 mb-6" />,
+        title: 'Lien expiré',
+        message: 'Le lien de vérification a expiré (valable 24h). Veuillez demander un nouveau lien ou vous réinscrire.',
+        actionLink: '/forgot-password',
+        actionLabel: 'Mot de passe oublié',
+      };
+    }
+    return {
+      icon: <XCircle size={64} className="mx-auto text-red-400 mb-6" />,
+      title: 'Échec de vérification',
+      message: 'Le lien de vérification est invalide ou a déjà été utilisé.',
+      actionLink: '/register',
+      actionLabel: 'Créer un compte',
+    };
+  };
 
-  if (error === 'expired') {
-    return (
-      <div className="min-h-screen bg-[#0B0E1A] flex items-center justify-center">
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-8 text-center text-white max-w-md">
-          <Clock size={64} className="mx-auto text-amber-400 mb-4" />
-          <h1 className="text-2xl font-bold mb-2">Lien expiré</h1>
-          <p className="text-slate-400 mb-4">Le lien de vérification a expiré (valable 24h). Veuillez demander un nouveau lien ou vous réinscrire.</p>
-          <Link to="/forgot-password" className="inline-block bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-6 py-2 rounded-lg">
-            Mot de passe oublié
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  const { icon, title, message, actionLink, actionLabel } = renderContent();
 
   return (
-    <div className="min-h-screen bg-[#0B0E1A] flex items-center justify-center">
-      <div className="bg-white/5 border border-white/10 rounded-2xl p-8 text-center text-white max-w-md">
-        <XCircle size={64} className="mx-auto text-red-400 mb-4" />
-        <h1 className="text-2xl font-bold mb-2">Échec de vérification</h1>
-        <p className="text-slate-400 mb-4">Le lien de vérification est invalide ou a déjà été utilisé.</p>
-        <Link to="/register" className="inline-block bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-6 py-2 rounded-lg">
-          Créer un compte
-        </Link>
-      </div>
+    <div className="min-h-screen bg-[#0B0E1A] flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+        className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 text-center text-white max-w-md w-full shadow-2xl"
+      >
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ delay: 0.2, type: 'spring', stiffness: 260, damping: 20 }}
+        >
+          {icon}
+        </motion.div>
+
+        <motion.h1
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="text-2xl font-bold mb-2 font-space-grotesk"
+        >
+          {title}
+        </motion.h1>
+
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4 }}
+          className="text-slate-400 mb-6 leading-relaxed"
+        >
+          {message}
+        </motion.p>
+
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+        >
+          <Link
+            to={actionLink}
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-violet-700 hover:to-cyan-700 transition-all shadow-lg hover:shadow-violet-500/20"
+          >
+            {actionLabel}
+            <ArrowRight size={18} />
+          </Link>
+        </motion.div>
+
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.6 }}
+          className="mt-6 text-xs text-slate-500 flex items-center justify-center gap-1"
+        >
+          <Mail size={14} /> Besoin d'aide ? Contactez le support
+        </motion.p>
+      </motion.div>
     </div>
   );
 };

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import api from '../../services/api';
 import QuizGame from '../../components/student/QuizGame';
+import BottomSheetSelect from '../../components/common/BottomSheetSelect';
 
 const difficultyLabels = {
   easy: { label: 'Facile', color: 'text-emerald-400 bg-emerald-500/20 border-emerald-500/30' },
@@ -69,16 +70,29 @@ const Quizzes = () => {
     return Array.from(set).sort();
   }, [quizzes]);
 
-  // Chapitres disponibles pour la vue "chapters" selon la matière sélectionnée
-  const chapters = useMemo(() => {
+  // Options pour BottomSheetSelect
+  const subjectOptions = useMemo(() => [
+    { value: 'all', label: 'Toutes les matières' },
+    ...subjects.map(subject => ({ value: subject, label: subject }))
+  ], [subjects]);
+
+  const chapterOptions = useMemo(() => {
     if (viewMode !== 'chapters' || selectedSubject === 'all') return [];
     const filtered = quizzes.filter(q => q.chapter_id && q.subject_name === selectedSubject);
     const map = new Map();
     filtered.forEach(q => {
       map.set(q.chapter_id, q.chapter_title || `Chapitre ${q.chapter_id}`);
     });
-    return Array.from(map.entries()).map(([id, title]) => ({ id, title }));
+    return [
+      { value: 'all', label: 'Tous les chapitres' },
+      ...Array.from(map.entries()).map(([id, title]) => ({ value: id, label: title }))
+    ];
   }, [quizzes, selectedSubject, viewMode]);
+
+  const difficultyOptions = useMemo(() => [
+    { value: 'all', label: 'Toutes les difficultés' },
+    ...Object.entries(difficultyLabels).map(([key, { label }]) => ({ value: key, label }))
+  ], []);
 
   const filteredQuizzes = useMemo(() => {
     let result = [...quizzes];
@@ -193,58 +207,35 @@ const Quizzes = () => {
         </button>
       </div>
 
+      {/* Filtres avec BottomSheetSelect */}
       <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-4 space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {/* Matière */}
-          <div className="relative">
-            <BookOpen size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            <select
-              value={selectedSubject}
-              onChange={(e) => { setSelectedSubject(e.target.value); setSelectedChapter('all'); }}
-              className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/20 rounded-lg text-white appearance-none focus:outline-none focus:ring-2 focus:ring-violet-500"
-            >
-              <option value="all">Toutes les matières</option>
-              {subjects.map(subject => (
-                <option key={subject} value={subject}>{subject}</option>
-              ))}
-            </select>
-            <ChevronLeft className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 rotate-[-90deg]" size={16} />
-          </div>
+          <BottomSheetSelect
+            value={selectedSubject}
+            onChange={(val) => { setSelectedSubject(val); setSelectedChapter('all'); }}
+            placeholder="Toutes les matières"
+            icon={BookOpen}
+            options={subjectOptions}
+          />
 
           {viewMode === 'chapters' && (
-            <div className="relative">
-              <BookOpen size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-              <select
-                value={selectedChapter}
-                onChange={(e) => setSelectedChapter(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/20 rounded-lg text-white appearance-none focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50"
-                disabled={selectedSubject === 'all' || chapters.length === 0}
-              >
-                <option value="all">
-                  {selectedSubject === 'all' ? 'Choisissez d\'abord une matière' : 'Tous les chapitres'}
-                </option>
-                {chapters.map(ch => (
-                  <option key={ch.id} value={ch.id}>{ch.title}</option>
-                ))}
-              </select>
-              <ChevronLeft className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 rotate-[-90deg]" size={16} />
-            </div>
+            <BottomSheetSelect
+              value={selectedChapter}
+              onChange={(val) => setSelectedChapter(val)}
+              placeholder={selectedSubject === 'all' ? "Choisissez d'abord une matière" : "Tous les chapitres"}
+              icon={BookOpen}
+              options={chapterOptions}
+              disabled={selectedSubject === 'all' || chapterOptions.length === 0}
+            />
           )}
 
-          <div className="relative">
-            <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            <select
-              value={selectedDifficulty}
-              onChange={(e) => setSelectedDifficulty(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/20 rounded-lg text-white appearance-none focus:outline-none focus:ring-2 focus:ring-violet-500"
-            >
-              <option value="all">Toutes les difficultés</option>
-              {Object.entries(difficultyLabels).map(([key, { label }]) => (
-                <option key={key} value={key}>{label}</option>
-              ))}
-            </select>
-            <ChevronLeft className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 rotate-[-90deg]" size={16} />
-          </div>
+          <BottomSheetSelect
+            value={selectedDifficulty}
+            onChange={setSelectedDifficulty}
+            placeholder="Toutes les difficultés"
+            icon={Filter}
+            options={difficultyOptions}
+          />
 
           <div className="relative">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
@@ -253,7 +244,7 @@ const Quizzes = () => {
               placeholder="Rechercher un quiz..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-10 py-2.5 bg-white/5 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+              className="w-full pl-10 pr-10 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
             />
             {searchTerm && (
               <button
@@ -276,6 +267,7 @@ const Quizzes = () => {
         </div>
       </div>
 
+      {/* Liste des quiz */}
       <AnimatePresence>
         {currentPageQuizzes.length === 0 ? (
           <motion.div
@@ -331,6 +323,7 @@ const Quizzes = () => {
         )}
       </AnimatePresence>
 
+      {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-3 mt-6">
           <button
