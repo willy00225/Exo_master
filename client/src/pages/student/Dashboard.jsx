@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   BookOpen, Trophy, Swords, AlertCircle, CheckCircle,
   BarChart3, TrendingUp, CreditCard, Star, AlertTriangle, Sparkles,
+  RefreshCw
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -13,7 +14,7 @@ import api from '../../services/api';
 import GamificationCard from '../../components/student/GamificationCard';
 import LeaderboardCard from '../../components/student/LeaderboardCard';
 import ProgressCharts from '../../components/student/ProgressCharts';
-import { useAuth } from '../../context/AuthContext'; // 🆕 pour personnaliser
+import { useAuth } from '../../context/AuthContext';
 
 const COLORS = ['#8B5CF6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444'];
 
@@ -39,7 +40,7 @@ const StatCard = ({ icon: Icon, value, label, gradient, to, delay = 0 }) => {
 };
 
 const StudentDashboard = () => {
-  const { user } = useAuth(); // 🆕
+  const { user } = useAuth();
   const [stats, setStats] = useState({ exercises: 0, quizzes: 0, activeChallenges: 0 });
   const [subscription, setSubscription] = useState(null);
   const [pendingChallenges, setPendingChallenges] = useState([]);
@@ -48,61 +49,67 @@ const StudentDashboard = () => {
   const [gamification, setGamification] = useState({ xp: { total_xp: 0, level: 1 }, badges: [] });
   const [blocked, setBlocked] = useState(false);
   const [blockReason, setBlockReason] = useState('');
+  const [refreshKey, setRefreshKey] = useState(0); // 🆕 pour forcer le rechargement
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [subRes, exRes, challRes, quizRes, studentStatsRes, gamificationRes] = await Promise.all([
-          api.get('/payments/status'),
-          api.get('/exercises/student/available'),
-          api.get('/challenges/pending'),
-          api.get('/quizzes/available'),
-          api.get('/student/stats'),
-          api.get('/student/progress/gamification'),
-        ]);
-        setSubscription(subRes.data);
-        const exercisesCount = exRes.data.subjects?.reduce((acc, subject) => acc + subject.chapters?.reduce((sum, ch) => sum + ch.exercises.length, 0), 0) || 0;
-        setStats({
-          exercises: exercisesCount,
-          quizzes: quizRes.data?.length || 0,
-          activeChallenges: challRes.data.received?.length || 0,
-        });
-        setPendingChallenges(challRes.data.received || []);
-        setStudentStats(studentStatsRes.data);
-        setGamification(gamificationRes.data);
-        setBlocked(false);
-      } catch (err) {
-        console.error(err);
-        if (err.response && err.response.status === 403) {
-          setBlockReason(err.response.data?.error || "Votre abonnement a expiré.");
-          setBlocked(true);
-        }
+  const fetchData = useCallback(async () => {
+    try {
+      const [subRes, exRes, challRes, quizRes, studentStatsRes, gamificationRes] = await Promise.all([
+        api.get('/payments/status'),
+        api.get('/exercises/student/available'),
+        api.get('/challenges/pending'),
+        api.get('/quizzes/available'),
+        api.get('/student/stats'),
+        api.get('/student/progress/gamification'),
+      ]);
+      setSubscription(subRes.data);
+      const exercisesCount = exRes.data.subjects?.reduce((acc, subject) => acc + subject.chapters?.reduce((sum, ch) => sum + ch.exercises.length, 0), 0) || 0;
+      setStats({
+        exercises: exercisesCount,
+        quizzes: quizRes.data?.length || 0,
+        activeChallenges: challRes.data.received?.length || 0,
+      });
+      setPendingChallenges(challRes.data.received || []);
+      setStudentStats(studentStatsRes.data);
+      setGamification(gamificationRes.data);
+      setBlocked(false);
+    } catch (err) {
+      console.error(err);
+      if (err.response && err.response.status === 403) {
+        setBlockReason("Votre abonnement a expiré. Mais ne vous inquiétez pas, vos progrès sont sauvegardés !");
+        setBlocked(true);
+      } else {
+        // En cas d'erreur non bloquante, on laisse l'utilisateur voir quand même
         setSubscription(null);
         setStats({ exercises: 0, quizzes: 0, activeChallenges: 0 });
         setPendingChallenges([]);
         setStudentStats(null);
         setGamification({ xp: { total_xp: 0, level: 1 }, badges: [] });
-      } finally {
-        setLoading(false);
       }
-    };
-    fetchData();
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData, refreshKey]); // 🆕 dépendance sur refreshKey
+
+  const handleRefresh = () => setRefreshKey(prev => prev + 1);
 
   if (blocked) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-6 p-8">
-        <div className="w-20 h-20 rounded-full bg-red-500/20 flex items-center justify-center">
-          <AlertTriangle size={40} className="text-red-400" />
+        <div className="w-20 h-20 rounded-full bg-amber-500/20 flex items-center justify-center">
+          <Sparkles size={40} className="text-amber-400" />
         </div>
-        <h1 className="text-2xl font-bold text-white text-center">Accès restreint</h1>
-        <p className="text-slate-400 text-center max-w-md">{blockReason}</p>
+        <h1 className="text-2xl font-bold text-white text-center">Reprenez votre aventure 🚀</h1>
+        <p className="text-slate-300 text-center max-w-md">{blockReason}</p>
         <Link
           to="/student/subscription"
           className="inline-flex items-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-violet-700 hover:to-cyan-700 transition-all shadow-lg"
         >
           <CreditCard size={20} />
-          Souscrire maintenant
+          Réactiver mon abonnement
         </Link>
       </div>
     );
@@ -143,44 +150,53 @@ const StudentDashboard = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
         className={`bg-white/5 backdrop-blur-lg border rounded-2xl p-4 md:p-6 ${
-          isActive ? 'border-emerald-500/30' : 'border-red-500/30'
+          isActive ? 'border-emerald-500/30' : 'border-amber-500/30'
         }`}
       >
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-              isActive ? 'bg-emerald-500/20' : 'bg-red-500/20'
+              isActive ? 'bg-emerald-500/20' : 'bg-amber-500/20'
             }`}>
               {isActive ? (
                 <CheckCircle size={28} className="text-emerald-400" />
               ) : (
-                <AlertCircle size={28} className="text-red-400" />
+                <AlertCircle size={28} className="text-amber-400" />
               )}
             </div>
             <div>
               <p className="text-white font-semibold text-lg">
-                {isActive ? 'Abonnement actif' : 'Aucun abonnement actif'}
+                {isActive ? 'Abonnement actif' : 'Abonnement expiré'}
               </p>
               {isActive ? (
                 <p className="text-slate-400 text-sm">
                   Expire dans <span className="text-emerald-400 font-bold">{daysRemaining} jour{daysRemaining > 1 ? 's' : ''}</span>
                 </p>
               ) : (
-                <p className="text-red-400 text-sm">
-                  Votre essai a expiré ou vous n’avez pas d’abonnement.
+                <p className="text-amber-300 text-sm">
+                  Votre abonnement a expiré, mais vos progrès sont précieux. Souscrivez à nouveau pour continuer l'aventure 🚀
                 </p>
               )}
             </div>
           </div>
-          {!isActive && (
-            <Link
-              to="/student/subscription"
-              className="inline-flex items-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-5 py-2.5 rounded-xl font-semibold hover:from-violet-700 hover:to-cyan-700 transition-all shadow-lg self-start"
+          <div className="flex items-center gap-2 self-start md:self-center">
+            {!isActive && (
+              <Link
+                to="/student/subscription"
+                className="inline-flex items-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-5 py-2.5 rounded-xl font-semibold hover:from-violet-700 hover:to-cyan-700 transition-all shadow-lg"
+              >
+                <CreditCard size={18} />
+                Réactiver
+              </Link>
+            )}
+            <button
+              onClick={handleRefresh}
+              className="inline-flex items-center gap-1 p-2 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 transition-all"
+              title="Actualiser le statut"
             >
-              <CreditCard size={18} />
-              Souscrire maintenant
-            </Link>
-          )}
+              <RefreshCw size={18} />
+            </button>
+          </div>
         </div>
       </motion.div>
 

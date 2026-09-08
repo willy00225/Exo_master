@@ -82,12 +82,21 @@ router.get("/status", auth, async (req, res) => {
     );
 
     const expires = user.rows[0]?.subscription_expires;
-    const isActive = expires && new Date(expires) > new Date();
+    let isActive = false;
+    let daysRemaining = 0;
+
+    if (expires) {
+      // Créer une date à 23:59:59 pour couvrir toute la journée d'expiration
+      const expiryDate = new Date(expires);
+      expiryDate.setHours(23, 59, 59, 999);
+      isActive = expiryDate > new Date();
+      daysRemaining = isActive ? Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24)) : 0;
+    }
 
     res.json({
       is_active: isActive,
       expires_at: expires,
-      days_remaining: expires ? Math.ceil((new Date(expires) - new Date()) / (1000 * 60 * 60 * 24)) : 0,
+      days_remaining: daysRemaining,
     });
   } catch (err) {
     console.error(err);

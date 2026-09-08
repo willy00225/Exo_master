@@ -2,13 +2,15 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   User, Mail, Lock, Save, CreditCard, Calendar, Loader, AlertCircle, CheckCircle,
-  Eye, EyeOff, ShieldCheck, Wallet, Clock, BadgeCheck
+  Eye, EyeOff, ShieldCheck, Wallet, Clock, BadgeCheck, LogOut
 } from 'lucide-react';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const Profile = () => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
   // ---------- Infos personnelles ----------
   const [editMode, setEditMode] = useState(false);
@@ -28,7 +30,6 @@ const Profile = () => {
   const [savingPassword, setSavingPassword] = useState(false);
   const [passwordMsg, setPasswordMsg] = useState({ type: '', text: '' });
 
-  // Visibilité des mots de passe
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -105,10 +106,14 @@ const Profile = () => {
     }
   };
 
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
   const isActive = subscription?.is_active;
   const daysRemaining = subscription?.days_remaining || 0;
 
-  // Composant champ mot de passe avec œil
   const PasswordInput = ({ label, value, onChange, show, setShow }) => (
     <div>
       <label className="block text-sm font-medium text-slate-300 mb-1">{label}</label>
@@ -349,6 +354,20 @@ const Profile = () => {
             </table>
           </div>
         )}
+      </motion.div>
+
+      {/* ---------- Déconnexion ---------- */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
+        className="pt-4"
+      >
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center justify-center gap-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-300 py-3 rounded-xl font-semibold transition-all"
+        >
+          <LogOut size={18} />
+          Se déconnecter
+        </button>
       </motion.div>
     </div>
   );

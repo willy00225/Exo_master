@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Upload, Send, CreditCard, AlertCircle, CheckCircle, Loader,
-  Wallet, FileImage, X
+  Wallet, FileImage, X, Phone, Copy
 } from 'lucide-react';
 import api from '../../services/api';
 
@@ -12,7 +12,32 @@ const Subscription = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [copiedNumber, setCopiedNumber] = useState(null);
   const fileInputRef = useRef(null);
+
+  const paymentNumbers = [
+    {
+      operator: 'Orange Money',
+      number: '+225 0777852157',
+      gradient: 'from-orange-500 to-orange-700',
+      initials: 'OM',
+      bg: 'bg-orange-500',
+    },
+    {
+      operator: 'Moov Money',
+      number: '+225 0150912519',
+      gradient: 'from-blue-500 to-blue-700',
+      initials: 'MM',
+      bg: 'bg-blue-500',
+    },
+    {
+      operator: 'Wave',
+      number: '+225 0150912519', // à ajuster si nécessaire
+      gradient: 'from-cyan-500 to-cyan-700',
+      initials: 'W',
+      bg: 'bg-cyan-500',
+    },
+  ];
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -20,14 +45,18 @@ const Subscription = () => {
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
-    if (selectedFile) {
-      setFile(selectedFile);
-    }
+    if (selectedFile) setFile(selectedFile);
   };
 
   const handleRemoveFile = () => {
     setFile(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleCopyNumber = (number) => {
+    navigator.clipboard.writeText(number);
+    setCopiedNumber(number);
+    setTimeout(() => setCopiedNumber(null), 2000);
   };
 
   const handleSubmit = async (e) => {
@@ -78,23 +107,60 @@ const Subscription = () => {
         </div>
       </motion.div>
 
-      {/* Carte principale */}
+      {/* Moyens de paiement */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
+        className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6"
+      >
+        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <Phone size={20} className="text-violet-400" />
+          Numéros de paiement
+        </h2>
+        <p className="text-slate-400 text-sm mb-4">
+          Effectuez un paiement Mobile Money au numéro correspondant à votre opérateur.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {paymentNumbers.map((item) => (
+            <div
+              key={item.operator}
+              className={`bg-gradient-to-br ${item.gradient} p-4 rounded-2xl flex items-center gap-3 shadow-lg`}
+            >
+              {/* Logo de l'opérateur */}
+              <div className={`w-12 h-12 rounded-full ${item.bg} bg-opacity-20 flex items-center justify-center text-white font-bold text-lg border border-white/30`}>
+                {item.initials}
+              </div>
+              <div className="flex-1">
+                <p className="text-white font-semibold">{item.operator}</p>
+                <p className="text-white/90 font-mono">{item.number}</p>
+              </div>
+              <button
+                onClick={() => handleCopyNumber(item.number)}
+                className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
+                title="Copier le numéro"
+              >
+                {copiedNumber === item.number ? (
+                  <CheckCircle size={18} className="text-white" />
+                ) : (
+                  <Copy size={18} className="text-white" />
+                )}
+              </button>
+            </div>
+          ))}
+        </div>
+        <p className="text-xs text-slate-500 mt-3">
+          💡 Copiez le numéro puis effectuez le paiement via votre application Mobile Money.
+        </p>
+      </motion.div>
+
+      {/* Carte principale formulaire */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
         className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6 space-y-6"
       >
-        {/* Instructions */}
-        <div className="flex items-start gap-3 p-4 bg-cyan-500/10 border border-cyan-500/30 rounded-xl">
-          <Wallet size={20} className="text-cyan-400 mt-0.5 shrink-0" />
-          <p className="text-slate-300 text-sm leading-relaxed">
-            Effectuez un paiement Mobile Money au numéro indiqué puis soumettez la preuve ci-dessous.
-            <span className="block mt-1 text-cyan-300 font-medium">Numéro : +225 07 00 00 00 00</span>
-          </p>
-        </div>
-
-        {/* Messages de feedback */}
         <AnimatePresence>
           {error && (
             <motion.div
@@ -119,7 +185,6 @@ const Subscription = () => {
         </AnimatePresence>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Montant */}
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-1">Montant (FCFA)</label>
             <input
@@ -133,7 +198,6 @@ const Subscription = () => {
             />
           </div>
 
-          {/* Référence transaction */}
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-1">Référence de la transaction</label>
             <input
@@ -147,7 +211,6 @@ const Subscription = () => {
             />
           </div>
 
-          {/* Capture d'écran */}
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-1">Capture d'écran du paiement</label>
             {!file ? (
@@ -181,7 +244,6 @@ const Subscription = () => {
             />
           </div>
 
-          {/* Bouton d'envoi */}
           <button
             type="submit"
             disabled={loading}
