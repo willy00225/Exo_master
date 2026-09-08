@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { motion, useScroll, useTransform, useSpring, useInView } from 'framer-motion';
+import { motion, useScroll, useTransform, useSpring, useInView, AnimatePresence } from 'framer-motion';
 import Particles from '@tsparticles/react';
 import { loadSlim } from '@tsparticles/slim';
 import {
