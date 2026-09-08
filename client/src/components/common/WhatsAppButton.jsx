@@ -29,7 +29,7 @@ const WhatsAppButton = () => {
         initial={{ opacity: 0, scale: 0 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-        className="fixed bottom-6 right-6 bg-green-500 text-white p-4 rounded-full shadow-lg hover:bg-green-600 hover:scale-110 hover:shadow-xl transition-all z-50 flex items-center gap-2 group"
+        className="fixed bottom-20 right-4 lg:bottom-6 lg:right-6 bg-green-500 text-white p-4 rounded-full shadow-lg hover:bg-green-600 hover:scale-110 hover:shadow-xl transition-all z-40 flex items-center gap-2 group"
       >
         <MessageCircle size={24} />
         <span className="max-w-0 overflow-hidden group-hover:max-w-[100px] transition-all duration-300 whitespace-nowrap text-sm font-medium">
