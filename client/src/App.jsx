@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import PrivateRoute from './components/common/PrivateRoute';
+import PushNotificationManager from './components/common/PushNotificationManager'; // 🆕 Gestionnaire de notifications push
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import AdminLayout from './components/layout/AdminLayout';
@@ -20,9 +21,9 @@ import Chapters from './pages/admin/Chapters';
 import Support from './pages/admin/Support';
 import Invitations from './pages/admin/Invitations';
 import Tips from './pages/admin/Tips';
-import QuestionBank from './pages/admin/QuestionBank'; // 🆕 Banque de questions
-import Subjects from './pages/admin/Subjects'; // ✅ Matières
-import Schools from './pages/admin/Schools'; // 🏫 Écoles
+import QuestionBank from './pages/admin/QuestionBank';
+import Subjects from './pages/admin/Subjects';
+import Schools from './pages/admin/Schools';
 
 // Pages Élève (alias pour éviter les conflits)
 import StudentExercises from './pages/student/Exercises';
@@ -34,7 +35,7 @@ import StudentPayments from './pages/student/Payments';
 import ChangePassword from './pages/student/ChangePassword';
 import StudentSupport from './pages/student/Support';
 import StudentTips from './pages/student/Tips';
-import ChangeClass from './pages/student/ChangeClass'; // ✅ AJOUTÉ
+import ChangeClass from './pages/student/ChangeClass';
 
 // Landing page
 import LandingPage from './pages/LandingPage';
@@ -67,97 +68,102 @@ function AppContent() {
   }
 
   return (
-    <Routes>
-      {/* Route publique de connexion */}
-      <Route
-        path="/login"
-        element={!user ? <Login /> : <Navigate to="/" />}
-      />
+    <>
+      {/* Gestionnaire de notifications push - ne rend rien visuellement */}
+      <PushNotificationManager />
 
-      {/* Route publique d'inscription */}
-      <Route
-        path="/register"
-        element={!user ? <Register /> : <Navigate to="/" />}
-      />
+      <Routes>
+        {/* Route publique de connexion */}
+        <Route
+          path="/login"
+          element={!user ? <Login /> : <Navigate to="/" />}
+        />
 
-      {/* Route invitation (publique) */}
-      <Route path="/invite/:token" element={<InviteLanding />} />
+        {/* Route publique d'inscription */}
+        <Route
+          path="/register"
+          element={!user ? <Register /> : <Navigate to="/" />}
+        />
 
-      {/* Route mot de passe oublié (publique) */}
-      <Route path="/forgot-password" element={<ForgotPassword />} />
+        {/* Route invitation (publique) */}
+        <Route path="/invite/:token" element={<InviteLanding />} />
 
-      {/* Route réinitialisation de mot de passe (publique) */}
-      <Route path="/reset-password" element={<ResetPassword />} />
+        {/* Route mot de passe oublié (publique) */}
+        <Route path="/forgot-password" element={<ForgotPassword />} />
 
-      {/* Route email vérifié (publique) */}
-      <Route path="/email-verified" element={<EmailVerified />} />
+        {/* Route réinitialisation de mot de passe (publique) */}
+        <Route path="/reset-password" element={<ResetPassword />} />
 
-      {/* Route vérification d'email (publique) */}
-      <Route path="/verify-email" element={<VerifyEmail />} />
+        {/* Route email vérifié (publique) */}
+        <Route path="/email-verified" element={<EmailVerified />} />
 
-      {/* Route racine : Landing page si non connecté, sinon redirection selon le rôle */}
-      <Route
-        path="/"
-        element={
-          !user ? (
-            <LandingPage />
-          ) : (
-            <Navigate to={user.role === 'admin' ? '/admin' : '/student'} />
-          )
-        }
-      />
+        {/* Route vérification d'email (publique) */}
+        <Route path="/verify-email" element={<VerifyEmail />} />
 
-      {/* Routes Admin avec Layout */}
-      <Route
-        path="/admin"
-        element={
-          <PrivateRoute role="admin">
-            <AdminLayout />
-          </PrivateRoute>
-        }
-      >
-        <Route index element={<AdminDashboard />} />
-        <Route path="students" element={<Students />} />
-        <Route path="groups" element={<Groups />} />
-        <Route path="chapters" element={<Chapters />} />
-        <Route path="subjects" element={<Subjects />} /> {/* ✅ Matières */}
-        <Route path="schools" element={<Schools />} /> {/* 🏫 Écoles */}
-        <Route path="payments" element={<Payments />} />
-        <Route path="exercises" element={<Exercises />} />
-        <Route path="quizzes" element={<Quizzes />} />
-        <Route path="challenges" element={<Challenges />} />
-        <Route path="settings" element={<Settings />} />
-        <Route path="support" element={<Support />} />
-        <Route path="invitations" element={<Invitations />} />
-        <Route path="tips" element={<Tips />} />
-        <Route path="question-bank" element={<QuestionBank />} /> {/* 🆕 */}
-      </Route>
+        {/* Route racine : Landing page si non connecté, sinon redirection selon le rôle */}
+        <Route
+          path="/"
+          element={
+            !user ? (
+              <LandingPage />
+            ) : (
+              <Navigate to={user.role === 'admin' ? '/admin' : '/student'} />
+            )
+          }
+        />
 
-      {/* Routes Student avec Layout */}
-      <Route
-        path="/student"
-        element={
-          <PrivateRoute role="student">
-            <StudentLayout />
-          </PrivateRoute>
-        }
-      >
-        <Route index element={<StudentDashboard />} />
-        <Route path="exercises" element={<StudentExercises />} />
-        <Route path="quizzes" element={<StudentQuizzes />} />
-        <Route path="challenges" element={<StudentChallenges />} />
-        <Route path="profile" element={<StudentProfile />} />
-        <Route path="payments" element={<StudentPayments />} />
-        <Route path="subscription" element={<Subscription />} />
-        <Route path="change-password" element={<ChangePassword />} />
-        <Route path="support" element={<StudentSupport />} />
-        <Route path="tips" element={<StudentTips />} />
-        <Route path="change-class" element={<ChangeClass />} /> {/* ✅ AJOUTÉ */}
-      </Route>
+        {/* Routes Admin avec Layout */}
+        <Route
+          path="/admin"
+          element={
+            <PrivateRoute role="admin">
+              <AdminLayout />
+            </PrivateRoute>
+          }
+        >
+          <Route index element={<AdminDashboard />} />
+          <Route path="students" element={<Students />} />
+          <Route path="groups" element={<Groups />} />
+          <Route path="chapters" element={<Chapters />} />
+          <Route path="subjects" element={<Subjects />} />
+          <Route path="schools" element={<Schools />} />
+          <Route path="payments" element={<Payments />} />
+          <Route path="exercises" element={<Exercises />} />
+          <Route path="quizzes" element={<Quizzes />} />
+          <Route path="challenges" element={<Challenges />} />
+          <Route path="settings" element={<Settings />} />
+          <Route path="support" element={<Support />} />
+          <Route path="invitations" element={<Invitations />} />
+          <Route path="tips" element={<Tips />} />
+          <Route path="question-bank" element={<QuestionBank />} />
+        </Route>
 
-      {/* Route 404 - doit rester en dernier */}
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+        {/* Routes Student avec Layout */}
+        <Route
+          path="/student"
+          element={
+            <PrivateRoute role="student">
+              <StudentLayout />
+            </PrivateRoute>
+          }
+        >
+          <Route index element={<StudentDashboard />} />
+          <Route path="exercises" element={<StudentExercises />} />
+          <Route path="quizzes" element={<StudentQuizzes />} />
+          <Route path="challenges" element={<StudentChallenges />} />
+          <Route path="profile" element={<StudentProfile />} />
+          <Route path="payments" element={<StudentPayments />} />
+          <Route path="subscription" element={<Subscription />} />
+          <Route path="change-password" element={<ChangePassword />} />
+          <Route path="support" element={<StudentSupport />} />
+          <Route path="tips" element={<StudentTips />} />
+          <Route path="change-class" element={<ChangeClass />} />
+        </Route>
+
+        {/* Route 404 - doit rester en dernier */}
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </>
   );
 }
 

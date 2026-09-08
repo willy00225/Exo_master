@@ -2,31 +2,47 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../config/db");
 const auth = require("../middleware/auth");
+const webpush = require("../config/webpush");
 
-router.use(auth);
-
-// GET /api/notifications - Liste des notifications non lues (et récentes)
-router.get("/", async (req, res) => {
+// POST /api/notifications/subscribe
+router.post("/subscribe", auth, async (req, res) => {
   try {
-    const result = await pool.query(
-      `SELECT * FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 20`,
-      [req.user.id]
+    const userId = req.user.id;
+    const { endpoint, keys } = req.body;
+    const { p256dh, auth: authKey } = keys;
+
+    if (!endpoint || !p256dh || !authKey) {
+      return res.status(400).json({ error: "Données d'abonnement invalides." });
+    }
+
+    await pool.query(
+      `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (user_id, endpoint) DO UPDATE SET p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth`,
+      [userId, endpoint, p256dh, authKey]
     );
-    res.json(result.rows);
+
+    res.status(201).json({ message: "Abonnement enregistré." });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Erreur" });
+    res.status(500).json({ error: "Erreur serveur." });
   }
 });
 
-// PUT /api/notifications/:id/read - Marquer comme lu
-router.put("/:id/read", async (req, res) => {
+// POST /api/notifications/unsubscribe
+router.post("/unsubscribe", auth, async (req, res) => {
   try {
-    await pool.query("UPDATE notifications SET read = true WHERE id = $1 AND user_id = $2", [req.params.id, req.user.id]);
-    res.json({ message: "ok" });
+    const userId = req.user.id;
+    const { endpoint } = req.body;
+
+    await pool.query(
+      "DELETE FROM push_subscriptions WHERE user_id = $1 AND endpoint = $2",
+      [userId, endpoint]
+    );
+    res.json({ message: "Abonnement supprimé." });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Erreur" });
+    res.status(500).json({ error: "Erreur serveur." });
   }
 });
 
