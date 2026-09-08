@@ -1,15 +1,14 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageCircle, Loader, RotateCcw } from 'lucide-react';
+import { MessageCircle, RotateCcw } from 'lucide-react';
 import api from '../../services/api';
 import ContactSupport from './ContactSupport';
 
 const WhatsAppButton = () => {
   const [number, setNumber] = useState('');
   const [loading, setLoading] = useState(true);
-
-  // Position initiale lue depuis localStorage, sinon défaut
-  const [pos, setPos] = useState(() => {
+  const [constraints, setConstraints] = useState({ top: 0, left: 0, right: 0, bottom: 0 });
+  const [position, setPosition] = useState(() => {
     const saved = localStorage.getItem('whatsapp-btn-pos');
     if (saved) {
       try {
@@ -22,10 +21,7 @@ const WhatsAppButton = () => {
     return { x: window.innerWidth - 80, y: window.innerHeight - 120 };
   });
 
-  const dragRef = useRef(null);
-  const offsetRef = useRef({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-
+  // Récupération du numéro WhatsApp
   useEffect(() => {
     api.get('/public/settings/whatsapp')
       .then(res => setNumber(res.data.whatsapp_number))
@@ -33,84 +29,80 @@ const WhatsAppButton = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  // Sauvegarde de la position à chaque déplacement
+  // Calcul des contraintes dynamiques en fonction de la taille de l'écran
   useEffect(() => {
-    if (pos.x !== undefined) {
-      localStorage.setItem('whatsapp-btn-pos', JSON.stringify(pos));
-    }
-  }, [pos]);
-
-  const handlePointerDown = (e) => {
-    e.preventDefault();
-    setIsDragging(true);
-    const rect = dragRef.current.getBoundingClientRect();
-    offsetRef.current = {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
+    const updateConstraints = () => {
+      const margin = 20;
+      const buttonSize = 60; // approximativement la taille du bouton
+      setConstraints({
+        top: margin,
+        left: margin,
+        right: window.innerWidth - buttonSize - margin,
+        bottom: window.innerHeight - buttonSize - margin,
+      });
     };
-    // Ajout des écouteurs globaux
-    window.addEventListener('pointermove', handlePointerMove);
-    window.addEventListener('pointerup', handlePointerUp);
+    updateConstraints();
+    window.addEventListener('resize', updateConstraints);
+    return () => window.removeEventListener('resize', updateConstraints);
+  }, []);
+
+  // Sauvegarde de la position lors du drag
+  const handleDragEnd = (event, info) => {
+    const newPos = { x: info.point.x, y: info.point.y };
+    setPosition(newPos);
+    localStorage.setItem('whatsapp-btn-pos', JSON.stringify(newPos));
   };
 
-  const handlePointerMove = useCallback((e) => {
-    if (!isDragging) return;
-    const maxX = window.innerWidth - 60; // marge
-    const maxY = window.innerHeight - 60;
-    const newX = Math.min(Math.max(e.clientX - offsetRef.current.x, 0), maxX);
-    const newY = Math.min(Math.max(e.clientY - offsetRef.current.y, 0), maxY);
-    setPos({ x: newX, y: newY });
-  }, [isDragging]);
-
-  const handlePointerUp = () => {
-    setIsDragging(false);
-    window.removeEventListener('pointermove', handlePointerMove);
-    window.removeEventListener('pointerup', handlePointerUp);
-  };
-
+  // Réinitialisation de la position
   const resetPosition = () => {
     const defaultPos = {
       x: window.innerWidth - 80,
       y: window.innerHeight - 120,
     };
-    setPos(defaultPos);
+    setPosition(defaultPos);
     localStorage.setItem('whatsapp-btn-pos', JSON.stringify(defaultPos));
   };
 
-  // Pendant le chargement, ne rien afficher
+  // Ouverture de WhatsApp sans navigation (utilisé par onTap)
+  const openWhatsApp = () => {
+    if (number) {
+      window.open(`https://wa.me/${number.replace(/[^0-9]/g, '')}`, '_blank');
+    }
+  };
+
   if (loading) return null;
 
   // Si un numéro WhatsApp est configuré
   if (number) {
     return (
-      <motion.a
-        ref={dragRef}
-        href={`https://wa.me/${number.replace(/[^0-9]/g, '')}`}
-        target="_blank"
-        rel="noreferrer"
-        title="Support WhatsApp (déplaçable, double-clic pour réinitialiser)"
-        initial={{ opacity: 0, scale: 0 }}
-        animate={{ opacity: 1, scale: 1 }}
+      <motion.div
+        drag
+        dragConstraints={constraints}
+        dragElastic={0.1}
+        dragMomentum={false}
+        onDragEnd={handleDragEnd}
+        initial={{ opacity: 0, scale: 0, x: position.x, y: position.y }}
+        animate={{ opacity: 1, scale: 1, x: position.x, y: position.y }}
+        exit={{ opacity: 0, scale: 0 }}
         transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-        style={{
-          left: pos.x,
-          top: pos.y,
-          touchAction: 'none',
-          cursor: isDragging ? 'grabbing' : 'grab',
-        }}
-        onPointerDown={handlePointerDown}
-        onDoubleClick={resetPosition}
-        className={`fixed z-40 flex items-center gap-2 rounded-full p-4 text-white shadow-lg transition-shadow ${
-          isDragging ? 'shadow-2xl bg-green-600 scale-110' : 'bg-green-500 hover:bg-green-600 hover:shadow-xl hover:scale-110'
-        }`}
+        className="fixed z-40 cursor-grab active:cursor-grabbing"
+        style={{ touchAction: 'none' }}
+        onTap={openWhatsApp}
+        whileTap={{ scale: 0.95 }}
+        whileDrag={{ scale: 1.1 }}
+        title="Support WhatsApp (glisser pour déplacer, double-clic pour réinitialiser)"
         role="button"
-        aria-label="Bouton WhatsApp déplaçable. Double-cliquez pour réinitialiser la position."
+        aria-label="Bouton WhatsApp déplaçable. Glissez pour déplacer, double-cliquez pour réinitialiser."
+        onDoubleClick={resetPosition}
       >
-        <MessageCircle size={24} />
-        <span className="max-w-0 overflow-hidden group-hover:max-w-[100px] transition-all duration-300 whitespace-nowrap text-sm font-medium">
-          WhatsApp
-        </span>
-      </motion.a>
+        <div className="flex items-center gap-2 bg-green-500 text-white p-4 rounded-full shadow-lg hover:bg-green-600 hover:shadow-xl transition-all">
+          <MessageCircle size={24} />
+          {/* L'étiquette WhatsApp apparaît au survol sur desktop */}
+          <span className="hidden lg:inline max-w-0 overflow-hidden group-hover:max-w-[100px] transition-all duration-300 whitespace-nowrap text-sm font-medium">
+            WhatsApp
+          </span>
+        </div>
+      </motion.div>
     );
   }
 
