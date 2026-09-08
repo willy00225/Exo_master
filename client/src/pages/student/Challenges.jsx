@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Swords, Clock, Trophy, Loader, Check, X, Play, History, User,
-  ChevronRight, AlertCircle, CheckCircle2
+  AlertCircle, CheckCircle2
 } from 'lucide-react';
 import api from '../../services/api';
 import QuizGame from '../../components/student/QuizGame';
@@ -14,6 +14,7 @@ const Challenges = () => {
   const [loading, setLoading] = useState(true);
   const [activeChallenge, setActiveChallenge] = useState(null);
   const [activeTab, setActiveTab] = useState('pending');
+  const [actionLoading, setActionLoading] = useState({}); // Pour feedback par action
 
   const fetchChallenges = useCallback(async () => {
     try {
@@ -37,13 +38,23 @@ const Challenges = () => {
   }, [fetchChallenges]);
 
   const handleAccept = async (id) => {
-    await api.put(`/challenges/${id}/accept`);
-    fetchChallenges();
+    setActionLoading(prev => ({ ...prev, [id]: 'accept' }));
+    try {
+      await api.put(`/challenges/${id}/accept`);
+      await fetchChallenges();
+    } finally {
+      setActionLoading(prev => ({ ...prev, [id]: null }));
+    }
   };
 
   const handleDecline = async (id) => {
-    await api.put(`/challenges/${id}/decline`);
-    fetchChallenges();
+    setActionLoading(prev => ({ ...prev, [id]: 'decline' }));
+    try {
+      await api.put(`/challenges/${id}/decline`);
+      await fetchChallenges();
+    } finally {
+      setActionLoading(prev => ({ ...prev, [id]: null }));
+    }
   };
 
   if (activeChallenge) {
@@ -67,36 +78,47 @@ const Challenges = () => {
     );
   }
 
-  const pendingCount = challenges.received?.length || 0 + challenges.sent?.length || 0;
+  // Correction du compteur
+  const pendingCount = (challenges.received?.length || 0) + (challenges.sent?.length || 0);
+  const historyCount = history.length;
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto px-4 sm:px-6">
-      {/* En-tête */}
+      {/* En-tête avec stats rapides */}
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
         <h1 className="text-3xl font-bold text-white font-space-grotesk">Challenges</h1>
         <p className="text-slate-400 mt-1">Affrontez vos camarades et mesurez votre niveau</p>
+        
+        <div className="flex gap-4 mt-4">
+          <div className="flex items-center gap-2 bg-white/5 rounded-xl px-4 py-2 border border-white/10">
+            <Swords size={18} className="text-violet-400" />
+            <span className="text-sm text-slate-300">En cours : <strong className="text-white">{pendingCount}</strong></span>
+          </div>
+          <div className="flex items-center gap-2 bg-white/5 rounded-xl px-4 py-2 border border-white/10">
+            <History size={18} className="text-cyan-400" />
+            <span className="text-sm text-slate-300">Terminés : <strong className="text-white">{historyCount}</strong></span>
+          </div>
+        </div>
       </motion.div>
 
       {/* Bloc principal : sélection du quiz + adversaires */}
       <OpponentList onChallengeCreated={fetchChallenges} />
 
-      {/* Onglets avec indicateur animé */}
+      {/* Onglets avec indicateur animé violet/cyan */}
       <div className="flex gap-2 border-b border-white/10 pb-1">
         {['pending', 'history'].map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={`relative px-4 py-2 rounded-t-lg font-medium transition-all ${
-              activeTab === tab
-                ? 'text-white'
-                : 'text-slate-400 hover:text-white'
+              activeTab === tab ? 'text-white' : 'text-slate-400 hover:text-white'
             }`}
           >
             {tab === 'pending' ? (
               <>
                 <Swords size={16} className="inline mr-1" /> En cours
                 {pendingCount > 0 && (
-                  <span className="ml-2 bg-amber-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                  <span className="ml-2 bg-violet-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
                     {pendingCount}
                   </span>
                 )}
@@ -104,6 +126,11 @@ const Challenges = () => {
             ) : (
               <>
                 <History size={16} className="inline mr-1" /> Historique
+                {historyCount > 0 && (
+                  <span className="ml-2 bg-slate-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                    {historyCount}
+                  </span>
+                )}
               </>
             )}
             {activeTab === tab && (
@@ -128,7 +155,7 @@ const Challenges = () => {
             className="space-y-8"
           >
             {/* Défis reçus */}
-            <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6">
+            <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6 shadow-lg">
               <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2 font-space-grotesk">
                 <Swords size={20} className="text-amber-400" />
                 Défis reçus ({challenges.received?.length || 0})
@@ -143,10 +170,10 @@ const Challenges = () => {
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: 10 }}
-                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white/5 p-4 rounded-xl border border-white/5 hover:border-amber-500/30 transition-all"
+                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white/5 p-4 rounded-xl border border-white/5 hover:border-violet-500/30 transition-all"
                     >
                       <div className="flex items-center gap-3 mb-2 sm:mb-0">
-                        <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-400 font-semibold">
+                        <div className="w-10 h-10 rounded-full bg-violet-500/20 flex items-center justify-center text-violet-400 font-semibold">
                           {c.challenger_name?.charAt(0) || '?'}
                         </div>
                         <div>
@@ -162,27 +189,42 @@ const Challenges = () => {
                       <div className="flex gap-2 self-end sm:self-center">
                         {c.status === 'pending' && (
                           <>
-                            <button onClick={() => handleAccept(c.id)}
-                              className="flex items-center gap-1 bg-gradient-to-r from-emerald-600 to-green-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:shadow-md transition-all"
+                            <button 
+                              onClick={() => handleAccept(c.id)}
+                              disabled={actionLoading[c.id] === 'accept'}
+                              className="flex items-center gap-1 bg-gradient-to-r from-emerald-600 to-green-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:shadow-md active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
                             >
-                              <Check size={16} /> Accepter
+                              {actionLoading[c.id] === 'accept' ? (
+                                <Loader size={16} className="animate-spin" />
+                              ) : (
+                                <Check size={16} />
+                              )}
+                              Accepter
                             </button>
-                            <button onClick={() => handleDecline(c.id)}
-                              className="flex items-center gap-1 bg-white/10 text-slate-300 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-red-500/20 hover:text-red-300 transition-all"
+                            <button 
+                              onClick={() => handleDecline(c.id)}
+                              disabled={actionLoading[c.id] === 'decline'}
+                              className="flex items-center gap-1 bg-white/10 text-slate-300 px-4 py-2 rounded-xl text-sm font-medium hover:bg-red-500/20 hover:text-red-300 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
                             >
-                              <X size={16} /> Refuser
+                              {actionLoading[c.id] === 'decline' ? (
+                                <Loader size={16} className="animate-spin" />
+                              ) : (
+                                <X size={16} />
+                              )}
+                              Refuser
                             </button>
                           </>
                         )}
                         {c.status === 'accepted' && !c.has_played && (
-                          <button onClick={() => setActiveChallenge(c.id)}
-                            className="flex items-center gap-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:shadow-md transition-all"
+                          <button 
+                            onClick={() => setActiveChallenge(c.id)}
+                            className="flex items-center gap-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-2 rounded-xl text-sm font-medium hover:shadow-md active:scale-95 transition-all min-h-[44px]"
                           >
                             <Play size={16} /> Jouer
                           </button>
                         )}
                         {c.status === 'accepted' && c.has_played && (
-                          <span className="flex items-center gap-1 text-xs text-slate-500 bg-white/5 px-3 py-1.5 rounded-full">
+                          <span className="flex items-center gap-1 text-xs text-slate-500 bg-white/5 px-3 py-2 rounded-full">
                             <Clock size={14} /> En attente de l'adversaire
                           </span>
                         )}
@@ -194,7 +236,7 @@ const Challenges = () => {
             </div>
 
             {/* Défis envoyés */}
-            <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6">
+            <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6 shadow-lg">
               <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2 font-space-grotesk">
                 <Trophy size={20} className="text-violet-400" />
                 Défis envoyés ({challenges.sent?.length || 0})
@@ -209,9 +251,9 @@ const Challenges = () => {
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: 10 }}
-                      className="flex items-center justify-between bg-white/5 p-4 rounded-xl border border-white/5 hover:border-violet-500/30 transition-all"
+                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white/5 p-4 rounded-xl border border-white/5 hover:border-violet-500/30 transition-all"
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 mb-2 sm:mb-0">
                         <div className="w-10 h-10 rounded-full bg-violet-500/20 flex items-center justify-center text-violet-400 font-semibold">
                           {c.challenged_name?.charAt(0) || '?'}
                         </div>
@@ -228,12 +270,12 @@ const Challenges = () => {
                       {!c.has_played && c.status === 'accepted' ? (
                         <button
                           onClick={() => setActiveChallenge(c.id)}
-                          className="flex items-center gap-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:shadow-md transition-all"
+                          className="flex items-center gap-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-2 rounded-xl text-sm font-medium hover:shadow-md active:scale-95 transition-all min-h-[44px]"
                         >
                           <Play size={16} /> Jouer
                         </button>
                       ) : (
-                        <span className="flex items-center gap-1 text-sm text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full">
+                        <span className="flex items-center gap-1 text-sm text-violet-400 bg-violet-500/10 px-3 py-2 rounded-full">
                           <Clock size={14} /> {c.has_played ? 'En attente adverse' : 'En attente'}
                         </span>
                       )}
@@ -252,9 +294,9 @@ const Challenges = () => {
             transition={{ duration: 0.2 }}
           >
             {/* Historique */}
-            <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6">
+            <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6 shadow-lg">
               <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2 font-space-grotesk">
-                <History size={20} className="text-violet-400" />
+                <History size={20} className="text-cyan-400" />
                 Historique des défis terminés
               </h2>
               {history.length === 0 ? (
@@ -266,7 +308,7 @@ const Challenges = () => {
                       key={c.id}
                       initial={{ opacity: 0, y: 5 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white/5 p-4 rounded-xl border border-white/5 hover:border-violet-500/30 transition-all"
+                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white/5 p-4 rounded-xl border border-white/5 hover:border-cyan-500/30 transition-all"
                     >
                       <div className="mb-2 sm:mb-0">
                         <p className="text-white font-medium">
@@ -282,12 +324,12 @@ const Challenges = () => {
                       </div>
                       <div className="flex gap-2 self-end sm:self-center items-center">
                         {c.winner_id ? (
-                          <span className="flex items-center gap-1 text-sm text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full">
+                          <span className="flex items-center gap-1 text-sm text-emerald-400 bg-emerald-500/10 px-3 py-2 rounded-full">
                             <Trophy size={14} />
                             Gagnant : {c.winner_id === c.challenger_id ? c.challenger_name : c.challenged_name}
                           </span>
                         ) : (
-                          <span className="text-sm text-slate-500 bg-white/5 px-3 py-1 rounded-full">Égalité</span>
+                          <span className="text-sm text-slate-500 bg-white/5 px-3 py-2 rounded-full">Égalité</span>
                         )}
                       </div>
                     </motion.div>

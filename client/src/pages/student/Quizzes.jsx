@@ -3,14 +3,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Play, Clock, Loader, HelpCircle, BookOpen, Search,
   Filter, ChevronLeft, ChevronRight, RotateCcw, X,
-  BookMarked, GraduationCap
+  BookMarked, GraduationCap, AlertTriangle
 } from 'lucide-react';
 import api from '../../services/api';
 import QuizGame from '../../components/student/QuizGame';
 import BottomSheetSelect from '../../components/common/BottomSheetSelect';
 
+// Couleurs harmonisées : facile en cyan au lieu de emerald
 const difficultyLabels = {
-  easy: { label: 'Facile', color: 'text-emerald-400 bg-emerald-500/20 border-emerald-500/30' },
+  easy: { label: 'Facile', color: 'text-cyan-400 bg-cyan-500/20 border-cyan-500/30' },
   medium: { label: 'Moyen', color: 'text-amber-400 bg-amber-500/20 border-amber-500/30' },
   hard: { label: 'Difficile', color: 'text-orange-400 bg-orange-500/20 border-orange-500/30' },
   very_hard: { label: 'Très difficile', color: 'text-red-400 bg-red-500/20 border-red-500/30' },
@@ -30,7 +31,6 @@ const Quizzes = () => {
   const [activeQuiz, setActiveQuiz] = useState(null);
 
   const [viewMode, setViewMode] = useState('chapters');
-
   const [selectedSubject, setSelectedSubject] = useState('all');
   const [selectedChapter, setSelectedChapter] = useState('all');
   const [selectedDifficulty, setSelectedDifficulty] = useState('all');
@@ -70,7 +70,6 @@ const Quizzes = () => {
     return Array.from(set).sort();
   }, [quizzes]);
 
-  // Options pour BottomSheetSelect
   const subjectOptions = useMemo(() => [
     { value: 'all', label: 'Toutes les matières' },
     ...subjects.map(subject => ({ value: subject, label: subject }))
@@ -149,10 +148,31 @@ const Quizzes = () => {
     setPage(1);
   };
 
+  // Écran de chargement amélioré
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 gap-3">
+        <Loader className="animate-spin text-violet-400" size={32} />
+        <p className="text-slate-400 text-lg">Chargement des quiz…</p>
+      </div>
+    );
+  }
+
+  // Écran d'erreur amélioré
   if (loadError) {
     return (
-      <div className="flex items-center justify-center py-12 text-white">
-        <p className="text-red-400">{loadError}</p>
+      <div className="flex flex-col items-center justify-center py-12 gap-4 px-4">
+        <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center">
+          <AlertTriangle size={32} className="text-red-400" />
+        </div>
+        <p className="text-red-400 text-center max-w-md">{loadError}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="inline-flex items-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-5 py-2.5 rounded-xl font-semibold hover:from-violet-700 hover:to-cyan-700 transition-all shadow-lg"
+        >
+          <RotateCcw size={18} />
+          Réessayer
+        </button>
       </div>
     );
   }
@@ -160,27 +180,24 @@ const Quizzes = () => {
   if (activeQuiz) {
     if (!quizzes.find(q => q.id === activeQuiz)) {
       return (
-        <div className="flex items-center justify-center py-12 text-white">
+        <div className="flex flex-col items-center justify-center py-12 gap-4 text-white">
           <p>Quiz introuvable. Veuillez revenir à la liste.</p>
-          <button onClick={() => setActiveQuiz(null)} className="text-blue-400 underline ml-2">Retour</button>
+          <button
+            onClick={() => setActiveQuiz(null)}
+            className="text-cyan-400 hover:underline flex items-center gap-1"
+          >
+            <ChevronLeft size={16} /> Retour
+          </button>
         </div>
       );
     }
     return <QuizGame quizId={activeQuiz} onBack={() => setActiveQuiz(null)} />;
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12 text-white">
-        <Loader className="animate-spin text-violet-400" size={32} />
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6 max-w-6xl mx-auto px-4 sm:px-6">
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="text-3xl font-bold text-white">Quiz disponibles</h1>
+        <h1 className="text-3xl font-bold text-white font-space-grotesk">Quiz disponibles</h1>
         <p className="text-slate-400 mt-1">
           {viewMode === 'chapters'
             ? "Validez un chapitre avec un score ≥ 70 % pour débloquer le niveau suivant."
@@ -191,7 +208,7 @@ const Quizzes = () => {
       <div className="flex justify-end">
         <button
           onClick={() => switchView(viewMode === 'chapters' ? 'global' : 'chapters')}
-          className="flex items-center gap-2 text-sm text-violet-300 hover:text-violet-200 bg-violet-500/10 px-4 py-2 rounded-lg transition-colors"
+          className="flex items-center gap-2 text-sm text-violet-300 hover:text-violet-200 bg-violet-500/10 px-4 py-2 rounded-lg transition-colors active:scale-95"
         >
           {viewMode === 'chapters' ? (
             <>
@@ -244,12 +261,13 @@ const Quizzes = () => {
               placeholder="Rechercher un quiz..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-10 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+              className="w-full pl-10 pr-10 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
             />
             {searchTerm && (
               <button
                 onClick={() => setSearchTerm('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white active:scale-90"
+                aria-label="Effacer la recherche"
               >
                 <X size={16} />
               </button>
@@ -260,7 +278,7 @@ const Quizzes = () => {
         <div className="flex justify-end">
           <button
             onClick={resetFilters}
-            className="flex items-center gap-1 text-sm text-violet-400 hover:text-violet-300 bg-violet-500/10 px-3 py-1.5 rounded-lg transition-colors"
+            className="flex items-center gap-1 text-sm text-violet-400 hover:text-violet-300 bg-violet-500/10 px-3 py-1.5 rounded-lg transition-colors active:scale-95"
           >
             <RotateCcw size={14} /> Réinitialiser
           </button>
@@ -292,8 +310,16 @@ const Quizzes = () => {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ delay: index * 0.03 }}
-                className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 hover:bg-white/10 hover:border-violet-500/30 transition-all cursor-pointer"
+                className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 hover:bg-white/10 hover:border-violet-500/30 transition-all cursor-pointer active:scale-[0.99]"
                 onClick={() => setActiveQuiz(q.id)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setActiveQuiz(q.id);
+                  }
+                }}
               >
                 <div className="flex items-start gap-3 flex-1">
                   <div className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center shrink-0">
@@ -314,7 +340,14 @@ const Quizzes = () => {
                     </div>
                   </div>
                 </div>
-                <button className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-5 py-2.5 rounded-lg font-medium hover:from-violet-700 hover:to-cyan-700 transition-all shadow-md self-start sm:self-center shrink-0">
+                <button
+                  className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-5 py-2.5 rounded-lg font-medium hover:from-violet-700 hover:to-cyan-700 transition-all shadow-md self-start sm:self-center shrink-0 active:scale-95"
+                  onClick={(e) => {
+                    e.stopPropagation(); // Empêche le déclenchement du clic de la carte
+                    setActiveQuiz(q.id);
+                  }}
+                  aria-label={`Jouer au quiz ${q.title}`}
+                >
                   <Play size={18} /> Jouer
                 </button>
               </motion.div>
@@ -329,17 +362,19 @@ const Quizzes = () => {
           <button
             onClick={() => setPage(p => Math.max(1, p - 1))}
             disabled={page === 1}
-            className="p-2 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-2 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+            aria-label="Page précédente"
           >
             <ChevronLeft size={18} />
           </button>
-          <span className="text-slate-400 text-sm">
+          <span className="text-slate-400 text-sm tabular-nums">
             Page {page} sur {totalPages}
           </span>
           <button
             onClick={() => setPage(p => Math.min(totalPages, p + 1))}
             disabled={page === totalPages}
-            className="p-2 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-2 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+            aria-label="Page suivante"
           >
             <ChevronRight size={18} />
           </button>

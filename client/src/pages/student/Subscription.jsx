@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Upload, Send, CreditCard, AlertCircle, CheckCircle, Loader,
-  Wallet, FileImage, X, Phone, Copy
+  FileImage, X, Phone, Copy
 } from 'lucide-react';
 import api from '../../services/api';
 
@@ -53,10 +53,24 @@ const Subscription = () => {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleCopyNumber = (number) => {
-    navigator.clipboard.writeText(number);
-    setCopiedNumber(number);
-    setTimeout(() => setCopiedNumber(null), 2000);
+  const handleCopyNumber = async (number) => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(number);
+      } else {
+        // Fallback pour les navigateurs sans API Clipboard
+        const textArea = document.createElement('textarea');
+        textArea.value = number;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      setCopiedNumber(number);
+      setTimeout(() => setCopiedNumber(null), 2000);
+    } catch (err) {
+      console.error('Erreur de copie', err);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -137,8 +151,9 @@ const Subscription = () => {
               </div>
               <button
                 onClick={() => handleCopyNumber(item.number)}
-                className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
-                title="Copier le numéro"
+                className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors active:scale-90"
+                title={`Copier le numéro ${item.operator}`}
+                aria-label={`Copier le numéro ${item.operator}`}
               >
                 {copiedNumber === item.number ? (
                   <CheckCircle size={18} className="text-white" />
@@ -177,7 +192,7 @@ const Subscription = () => {
               initial={{ opacity: 0, y: -5 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -5 }}
-              className="flex items-center gap-2 bg-emerald-500/20 border border-emerald-500/30 text-emerald-200 p-3 rounded-lg"
+              className="flex items-center gap-2 bg-cyan-500/20 border border-cyan-500/30 text-cyan-200 p-3 rounded-lg"
             >
               <CheckCircle size={18} /> {success}
             </motion.div>
@@ -186,8 +201,11 @@ const Subscription = () => {
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1">Montant (FCFA)</label>
+            <label className="block text-sm font-medium text-slate-300 mb-1" htmlFor="amount">
+              Montant (FCFA)
+            </label>
             <input
+              id="amount"
               type="number"
               name="amount"
               value={formData.amount}
@@ -195,12 +213,16 @@ const Subscription = () => {
               className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
               placeholder="Ex: 5000"
               required
+              min="1"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1">Référence de la transaction</label>
+            <label className="block text-sm font-medium text-slate-300 mb-1" htmlFor="transaction_ref">
+              Référence de la transaction
+            </label>
             <input
+              id="transaction_ref"
               type="text"
               name="transaction_ref"
               value={formData.transaction_ref}
@@ -212,12 +234,15 @@ const Subscription = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1">Capture d'écran du paiement</label>
+            <label className="block text-sm font-medium text-slate-300 mb-1" htmlFor="proof">
+              Capture d'écran du paiement
+            </label>
             {!file ? (
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full flex flex-col items-center justify-center gap-2 p-6 bg-white/5 border border-dashed border-white/20 rounded-xl text-slate-400 hover:bg-white/10 hover:border-violet-400/50 transition-all"
+                className="w-full flex flex-col items-center justify-center gap-2 p-6 bg-white/5 border border-dashed border-white/20 rounded-xl text-slate-400 hover:bg-white/10 hover:border-violet-400/50 transition-all active:scale-[0.98]"
+                aria-label="Choisir une image de preuve"
               >
                 <Upload size={28} />
                 <span className="text-sm">Cliquez pour choisir une image</span>
@@ -229,7 +254,8 @@ const Subscription = () => {
                 <button
                   type="button"
                   onClick={handleRemoveFile}
-                  className="p-1 text-slate-400 hover:text-red-400 transition-colors"
+                  className="p-1 text-slate-400 hover:text-red-400 transition-colors active:scale-90"
+                  aria-label="Supprimer le fichier"
                 >
                   <X size={16} />
                 </button>
@@ -237,6 +263,7 @@ const Subscription = () => {
             )}
             <input
               ref={fileInputRef}
+              id="proof"
               type="file"
               onChange={handleFileChange}
               accept="image/*"
@@ -247,7 +274,8 @@ const Subscription = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white py-3 rounded-xl font-semibold hover:from-violet-700 hover:to-cyan-700 transition-all disabled:opacity-50 shadow-lg"
+            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white py-3 rounded-xl font-semibold hover:from-violet-700 hover:to-cyan-700 transition-all disabled:opacity-50 shadow-lg active:scale-95"
+            aria-label="Envoyer la preuve de paiement"
           >
             {loading ? (
               <>

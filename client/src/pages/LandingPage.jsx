@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { motion, useScroll, useTransform, useSpring } from 'framer-motion';
+import { motion, useScroll, useTransform, useSpring, useInView } from 'framer-motion';
 import Particles from '@tsparticles/react';
 import { loadSlim } from '@tsparticles/slim';
 import {
   BookOpen, Brain, Swords, Zap, Users, ArrowRight, ChevronDown,
   Shield, FileText, MessageCircle, GraduationCap, Layers, Target,
-  Sparkles, Rocket, Award, Clock, TrendingUp
+  Sparkles, Rocket, Award, Clock, TrendingUp, Menu, X, Star, Quote
 } from 'lucide-react';
 import logo from '../assets/exo_master_logo.png';
 
@@ -42,22 +42,29 @@ const CursorGlow = () => {
 /*  Compteur animé d’inscrits                                          */
 /* ------------------------------------------------------------------ */
 const AnimatedCounter = ({ target = 1247 }) => {
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, margin: '-50px' });
   const [count, setCount] = useState(0);
 
   useEffect(() => {
+    if (!isInView) return;
     let start = 0;
     const duration = 2000;
     const step = Math.ceil(target / (duration / 16));
     const timer = setInterval(() => {
       start += step;
-      if (start >= target) { setCount(target); clearInterval(timer); }
-      else setCount(start);
+      if (start >= target) {
+        setCount(target);
+        clearInterval(timer);
+      } else {
+        setCount(start);
+      }
     }, 16);
     return () => clearInterval(timer);
-  }, [target]);
+  }, [target, isInView]);
 
   return (
-    <span className="font-mono text-lg font-bold text-violet-400">
+    <span ref={ref} className="font-mono text-lg font-bold text-violet-400">
       {count.toLocaleString()}+
     </span>
   );
@@ -67,7 +74,9 @@ const AnimatedCounter = ({ target = 1247 }) => {
 /*  Fond de particules                                                 */
 /* ------------------------------------------------------------------ */
 const ParticleBackground = () => {
-  const particlesInit = useCallback(async (engine) => { await loadSlim(engine); }, []);
+  const particlesInit = useCallback(async (engine) => {
+    await loadSlim(engine);
+  }, []);
 
   return (
     <Particles
@@ -80,7 +89,7 @@ const ParticleBackground = () => {
         fpsLimit: 60,
         particles: {
           number: { value: 80, density: { enable: true, area: 800 } },
-          color: { value: ['#8B5CF6', '#06B6D4', '#10B981', '#F59E0B'] },
+          color: { value: ['#8B5CF6', '#06B6D4', '#A78BFA'] },
           shape: { type: 'circle' },
           opacity: { value: 0.2 },
           size: { value: { min: 1, max: 4 } },
@@ -98,7 +107,7 @@ const ParticleBackground = () => {
 };
 
 /* ------------------------------------------------------------------ */
-/*  Illustrations animées                                              */
+/*  Illustrations animées (couleurs harmonisées)                       */
 /* ------------------------------------------------------------------ */
 const HeroIllustration = () => (
   <div className="relative w-80 h-80 lg:w-96 lg:h-96 mx-auto">
@@ -118,8 +127,8 @@ const HeroIllustration = () => (
         {[
           { Icon: BookOpen, pos: 'top-10 left-10', color: 'bg-violet-500/80', y: [0, -12, 0] },
           { Icon: Brain, pos: 'top-10 right-10', color: 'bg-cyan-500/80', y: [0, 12, 0] },
-          { Icon: Swords, pos: 'bottom-10 left-10', color: 'bg-emerald-500/80', y: [0, -12, 0] },
-          { Icon: Zap, pos: 'bottom-10 right-10', color: 'bg-amber-500/80', y: [0, 12, 0] },
+          { Icon: Swords, pos: 'bottom-10 left-10', color: 'bg-violet-400/80', y: [0, -12, 0] },
+          { Icon: Zap, pos: 'bottom-10 right-10', color: 'bg-cyan-400/80', y: [0, 12, 0] },
         ].map(({ Icon, pos, color, y }, idx) => (
           <motion.div
             key={idx}
@@ -180,34 +189,45 @@ const FeatureIllustration3 = () => (
       animate={{ rotate: [0, 10, -10, 0] }}
       transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut' }}
     >
-      <Swords size={40} className="text-emerald-400 drop-shadow-lg" />
-      <Swords size={40} className="text-emerald-400 drop-shadow-lg -scale-x-100" />
+      <Swords size={40} className="text-violet-400 drop-shadow-lg" />
+      <Swords size={40} className="text-violet-400 drop-shadow-lg -scale-x-100" />
     </motion.div>
   </div>
 );
 
-const StepIllustration = ({ step, Icon, color }) => (
-  <motion.div
-    className={`w-24 h-24 rounded-full bg-${color}-500/20 border border-${color}-400/30 flex items-center justify-center mx-auto mb-4 relative`}
-    whileHover={{ scale: 1.1 }}
-    transition={{ type: 'spring', stiffness: 300 }}
-  >
+// Couleurs prédéfinies pour éviter les classes dynamiques Tailwind
+const stepColors = {
+  violet: { bg: 'bg-violet-500/20', border: 'border-violet-400/30', text: 'text-violet-400' },
+  cyan: { bg: 'bg-cyan-500/20', border: 'border-cyan-400/30', text: 'text-cyan-400' },
+  emerald: { bg: 'bg-cyan-500/20', border: 'border-cyan-400/30', text: 'text-cyan-400' }, // harmonisé
+  amber: { bg: 'bg-amber-500/20', border: 'border-amber-400/30', text: 'text-amber-400' },
+};
+
+const StepIllustration = ({ step, Icon, color }) => {
+  const colorClasses = stepColors[color] || stepColors.violet;
+  return (
     <motion.div
-      animate={{ rotate: [0, 360] }}
-      transition={{ repeat: Infinity, duration: 20, ease: 'linear' }}
-      className="absolute inset-0 rounded-full border border-dashed border-white/10"
-    />
-    <Icon size={32} className={`text-${color}-400`} />
-    <motion.span
-      className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-slate-800 border border-white/20 flex items-center justify-center text-lg font-bold text-white"
-      initial={{ scale: 0 }}
-      animate={{ scale: 1 }}
-      transition={{ delay: 0.2, type: 'spring' }}
+      className={`w-24 h-24 rounded-full ${colorClasses.bg} border ${colorClasses.border} flex items-center justify-center mx-auto mb-4 relative`}
+      whileHover={{ scale: 1.1 }}
+      transition={{ type: 'spring', stiffness: 300 }}
     >
-      {step}
-    </motion.span>
-  </motion.div>
-);
+      <motion.div
+        animate={{ rotate: [0, 360] }}
+        transition={{ repeat: Infinity, duration: 20, ease: 'linear' }}
+        className="absolute inset-0 rounded-full border border-dashed border-white/10"
+      />
+      <Icon size={32} className={colorClasses.text} />
+      <motion.span
+        className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-slate-800 border border-white/20 flex items-center justify-center text-lg font-bold text-white"
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        transition={{ delay: 0.2, type: 'spring' }}
+      >
+        {step}
+      </motion.span>
+    </motion.div>
+  );
+};
 
 /* ------------------------------------------------------------------ */
 /*  Landing page                                                       */
@@ -216,6 +236,14 @@ const LandingPage = () => {
   const { scrollYProgress } = useScroll();
   const heroOpacity = useTransform(scrollYProgress, [0, 0.2], [1, 0]);
   const heroScale = useTransform(scrollYProgress, [0, 0.2], [1, 0.95]);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  // Témoignages
+  const testimonials = [
+    { name: 'Awa K.', role: 'Élève en 3ème', text: 'EXO MASTER a changé ma façon de réviser. Les quiz chronométrés me motivent énormément !', rating: 5 },
+    { name: 'Ibrahim S.', role: 'Élève en Terminale', text: 'Les duels entre amis sont super fun, et je progresse sans même m\'en rendre compte.', rating: 5 },
+    { name: 'Mariam D.', role: 'Parent d\'élève', text: 'Enfin une plateforme qui rend l\'apprentissage addictif. Mon fils adore !', rating: 5 },
+  ];
 
   return (
     <div className="relative min-h-screen bg-[#0B0E1A] text-white font-sans overflow-x-hidden">
@@ -236,9 +264,12 @@ const LandingPage = () => {
               EXO MASTER
             </span>
           </Link>
+
+          {/* Navigation desktop */}
           <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-300">
             <a href="#features" className="hover:text-white transition-colors">Fonctionnalités</a>
             <a href="#how" className="hover:text-white transition-colors">Comment ça marche</a>
+            <a href="#testimonials" className="hover:text-white transition-colors">Témoignages</a>
             <a href="#cta" className="hover:text-white transition-colors">Rejoindre</a>
             <Link to="/login" className="px-5 py-2 rounded-full border border-slate-500 text-white hover:bg-white/10 transition-all">
               Connexion
@@ -247,10 +278,39 @@ const LandingPage = () => {
               S'inscrire
             </Link>
           </nav>
+
+          {/* Bouton menu mobile */}
+          <button
+            className="md:hidden text-white p-2"
+            onClick={() => setMenuOpen(!menuOpen)}
+            aria-label="Menu"
+          >
+            {menuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
         </div>
+
+        {/* Menu mobile */}
+        <AnimatePresence>
+          {menuOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="md:hidden bg-white/5 backdrop-blur-xl border-t border-white/10 overflow-hidden"
+            >
+              <div className="flex flex-col p-4 space-y-3">
+                <a href="#features" onClick={() => setMenuOpen(false)} className="text-slate-300 hover:text-white">Fonctionnalités</a>
+                <a href="#how" onClick={() => setMenuOpen(false)} className="text-slate-300 hover:text-white">Comment ça marche</a>
+                <a href="#testimonials" onClick={() => setMenuOpen(false)} className="text-slate-300 hover:text-white">Témoignages</a>
+                <Link to="/login" onClick={() => setMenuOpen(false)} className="px-5 py-2 rounded-full border border-slate-500 text-white text-center">Connexion</Link>
+                <Link to="/register" onClick={() => setMenuOpen(false)} className="px-5 py-2 rounded-full bg-gradient-to-r from-violet-600 to-cyan-600 text-white font-semibold text-center">S'inscrire</Link>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.header>
 
-      {/* Hero Section - texte percutant */}
+      {/* Hero Section */}
       <motion.section
         style={{ opacity: heroOpacity, scale: heroScale }}
         className="relative flex flex-col lg:flex-row items-center justify-between min-h-screen pt-24 pb-16 px-6 max-w-7xl mx-auto gap-12"
@@ -306,7 +366,7 @@ const LandingPage = () => {
               Se connecter
             </Link>
             <div className="flex items-center gap-2 text-slate-400 text-sm ml-4">
-              <Users size={16} className="text-emerald-400" />
+              <Users size={16} className="text-cyan-400" />
               <AnimatedCounter target={1247} />
               <span>élèves nous font confiance</span>
             </div>
@@ -330,7 +390,7 @@ const LandingPage = () => {
         </motion.div>
       </motion.section>
 
-      {/* Features - cartes immersives */}
+      {/* Features */}
       <section id="features" className="relative max-w-7xl mx-auto px-6 py-32">
         <motion.h2
           initial={{ opacity: 0, y: 20 }}
@@ -352,7 +412,7 @@ const LandingPage = () => {
           {[
             { icon: BookOpen, color: 'from-violet-400 to-violet-600', label: 'Exercices Progressifs', desc: 'Une progression en douceur, chapitre par chapitre, avec des niveaux adaptés à votre rythme.', illustration: <FeatureIllustration1 /> },
             { icon: Brain, color: 'from-cyan-400 to-cyan-600', label: 'IA Pédagogique', desc: "Des contenus générés automatiquement par l'IA, toujours frais et pertinents.", illustration: <FeatureIllustration2 /> },
-            { icon: Swords, color: 'from-emerald-400 to-emerald-600', label: 'Duels & Classements', desc: 'Défiez vos camarades, mesurez vos scores et grimpez dans le classement.', illustration: <FeatureIllustration3 /> },
+            { icon: Swords, color: 'from-violet-400 to-violet-600', label: 'Duels & Classements', desc: 'Défiez vos camarades, mesurez vos scores et grimpez dans le classement.', illustration: <FeatureIllustration3 /> },
           ].map((item, idx) => (
             <motion.div
               key={idx}
@@ -374,7 +434,7 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* How it works - processus simple */}
+      {/* How it works */}
       <section id="how" className="relative max-w-7xl mx-auto px-6 py-32">
         <motion.h2
           initial={{ opacity: 0, y: 20 }}
@@ -405,7 +465,43 @@ const LandingPage = () => {
             </motion.div>
           ))}
         </div>
-        <div className="mt-20 h-2 bg-gradient-to-r from-violet-500/50 via-cyan-500/50 to-emerald-500/50 rounded-full blur-sm" />
+        <div className="mt-20 h-2 bg-gradient-to-r from-violet-500/50 via-cyan-500/50 to-violet-500/50 rounded-full blur-sm" />
+      </section>
+
+      {/* Témoignages */}
+      <section id="testimonials" className="max-w-7xl mx-auto px-6 py-20">
+        <motion.h2
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="text-4xl lg:text-5xl font-bold font-space-grotesk text-center mb-12"
+        >
+          Ils nous font confiance
+        </motion.h2>
+        <div className="grid md:grid-cols-3 gap-6">
+          {testimonials.map((t, idx) => (
+            <motion.div
+              key={idx}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: idx * 0.1 }}
+              className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6 flex flex-col gap-4"
+            >
+              <Quote className="text-violet-400 w-8 h-8" />
+              <p className="text-slate-300 flex-1">{t.text}</p>
+              <div className="flex items-center gap-2">
+                {[...Array(t.rating)].map((_, i) => (
+                  <Star key={i} size={16} className="text-amber-400 fill-amber-400" />
+                ))}
+              </div>
+              <div>
+                <p className="font-semibold text-white">{t.name}</p>
+                <p className="text-sm text-slate-500">{t.role}</p>
+              </div>
+            </motion.div>
+          ))}
+        </div>
       </section>
 
       {/* CTA Final */}
@@ -432,48 +528,42 @@ const LandingPage = () => {
         </motion.div>
       </section>
 
-      {/* Sections légales (discrètes) */}
-      <section id="privacy" className="max-w-4xl mx-auto px-6 py-20 text-center">
+      {/* Sections légales (regroupées en accordéon simple) */}
+      <section className="max-w-4xl mx-auto px-6 py-20 space-y-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-10"
+          className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-10 text-center"
         >
           <Shield className="text-violet-400 mx-auto mb-4" size={32} />
           <h2 className="text-2xl font-bold text-white font-space-grotesk mb-4">Confidentialité</h2>
           <p className="text-slate-400 max-w-xl mx-auto">
-            Nous prenons la protection de vos données très au sérieux. Aucune information personnelle n'est partagée sans votre consentement. Les données sont stockées de manière sécurisée et utilisées uniquement dans le cadre de la plateforme EXO MASTER.
+            Nous prenons la protection de vos données très au sérieux. Aucune information personnelle n'est partagée sans votre consentement.
           </p>
         </motion.div>
-      </section>
-
-      <section id="terms" className="max-w-4xl mx-auto px-6 py-20 text-center">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-10"
+          className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-10 text-center"
         >
           <FileText className="text-cyan-400 mx-auto mb-4" size={32} />
           <h2 className="text-2xl font-bold text-white font-space-grotesk mb-4">Conditions d'utilisation</h2>
           <p className="text-slate-400 max-w-xl mx-auto">
-            En utilisant EXO MASTER, vous acceptez nos conditions générales. La plateforme est réservée à un usage éducatif. Nous nous réservons le droit de suspendre tout compte en cas de non-respect des règles de bonne conduite.
+            En utilisant EXO MASTER, vous acceptez nos conditions générales. La plateforme est réservée à un usage éducatif.
           </p>
         </motion.div>
-      </section>
-
-      <section id="support" className="max-w-4xl mx-auto px-6 py-20 text-center">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-10"
+          className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-10 text-center"
         >
-          <MessageCircle className="text-emerald-400 mx-auto mb-4" size={32} />
+          <MessageCircle className="text-violet-400 mx-auto mb-4" size={32} />
           <h2 className="text-2xl font-bold text-white font-space-grotesk mb-4">Support</h2>
           <p className="text-slate-400 max-w-xl mx-auto">
-            Besoin d'aide ? Contactez-nous via le bouton WhatsApp en bas à droite de votre écran (lorsque vous êtes connecté), ou envoyez un email à support@exomaster.com. Notre équipe vous répond dans les plus brefs délais.
+            Besoin d'aide ? Contactez-nous via le bouton WhatsApp en bas à droite de votre écran, ou envoyez un email à support@exomaster.com.
           </p>
         </motion.div>
       </section>

@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   BookOpen, Trophy, Swords, AlertCircle, CheckCircle,
-  BarChart3, TrendingUp, CreditCard, Star, AlertTriangle, Sparkles,
-  RefreshCw
+  BarChart3, TrendingUp, CreditCard, Star, Sparkles,
+  RefreshCw, Loader
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -16,7 +16,7 @@ import LeaderboardCard from '../../components/student/LeaderboardCard';
 import ProgressCharts from '../../components/student/ProgressCharts';
 import { useAuth } from '../../context/AuthContext';
 
-const COLORS = ['#8B5CF6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444'];
+const COLORS = ['#8B5CF6', '#06B6D4', '#A78BFA', '#F59E0B', '#EF4444']; // violet, cyan, violet clair, ambre, rouge (pas de vert)
 
 const StatCard = ({ icon: Icon, value, label, gradient, to, delay = 0 }) => {
   const CardContent = (
@@ -50,16 +50,19 @@ const StudentDashboard = () => {
   const [blocked, setBlocked] = useState(false);
   const [blockReason, setBlockReason] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState(null);
 
   const fetchData = useCallback(async () => {
     try {
+      setError(null); // reset de l'erreur à chaque tentative
       const [subRes, exRes, challRes, quizRes, studentStatsRes, gamificationRes] = await Promise.all([
         api.get('/payments/status'),
         api.get('/exercises/student/available'),
         api.get('/challenges/pending'),
         api.get('/quizzes/available'),
         api.get('/student/stats'),
-        api.get('/student/gamification'), // ✅ corrigé
+        api.get('/student/gamification'),
       ]);
       setSubscription(subRes.data);
       const exercisesCount = exRes.data.subjects?.reduce((acc, subject) => acc + subject.chapters?.reduce((sum, ch) => sum + ch.exercises.length, 0), 0) || 0;
@@ -83,6 +86,7 @@ const StudentDashboard = () => {
         setPendingChallenges([]);
         setStudentStats(null);
         setGamification({ xp: { total_xp: 0, level: 1 }, badges: [] });
+        setError("Impossible de charger vos données. Veuillez réessayer.");
       }
     } finally {
       setLoading(false);
@@ -93,7 +97,14 @@ const StudentDashboard = () => {
     fetchData();
   }, [fetchData, refreshKey]);
 
-  const handleRefresh = () => setRefreshKey(prev => prev + 1);
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await fetchData();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   if (blocked) {
     return (
@@ -127,7 +138,15 @@ const StudentDashboard = () => {
 
   const isActive = subscription?.is_active;
   const daysRemaining = subscription?.days_remaining || 0;
-  const showRenewalAlert = !isActive || daysRemaining <= 5; // ✅ affiché seulement si inactif ou ≤5 jours
+  const showRenewalAlert = !isActive || daysRemaining <= 5;
+
+  // Style du tooltip pour Recharts
+  const tooltipStyle = {
+    backgroundColor: '#1F2937',
+    border: '1px solid #4B5563',
+    borderRadius: '8px',
+    color: '#F3F4F6',
+  };
 
   return (
     <div className="space-y-6 md:space-y-8 max-w-6xl mx-auto px-4 sm:px-6">
@@ -143,6 +162,19 @@ const StudentDashboard = () => {
         </h1>
         <p className="text-slate-400">Prêt à apprendre aujourd'hui ?</p>
       </motion.div>
+
+      {/* Message d'erreur générique */}
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-4 rounded-2xl text-center">
+          <p>{error}</p>
+          <button
+            onClick={handleRefresh}
+            className="mt-2 inline-flex items-center gap-2 bg-white/10 px-4 py-2 rounded-lg hover:bg-white/20 transition-colors"
+          >
+            <RefreshCw size={16} /> Réessayer
+          </button>
+        </div>
+      )}
 
       {/* Statut abonnement conditionnel */}
       {showRenewalAlert ? (
@@ -190,17 +222,23 @@ const StudentDashboard = () => {
               </Link>
               <button
                 onClick={handleRefresh}
-                className="inline-flex items-center gap-1 p-2 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 transition-all"
+                disabled={isRefreshing}
+                className="inline-flex items-center gap-1 p-2 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 transition-all disabled:opacity-50"
+                aria-label="Actualiser le statut"
                 title="Actualiser le statut"
               >
-                <RefreshCw size={18} />
+                {isRefreshing ? (
+                  <Loader size={18} className="animate-spin" />
+                ) : (
+                  <RefreshCw size={18} />
+                )}
               </button>
             </div>
           </div>
         </motion.div>
       ) : (
         <div className="flex justify-end">
-          <span className="inline-flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full text-xs font-medium">
+          <span className="inline-flex items-center gap-1 bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 px-3 py-1 rounded-full text-xs font-medium">
             <CheckCircle size={14} />
             Abonnement actif jusqu'au {new Date(subscription.expires_at).toLocaleDateString()}
           </span>
@@ -233,7 +271,7 @@ const StudentDashboard = () => {
       <ProgressCharts />
 
       {/* Performances et graphiques */}
-      {studentStats && (
+      {studentStats ? (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -272,13 +310,19 @@ const StudentDashboard = () => {
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="chapter_title" tick={{ fontSize: 12, fill: '#9CA3AF' }} />
                   <YAxis unit="%" domain={[0, 100]} tick={{ fill: '#9CA3AF' }} />
-                  <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #4B5563', borderRadius: '8px' }} />
+                  <Tooltip contentStyle={tooltipStyle} />
                   <Bar dataKey="average_score" fill="#8B5CF6" radius={[6, 6, 0, 0]} barSize={30} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           )}
         </motion.div>
+      ) : !loading && !blocked && (
+        <div className="text-center text-slate-400 py-8">
+          <BookOpen size={40} className="mx-auto mb-2 text-violet-400" />
+          <p>Commencez votre premier exercice pour voir vos statistiques.</p>
+          <Link to="/student/exercises" className="text-violet-400 hover:underline">Aller aux exercices</Link>
+        </div>
       )}
 
       {/* Défis en attente + graphique circulaire */}
@@ -341,7 +385,7 @@ const StudentDashboard = () => {
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip contentStyle={tooltipStyle} />
               </PieChart>
             </ResponsiveContainer>
           </motion.div>
@@ -373,14 +417,14 @@ const StudentDashboard = () => {
               />
               <defs>
                 <linearGradient id="studentGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#10B981" />
+                  <stop offset="0%" stopColor="#8B5CF6" />
                   <stop offset="100%" stopColor="#06B6D4" />
                 </linearGradient>
               </defs>
             </RadialBarChart>
           </ResponsiveContainer>
-          <p className="text-slate-400 text-sm mt-4">
-            Vous avez complété {studentStats.overall_progress}% du programme
+          <p className="text-slate-400 text-sm mt-2">
+            Continuez comme ça ! Vous avez complété {studentStats.overall_progress}% du programme.
           </p>
         </motion.div>
       )}

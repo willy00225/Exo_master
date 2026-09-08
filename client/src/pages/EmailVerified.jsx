@@ -11,7 +11,7 @@ const EmailVerified = () => {
   const renderContent = () => {
     if (success === 'true') {
       return {
-        icon: <CheckCircle size={64} className="mx-auto text-emerald-400 mb-6" />,
+        icon: <CheckCircle size={64} className="mx-auto text-cyan-400 mb-6" />,
         title: 'Email vérifié !',
         message: 'Votre compte est maintenant actif.',
         actionLink: '/login',
@@ -20,7 +20,7 @@ const EmailVerified = () => {
     }
     if (error === 'expired') {
       return {
-        icon: <Clock size={64} className="mx-auto text-amber-400 mb-6" />,
+        icon: <Clock size={64} className="mx-auto text-violet-400 mb-6" />,
         title: 'Lien expiré',
         message: 'Le lien de vérification a expiré (valable 24h). Veuillez demander un nouveau lien ou vous réinscrire.',
         actionLink: '/forgot-password',
@@ -79,7 +79,8 @@ const EmailVerified = () => {
         >
           <Link
             to={actionLink}
-            className="inline-flex items-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-violet-700 hover:to-cyan-700 transition-all shadow-lg hover:shadow-violet-500/20"
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-violet-700 hover:to-cyan-700 transition-all shadow-lg hover:shadow-violet-500/20 active:scale-95"
+            aria-label={actionLabel}
           >
             {actionLabel}
             <ArrowRight size={18} />
@@ -92,7 +93,14 @@ const EmailVerified = () => {
           transition={{ delay: 0.6 }}
           className="mt-6 text-xs text-slate-500 flex items-center justify-center gap-1"
         >
-          <Mail size={14} /> Besoin d'aide ? Contactez le support
+          <Mail size={14} />
+          <a
+            href="mailto:support@exomaster.com"
+            className="hover:text-violet-400 transition-colors"
+            aria-label="Contacter le support"
+          >
+            Besoin d'aide ? Contactez le support
+          </a>
         </motion.p>
       </motion.div>
     </div>

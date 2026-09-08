@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import {
-  Swords, Loader, ArrowRight, AlertCircle, CheckCircle, Sparkles
+  Swords, Loader, ArrowRight, AlertCircle, CheckCircle, Sparkles, RefreshCw
 } from 'lucide-react';
 import logo from '../assets/exo_master_logo.png';
 
@@ -16,21 +16,29 @@ const InviteLanding = () => {
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState(false);
   const [error, setError] = useState(null);
+  const [loadError, setLoadError] = useState(null); // pour distinguer erreur réseau vs invitation invalide
+
+  const fetchInvite = async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const res = await api.get(`/invitations/${token}`);
+      setInvite(res.data);
+    } catch (err) {
+      console.error(err);
+      // Si l'erreur est 404, on considère l'invitation invalide
+      if (err.response?.status === 404) {
+        setInvite(null);
+      } else {
+        setLoadError("Impossible de charger l'invitation. Veuillez réessayer.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let active = true;
-    setLoading(true);
-    api.get(`/invitations/${token}`)
-      .then(res => {
-        if (active) setInvite(res.data);
-      })
-      .catch(() => {
-        if (active) setInvite(null);
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => { active = false; };
+    fetchInvite();
   }, [token]);
 
   const handleAccept = async () => {
@@ -60,6 +68,29 @@ const InviteLanding = () => {
     );
   }
 
+  if (loadError) {
+    return (
+      <div className="min-h-screen bg-[#0B0E1A] flex items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white/5 backdrop-blur-lg border border-red-500/30 rounded-3xl p-8 max-w-md w-full text-center shadow-2xl"
+        >
+          <AlertCircle size={64} className="text-red-400 mx-auto mb-6" />
+          <h1 className="text-2xl font-bold text-white font-space-grotesk mb-2">Erreur de chargement</h1>
+          <p className="text-slate-400 mb-6">{loadError}</p>
+          <button
+            onClick={fetchInvite}
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-violet-700 hover:to-cyan-700 transition-all shadow-lg active:scale-95"
+          >
+            <RefreshCw size={18} />
+            Réessayer
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
+
   if (!invite) {
     return (
       <div className="min-h-screen bg-[#0B0E1A] flex items-center justify-center p-4">
@@ -79,7 +110,7 @@ const InviteLanding = () => {
           <p className="text-slate-400 mb-6">Cette invitation a expiré ou n'est plus valide.</p>
           <Link
             to="/"
-            className="inline-flex items-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-violet-700 hover:to-cyan-700 transition-all shadow-lg"
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-violet-700 hover:to-cyan-700 transition-all shadow-lg active:scale-95"
           >
             Retour à l'accueil
             <ArrowRight size={18} />
@@ -163,7 +194,8 @@ const InviteLanding = () => {
             <button
               onClick={handleAccept}
               disabled={accepting}
-              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white py-3 rounded-xl font-semibold hover:from-amber-600 hover:to-orange-600 transition-all disabled:opacity-50 shadow-lg"
+              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white py-3 rounded-xl font-semibold hover:from-amber-600 hover:to-orange-600 transition-all disabled:opacity-50 shadow-lg active:scale-95"
+              aria-label="Relever le défi"
             >
               {accepting ? (
                 <>
@@ -185,13 +217,15 @@ const InviteLanding = () => {
           >
             <Link
               to={`/login?redirect=/invite/${token}`}
-              className="block w-full bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-violet-700 hover:to-cyan-700 transition-all shadow-lg"
+              className="block w-full bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-violet-700 hover:to-cyan-700 transition-all shadow-lg active:scale-95"
+              aria-label="Se connecter"
             >
               Se connecter
             </Link>
             <Link
               to={`/register?redirect=/invite/${token}`}
-              className="block w-full border border-violet-400 text-violet-400 px-6 py-3 rounded-xl font-semibold hover:bg-violet-400/10 transition-all"
+              className="block w-full border border-violet-400 text-violet-400 px-6 py-3 rounded-xl font-semibold hover:bg-violet-400/10 transition-all active:scale-95"
+              aria-label="S'inscrire"
             >
               S'inscrire
             </Link>

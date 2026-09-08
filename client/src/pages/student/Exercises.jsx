@@ -19,9 +19,9 @@ const formatMathText = (text) => {
     .replace(/\b(sqrt)\b/g, '√');
 };
 
-// Labels de difficulté (inchangé)
+// Labels de difficulté (couleurs adaptées au thème violet/cyan)
 const difficultyLabels = {
-  easy: { label: 'Facile', color: 'text-emerald-400 bg-emerald-500/20 border-emerald-500/30' },
+  easy: { label: 'Facile', color: 'text-cyan-400 bg-cyan-500/20 border-cyan-500/30' },
   medium: { label: 'Moyen', color: 'text-amber-400 bg-amber-500/20 border-amber-500/30' },
   hard: { label: 'Difficile', color: 'text-orange-400 bg-orange-500/20 border-orange-500/30' },
   very_hard: { label: 'Très difficile', color: 'text-red-400 bg-red-500/20 border-red-500/30' },
@@ -35,15 +35,24 @@ const ExerciseItem = ({ ex, apiBaseURL }) => {
   const [remainingSeconds, setRemainingSeconds] = useState(0);
   const [canViewCorrection, setCanViewCorrection] = useState(false);
   const [attemptCompleted, setAttemptCompleted] = useState(false);
+  const [startingAttempt, setStartingAttempt] = useState(false); // état de chargement pour le bouton
   const timerRef = useRef(null);
 
   const requiredMinutes = { easy: 5, medium: 10, hard: 15, very_hard: 20 }[ex.difficulty] || 10;
   const requiredSeconds = requiredMinutes * 60;
 
   const startAttempt = async () => {
-    try { await api.post(`/exercises/${ex.id}/start-attempt`); } catch (err) { console.error(err); }
-    setAttemptStarted(true);
-    setRemainingSeconds(requiredSeconds);
+    setStartingAttempt(true);
+    try {
+      await api.post(`/exercises/${ex.id}/start-attempt`);
+      setAttemptStarted(true);
+      setRemainingSeconds(requiredSeconds);
+    } catch (err) {
+      console.error(err);
+      // Optionnel : message d'erreur
+    } finally {
+      setStartingAttempt(false);
+    }
   };
 
   useEffect(() => {
@@ -105,7 +114,7 @@ const ExerciseItem = ({ ex, apiBaseURL }) => {
           {ex.content && (
             <button
               onClick={() => setShowContent(!showContent)}
-              className="text-blue-400 hover:underline text-sm flex items-center gap-1"
+              className="text-cyan-400 hover:underline text-sm flex items-center gap-1"
             >
               {showContent ? 'Cacher l’énoncé' : 'Voir l’énoncé'}
             </button>
@@ -114,30 +123,39 @@ const ExerciseItem = ({ ex, apiBaseURL }) => {
           {ex.correction && !attemptStarted && (
             <button
               onClick={startAttempt}
-              className="text-emerald-400 hover:underline text-sm flex items-center gap-1"
+              disabled={startingAttempt}
+              className="text-cyan-400 hover:underline text-sm flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Commencer l’exercice
+              {startingAttempt ? (
+                <>
+                  <Loader size={14} className="animate-spin" /> Démarrage...
+                </>
+              ) : (
+                'Commencer l’exercice'
+              )}
             </button>
           )}
 
           {ex.correction && attemptStarted && !canViewCorrection && (
             <div className="flex items-center gap-2">
-              <div className="w-20 h-2 bg-white/10 rounded-full overflow-hidden">
+              <div className="w-24 h-2 bg-white/10 rounded-full overflow-hidden">
                 <motion.div
                   className="h-full bg-gradient-to-r from-violet-500 to-cyan-500"
                   initial={{ width: 0 }}
                   animate={{ width: `${progress}%` }}
-                  transition={{ duration: 1 }}
+                  transition={{ duration: 0.8, ease: 'easeOut' }}
                 />
               </div>
-              <span className="text-amber-400 text-sm">{formatTime(remainingSeconds)}</span>
+              <span className="text-amber-400 text-sm font-medium tabular-nums">
+                {formatTime(remainingSeconds)}
+              </span>
             </div>
           )}
 
           {ex.correction && canViewCorrection && (
             <button
               onClick={() => setShowCorrection(!showCorrection)}
-              className="text-emerald-400 hover:underline text-sm flex items-center gap-1"
+              className="text-cyan-400 hover:underline text-sm flex items-center gap-1"
             >
               {showCorrection ? 'Cacher le corrigé' : 'Voir le corrigé'}
             </button>
@@ -147,14 +165,14 @@ const ExerciseItem = ({ ex, apiBaseURL }) => {
             <a
               href={`${apiBaseURL}/exercises/file/${ex.file_path.split('/').pop()}`}
               target="_blank" rel="noreferrer"
-              className="flex items-center gap-1 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:from-violet-700 hover:to-cyan-700 transition-all"
+              className="flex items-center gap-1 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:from-violet-700 hover:to-cyan-700 transition-all active:scale-95"
             >
               <Download size={16} /> Télécharger
             </a>
           )}
 
           {attemptCompleted && (
-            <span className="text-emerald-400 ml-1"><CheckCircle size={18} /></span>
+            <span className="text-cyan-400 ml-1"><CheckCircle size={18} /></span>
           )}
         </div>
       </div>
@@ -168,7 +186,7 @@ const ExerciseItem = ({ ex, apiBaseURL }) => {
 
       {showCorrection && ex.correction && (
         <div
-          className="mt-4 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-slate-300 whitespace-pre-wrap"
+          className="mt-4 p-4 bg-cyan-500/10 border border-cyan-500/20 rounded-xl text-slate-300 whitespace-pre-wrap"
           dangerouslySetInnerHTML={{ __html: formatMathText(ex.correction) }}
         />
       )}
@@ -187,6 +205,7 @@ const Exercises = () => {
   const [searchChapter, setSearchChapter] = useState('');
   const [selectedChapter, setSelectedChapter] = useState(null);
   const [message, setMessage] = useState(null);
+  const [unlocking, setUnlocking] = useState(false); // état pour le bouton "Passer à la suite"
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
@@ -283,6 +302,7 @@ const Exercises = () => {
   };
 
   const handleUnlock = async (chapterId) => {
+    setUnlocking(true);
     try {
       const res = await api.post('/student/check-unlock', { chapter_id: chapterId });
       if (res.data.unlocked) {
@@ -299,6 +319,8 @@ const Exercises = () => {
     } catch (err) {
       console.error(err);
       setMessage({ type: 'error', text: 'Impossible de débloquer le niveau suivant.' });
+    } finally {
+      setUnlocking(false);
     }
   };
 
@@ -344,7 +366,7 @@ const Exercises = () => {
                 onClick={() => handleSubjectChange(subject.id)}
                 role="tab"
                 aria-selected={activeSubject === subject.id}
-                className={`relative px-4 py-2 rounded-full font-medium transition-all flex items-center gap-2 whitespace-nowrap ${
+                className={`relative px-4 py-2 rounded-full font-medium transition-all flex items-center gap-2 whitespace-nowrap active:scale-95 ${
                   activeSubject === subject.id
                     ? 'bg-gradient-to-r from-violet-600 to-cyan-600 text-white shadow-lg'
                     : 'bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10 hover:text-white'
@@ -392,7 +414,7 @@ const Exercises = () => {
             </div>
             <button
               type="submit"
-              className="bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg hover:shadow-violet-500/20 transition-all"
+              className="bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg hover:shadow-violet-500/20 transition-all active:scale-95"
             >
               <ArrowRight size={20} />
             </button>
@@ -408,7 +430,7 @@ const Exercises = () => {
                   message.type === 'error'
                     ? 'bg-red-500/20 border border-red-500/30 text-red-300'
                     : message.type === 'success'
-                    ? 'bg-green-500/20 border border-green-500/30 text-green-300'
+                    ? 'bg-cyan-500/20 border border-cyan-500/30 text-cyan-300'
                     : 'bg-amber-500/20 border border-amber-500/30 text-amber-300'
                 }`}
               >
@@ -449,7 +471,7 @@ const Exercises = () => {
                           isLocked
                             ? 'bg-white/5 border-white/10 text-slate-500 cursor-not-allowed'
                             : isCompleted
-                            ? 'bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/20'
+                            ? 'bg-cyan-500/10 border-cyan-500/30 hover:bg-cyan-500/20'
                             : 'bg-white/5 border-white/10 hover:border-violet-400/40 hover:bg-white/10'
                         }`}
                         aria-disabled={isLocked}
@@ -459,7 +481,7 @@ const Exercises = () => {
                             {ch.title}
                           </span>
                           {isCompleted ? (
-                            <CheckCircle size={18} className="text-emerald-400" />
+                            <CheckCircle size={18} className="text-cyan-400" />
                           ) : isLocked ? (
                             <Lock size={18} className="text-slate-500" />
                           ) : (
@@ -501,7 +523,7 @@ const Exercises = () => {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => { setSelectedChapter(null); setMessage(null); }}
-                className="p-2 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:border-white/30 transition-colors"
+                className="p-2 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:border-white/30 transition-colors active:scale-95"
                 aria-label="Retour à la liste des chapitres"
               >
                 <ChevronLeft size={20} />
@@ -512,7 +534,7 @@ const Exercises = () => {
               </h2>
             </div>
 
-            <div className="bg-blue-500/10 border border-blue-500/30 text-blue-300 text-sm p-3 rounded-xl">
+            <div className="bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-sm p-3 rounded-xl">
               Pour débloquer le niveau suivant, réussissez le quiz de ce chapitre avec au moins 70 %.
             </div>
 
@@ -531,9 +553,18 @@ const Exercises = () => {
               {selectedChapter.current_difficulty !== 'very_hard' && (
                 <button
                   onClick={() => handleUnlock(selectedChapter.id)}
-                  className="flex items-center gap-1 text-sm text-amber-400 hover:text-amber-300 bg-amber-500/10 px-3 py-1.5 rounded-lg transition-colors"
+                  disabled={unlocking}
+                  className="flex items-center gap-1 text-sm text-amber-400 hover:text-amber-300 bg-amber-500/10 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Unlock size={14} /> Passer à la suite
+                  {unlocking ? (
+                    <>
+                      <Loader size={14} className="animate-spin" /> Déblocage...
+                    </>
+                  ) : (
+                    <>
+                      <Unlock size={14} /> Passer à la suite
+                    </>
+                  )}
                 </button>
               )}
               <span

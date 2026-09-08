@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   User, Mail, Lock, Save, CreditCard, Calendar, Loader, AlertCircle, CheckCircle,
-  Eye, EyeOff, ShieldCheck, Wallet, Clock, BadgeCheck, LogOut
+  Eye, EyeOff, ShieldCheck, Wallet, Clock, BadgeCheck, LogOut, RefreshCw
 } from 'lucide-react';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -38,24 +38,35 @@ const Profile = () => {
   const [subscription, setSubscription] = useState(null);
   const [payments, setPayments] = useState([]);
   const [loadingInfo, setLoadingInfo] = useState(true);
+  const [refreshingInfo, setRefreshingInfo] = useState(false);
+
+  const fetchData = async () => {
+    try {
+      const [subRes, payRes] = await Promise.all([
+        api.get('/payments/status'),
+        api.get('/payments/my'),
+      ]);
+      setSubscription(subRes.data);
+      setPayments(payRes.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingInfo(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [subRes, payRes] = await Promise.all([
-          api.get('/payments/status'),
-          api.get('/payments/my'),
-        ]);
-        setSubscription(subRes.data);
-        setPayments(payRes.data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoadingInfo(false);
-      }
-    };
     fetchData();
   }, []);
+
+  const handleRefreshInfo = async () => {
+    setRefreshingInfo(true);
+    try {
+      await fetchData();
+    } finally {
+      setRefreshingInfo(false);
+    }
+  };
 
   const handleProfileChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -69,6 +80,8 @@ const Profile = () => {
     setProfileMsg({ type: '', text: '' });
     try {
       await api.put('/auth/profile', formData);
+      // Au lieu de window.location.reload(), on peut mettre à jour le contexte utilisateur si possible
+      // Pour l'instant on garde la même logique
       window.location.reload();
       setProfileMsg({ type: 'success', text: 'Profil mis à jour.' });
     } catch (err) {
@@ -128,7 +141,8 @@ const Profile = () => {
         <button
           type="button"
           onClick={() => setShow(!show)}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white active:scale-90"
+          aria-label={show ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
         >
           {show ? <EyeOff size={20} /> : <Eye size={20} />}
         </button>
@@ -163,7 +177,7 @@ const Profile = () => {
           </h2>
           <button
             onClick={() => setEditMode(!editMode)}
-            className="text-sm text-violet-400 hover:text-violet-300 transition-colors"
+            className="text-sm text-violet-400 hover:text-violet-300 transition-colors active:scale-95"
           >
             {editMode ? 'Annuler' : 'Modifier'}
           </button>
@@ -177,7 +191,7 @@ const Profile = () => {
               exit={{ opacity: 0, y: -5 }}
               className={`flex items-center gap-2 p-3 rounded-lg mb-4 ${
                 profileMsg.type === 'success'
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
                   : 'bg-red-500/20 text-red-300 border border-red-500/30'
               }`}
             >
@@ -207,7 +221,7 @@ const Profile = () => {
             </div>
             <button
               type="submit" disabled={savingProfile}
-              className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white py-2 px-6 rounded-lg font-medium hover:shadow-lg transition-all disabled:opacity-50"
+              className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white py-2 px-6 rounded-lg font-medium hover:shadow-lg transition-all disabled:opacity-50 active:scale-95"
             >
               {savingProfile ? <Loader size={18} className="animate-spin" /> : <Save size={18} />}
               {savingProfile ? 'Enregistrement...' : 'Enregistrer'}
@@ -239,7 +253,7 @@ const Profile = () => {
               exit={{ opacity: 0, y: -5 }}
               className={`flex items-center gap-2 p-3 rounded-lg mb-4 ${
                 passwordMsg.type === 'success'
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
                   : 'bg-red-500/20 text-red-300 border border-red-500/30'
               }`}
             >
@@ -273,7 +287,7 @@ const Profile = () => {
           />
           <button
             type="submit" disabled={savingPassword}
-            className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white py-2 px-6 rounded-lg font-medium hover:shadow-lg transition-all disabled:opacity-50"
+            className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white py-2 px-6 rounded-lg font-medium hover:shadow-lg transition-all disabled:opacity-50 active:scale-95"
           >
             {savingPassword ? <Loader size={18} className="animate-spin" /> : <Save size={18} />}
             {savingPassword ? 'Modification...' : 'Changer le mot de passe'}
@@ -286,20 +300,33 @@ const Profile = () => {
         initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
         className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6"
       >
-        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <BadgeCheck size={20} className="text-emerald-400" />
-          Mon abonnement
-        </h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+            <BadgeCheck size={20} className="text-violet-400" />
+            Mon abonnement
+          </h2>
+          <button
+            onClick={handleRefreshInfo}
+            disabled={refreshingInfo}
+            className="p-2 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white transition-colors active:scale-95 disabled:opacity-50"
+            aria-label="Actualiser les informations"
+          >
+            {refreshingInfo ? <Loader size={18} className="animate-spin" /> : <RefreshCw size={18} />}
+          </button>
+        </div>
         {loadingInfo ? (
-          <p className="text-slate-400">Chargement...</p>
+          <div className="flex items-center justify-center py-8">
+            <Loader className="animate-spin text-violet-400" size={24} />
+            <span className="ml-2 text-slate-400">Chargement...</span>
+          </div>
         ) : (
           <div className={`flex items-center gap-4 p-4 rounded-xl ${
-            isActive ? 'bg-emerald-500/10 border border-emerald-500/30' : 'bg-red-500/10 border border-red-500/30'
+            isActive ? 'bg-cyan-500/10 border border-cyan-500/30' : 'bg-red-500/10 border border-red-500/30'
           }`}>
             <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-              isActive ? 'bg-emerald-500/20' : 'bg-red-500/20'
+              isActive ? 'bg-cyan-500/20' : 'bg-red-500/20'
             }`}>
-              <Calendar size={24} className={isActive ? 'text-emerald-400' : 'text-red-400'} />
+              <Calendar size={24} className={isActive ? 'text-cyan-400' : 'text-red-400'} />
             </div>
             <div>
               <p className="text-white font-medium">{isActive ? 'Abonnement actif' : 'Abonnement expiré'}</p>
@@ -319,11 +346,14 @@ const Profile = () => {
         className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6"
       >
         <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <Wallet size={20} className="text-amber-400" />
+          <Wallet size={20} className="text-violet-400" />
           Historique des paiements
         </h2>
         {loadingInfo ? (
-          <p className="text-slate-400">Chargement...</p>
+          <div className="flex items-center justify-center py-8">
+            <Loader className="animate-spin text-violet-400" size={24} />
+            <span className="ml-2 text-slate-400">Chargement...</span>
+          </div>
         ) : payments.length === 0 ? (
           <p className="text-slate-400 text-center py-4">Aucun paiement enregistré.</p>
         ) : (
@@ -344,7 +374,7 @@ const Profile = () => {
                     <td className="p-3">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                         p.status === 'validated'
-                          ? 'bg-emerald-500/20 text-emerald-400'
+                          ? 'bg-cyan-500/20 text-cyan-400'
                           : 'bg-amber-500/20 text-amber-400'
                       }`}>{p.status}</span>
                     </td>
@@ -363,7 +393,7 @@ const Profile = () => {
       >
         <button
           onClick={handleLogout}
-          className="w-full flex items-center justify-center gap-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-300 py-3 rounded-xl font-semibold transition-all"
+          className="w-full flex items-center justify-center gap-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-300 py-3 rounded-xl font-semibold transition-all active:scale-95"
         >
           <LogOut size={18} />
           Se déconnecter

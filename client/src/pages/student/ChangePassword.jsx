@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Lock, Save, AlertCircle, CheckCircle, Loader, Eye, EyeOff,
-  ShieldCheck, ShieldAlert, ShieldX
+  ShieldCheck, ShieldAlert, ShieldX, Info
 } from 'lucide-react';
 import api from '../../services/api';
 
-// Fonction pour évaluer la force du mot de passe
+// Fonction pour évaluer la force du mot de passe (couleurs harmonisées violet/cyan)
 const getPasswordStrength = (password) => {
   let score = 0;
   if (password.length >= 6) score++;
@@ -14,9 +14,9 @@ const getPasswordStrength = (password) => {
   if (/[A-Z]/.test(password)) score++;
   if (/[0-9]/.test(password)) score++;
   if (/[^A-Za-z0-9]/.test(password)) score++;
-  if (score <= 2) return { label: 'Faible', color: 'text-red-400', barColor: 'bg-red-500', icon: ShieldX };
-  if (score <= 4) return { label: 'Moyen', color: 'text-amber-400', barColor: 'bg-amber-500', icon: ShieldAlert };
-  return { label: 'Fort', color: 'text-emerald-400', barColor: 'bg-emerald-500', icon: ShieldCheck };
+  if (score <= 2) return { label: 'Faible', color: 'text-red-400', barColor: 'bg-red-500', icon: ShieldX, width: 33 };
+  if (score <= 4) return { label: 'Moyen', color: 'text-violet-400', barColor: 'bg-violet-500', icon: ShieldAlert, width: 66 };
+  return { label: 'Fort', color: 'text-cyan-400', barColor: 'bg-cyan-500', icon: ShieldCheck, width: 100 };
 };
 
 const ChangePassword = () => {
@@ -63,11 +63,14 @@ const ChangePassword = () => {
   };
 
   // Composant d'input avec bouton œil
-  const PasswordInput = ({ value, onChange, placeholder, show, setShow, label }) => (
+  const PasswordInput = ({ value, onChange, placeholder, show, setShow, label, id }) => (
     <div>
-      <label className="block text-sm font-medium text-slate-300 mb-1">{label}</label>
+      <label className="block text-sm font-medium text-slate-300 mb-1" htmlFor={id}>
+        {label}
+      </label>
       <div className="relative">
         <input
+          id={id}
           type={show ? 'text' : 'password'}
           value={value}
           onChange={(e) => onChange(e.target.value)}
@@ -78,7 +81,8 @@ const ChangePassword = () => {
         <button
           type="button"
           onClick={() => setShow(!show)}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors active:scale-90"
+          aria-label={show ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
           tabIndex={-1}
         >
           {show ? <EyeOff size={20} /> : <Eye size={20} />}
@@ -98,7 +102,7 @@ const ChangePassword = () => {
         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-600 to-cyan-600 flex items-center justify-center shadow-lg">
           <Lock size={24} className="text-white" />
         </div>
-        <h2 className="text-2xl font-bold text-white">Mot de passe</h2>
+        <h2 className="text-2xl font-bold text-white font-space-grotesk">Mot de passe</h2>
       </div>
 
       <AnimatePresence>
@@ -109,7 +113,7 @@ const ChangePassword = () => {
             exit={{ opacity: 0, y: -10 }}
             className={`flex items-center gap-2 p-3 rounded-lg mb-4 ${
               message.type === 'success'
-                ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-300'
+                ? 'bg-cyan-500/20 border border-cyan-500/30 text-cyan-300'
                 : 'bg-red-500/20 border border-red-500/30 text-red-300'
             }`}
           >
@@ -121,6 +125,7 @@ const ChangePassword = () => {
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <PasswordInput
+          id="old-password"
           label="Ancien mot de passe"
           value={oldPassword}
           onChange={setOldPassword}
@@ -131,6 +136,7 @@ const ChangePassword = () => {
 
         <div>
           <PasswordInput
+            id="new-password"
             label="Nouveau mot de passe"
             value={newPassword}
             onChange={setNewPassword}
@@ -151,7 +157,7 @@ const ChangePassword = () => {
               <div className="h-1.5 bg-white/10 rounded-full mt-1 overflow-hidden">
                 <motion.div
                   initial={{ width: 0 }}
-                  animate={{ width: `${(passwordStrength.label === 'Faible' ? 33 : passwordStrength.label === 'Moyen' ? 66 : 100)}%` }}
+                  animate={{ width: `${passwordStrength.width}%` }}
                   className={`h-full ${passwordStrength.barColor} rounded-full`}
                   transition={{ duration: 0.3 }}
                 />
@@ -161,6 +167,7 @@ const ChangePassword = () => {
         </div>
 
         <PasswordInput
+          id="confirm-password"
           label="Confirmer le nouveau mot de passe"
           value={confirmPassword}
           onChange={setConfirmPassword}
@@ -172,7 +179,8 @@ const ChangePassword = () => {
         <button
           type="submit"
           disabled={loading}
-          className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white py-3 rounded-xl font-semibold hover:from-violet-700 hover:to-cyan-700 transition-all disabled:opacity-50 shadow-lg"
+          className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white py-3 rounded-xl font-semibold hover:from-violet-700 hover:to-cyan-700 transition-all disabled:opacity-50 shadow-lg active:scale-95"
+          aria-label="Mettre à jour le mot de passe"
         >
           {loading ? (
             <>

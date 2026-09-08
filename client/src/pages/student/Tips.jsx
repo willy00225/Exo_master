@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Lightbulb, BookOpen, GraduationCap, PenTool, Loader, Sparkles,
-  ChevronDown, ChevronUp, Target, Zap, Info
+  ChevronDown, ChevronUp, Target, Zap, Info, RefreshCw, AlertCircle
 } from 'lucide-react';
 import api from '../../services/api';
 
@@ -34,21 +34,33 @@ const Tips = () => {
   const [tips, setTips] = useState([]);
   const [category, setCategory] = useState('exercises');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [expanded, setExpanded] = useState({});
 
-  useEffect(() => {
-    let cancelled = false;
+  const fetchTips = async (cat = category) => {
     setLoading(true);
-    api.get(`/student/tips?category=${category}`)
-      .then(res => {
-        if (!cancelled) setTips(res.data);
-      })
-      .catch(console.error)
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => { cancelled = true; };
+    setError(null);
+    try {
+      const res = await api.get(`/student/tips?category=${cat}`);
+      setTips(res.data);
+    } catch (err) {
+      console.error(err);
+      setError("Impossible de charger les astuces. Veuillez réessayer.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTips(category);
   }, [category]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchTips(category);
+    setRefreshing(false);
+  };
 
   const toggleExpand = (id) => {
     setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
@@ -62,28 +74,42 @@ const Tips = () => {
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center gap-4"
+        className="flex items-center justify-between gap-4"
       >
-        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg">
-          <Lightbulb size={28} className="text-white" />
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-full bg-gradient-to-br from-violet-600 to-cyan-600 flex items-center justify-center shadow-lg">
+            <Lightbulb size={28} className="text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-white font-space-grotesk">
+              Astuces pour réussir
+            </h1>
+            <p className="text-slate-400 text-sm">Conseils personnalisés pour progresser</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-white font-space-grotesk">
-            Astuces pour réussir
-          </h1>
-          <p className="text-slate-400 text-sm">Conseils personnalisés pour progresser</p>
-        </div>
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="p-2 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 transition-colors active:scale-95 disabled:opacity-50"
+          aria-label="Actualiser les astuces"
+          title="Actualiser"
+        >
+          {refreshing ? <Loader size={18} className="animate-spin" /> : <RefreshCw size={18} />}
+        </button>
       </motion.div>
 
       {/* Sélecteur de catégories avec indicateur animé */}
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-3" role="tablist" aria-label="Catégories d'astuces">
         {categories.map(cat => {
           const isActive = category === cat.key;
           return (
             <button
               key={cat.key}
               onClick={() => setCategory(cat.key)}
-              className={`relative flex items-center gap-2 px-5 py-2.5 rounded-full font-medium transition-all ${
+              role="tab"
+              aria-selected={isActive}
+              aria-label={`Afficher les astuces ${cat.label}`}
+              className={`relative flex items-center gap-2 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 ${
                 isActive
                   ? `bg-gradient-to-r ${cat.color} text-white shadow-lg`
                   : 'bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10 hover:text-white'
@@ -103,11 +129,25 @@ const Tips = () => {
         })}
       </div>
 
-      {/* Liste des astuces */}
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
+      {/* Gestion des erreurs */}
+      {error ? (
+        <div className="flex flex-col items-center justify-center py-12 gap-4 px-4">
+          <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center">
+            <AlertCircle size={32} className="text-red-400" />
+          </div>
+          <p className="text-red-400 text-center max-w-md">{error}</p>
+          <button
+            onClick={handleRefresh}
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-5 py-2.5 rounded-xl font-semibold hover:from-violet-700 hover:to-cyan-700 transition-all shadow-lg"
+          >
+            <RefreshCw size={18} />
+            Réessayer
+          </button>
+        </div>
+      ) : loading ? (
+        <div className="flex flex-col items-center justify-center py-12 gap-3">
           <Loader className="animate-spin text-violet-400" size={32} />
-          <span className="ml-3 text-slate-400 text-lg">Chargement des astuces…</span>
+          <span className="text-slate-400 text-lg">Chargement des astuces…</span>
         </div>
       ) : tips.length === 0 ? (
         <motion.div
@@ -135,11 +175,19 @@ const Tips = () => {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ delay: idx * 0.05 }}
-                  className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl overflow-hidden hover:bg-white/10 transition-all"
+                  className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl overflow-hidden hover:bg-white/10 hover:border-violet-500/30 transition-all active:scale-[0.99]"
                 >
                   <div
                     className="p-5 cursor-pointer"
                     onClick={() => toggleExpand(tipId)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        toggleExpand(tipId);
+                      }
+                    }}
                   >
                     <div className="flex items-start gap-3">
                       <div className={`p-2 rounded-lg bg-gradient-to-br ${activeCategory.color} bg-opacity-20 shrink-0`}>
@@ -153,7 +201,11 @@ const Tips = () => {
                           {isExpanded ? formatted.text : formatted.text.substring(0, 120) + (formatted.text.length > 120 ? '...' : '')}
                         </p>
                       </div>
-                      <button className="text-slate-400 hover:text-white mt-1 transition-colors shrink-0">
+                      <button
+                        className="text-slate-400 hover:text-white mt-1 transition-colors shrink-0"
+                        tabIndex={-1}
+                        aria-label={isExpanded ? 'Réduire' : 'Développer'}
+                      >
                         {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                       </button>
                     </div>
