@@ -1,17 +1,62 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HelpCircle, X, Send, Loader, CheckCircle, AlertCircle } from 'lucide-react';
 import api from '../../services/api';
-import { useAuth } from '../../context/AuthContext'; // 🆕
+import { useAuth } from '../../context/AuthContext';
 
 const ContactSupport = () => {
-  const { user } = useAuth(); // utilisateur connecté (peut être null)
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState(user?.email || '');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState({ type: '', text: '' });
+
+  // Position du bouton flottant (persistée dans localStorage)
+  const [position, setPosition] = useState(() => {
+    const saved = localStorage.getItem('support-btn-pos');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        // ignore
+      }
+    }
+    return { x: window.innerWidth - 80, y: window.innerHeight - 120 };
+  });
+
+  // Contraintes dynamiques pour le drag (mise à jour au resize)
+  const [constraints, setConstraints] = useState({ top: 20, left: 20, right: 0, bottom: 0 });
+  useEffect(() => {
+    const updateConstraints = () => {
+      const margin = 20;
+      const size = 60; // taille approximative du bouton
+      setConstraints({
+        top: margin,
+        left: margin,
+        right: window.innerWidth - size - margin,
+        bottom: window.innerHeight - size - margin,
+      });
+    };
+    updateConstraints();
+    window.addEventListener('resize', updateConstraints);
+    return () => window.removeEventListener('resize', updateConstraints);
+  }, []);
+
+  // Sauvegarde de la position après drag
+  const handleDragEnd = (event, info) => {
+    const newPos = { x: info.point.x, y: info.point.y };
+    setPosition(newPos);
+    localStorage.setItem('support-btn-pos', JSON.stringify(newPos));
+  };
+
+  // Réinitialisation de la position par double-clic
+  const resetPosition = () => {
+    const defaultPos = { x: window.innerWidth - 80, y: window.innerHeight - 120 };
+    setPosition(defaultPos);
+    localStorage.setItem('support-btn-pos', JSON.stringify(defaultPos));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -27,9 +72,9 @@ const ContactSupport = () => {
       setFeedback({ type: 'success', text: 'Message envoyé. Nous vous répondrons rapidement.' });
       setSubject('');
       setMessage('');
-      if (!user) setEmail(''); // réinitialiser seulement si non connecté
+      if (!user) setEmail('');
     } catch (err) {
-      setFeedback({ type: 'error', text: 'Erreur lors de l\'envoi. Veuillez réessayer.' });
+      setFeedback({ type: 'error', text: "Erreur lors de l'envoi. Veuillez réessayer." });
     } finally {
       setLoading(false);
     }
@@ -37,16 +82,29 @@ const ContactSupport = () => {
 
   return (
     <>
-      {/* Bouton flottant */}
+      {/* Bouton flottant déplaçable */}
       <motion.button
+        drag
+        dragConstraints={constraints}
+        dragElastic={0.1}
+        dragMomentum={false}
+        onDragEnd={handleDragEnd}
         onClick={() => setOpen(true)}
-        initial={{ opacity: 0, scale: 0 }}
-        animate={{ opacity: 1, scale: 1 }}
+        initial={{ opacity: 0, scale: 0, x: position.x, y: position.y }}
+        animate={{ opacity: 1, scale: 1, x: position.x, y: position.y }}
+        exit={{ opacity: 0, scale: 0 }}
         transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-        className="fixed bottom-6 right-6 bg-violet-600 text-white p-4 rounded-full shadow-lg hover:bg-violet-700 hover:scale-110 transition-all z-50"
-        title="Contacter le support"
+        className="fixed z-50 cursor-grab active:cursor-grabbing"
+        style={{ touchAction: 'none' }}
+        whileTap={{ scale: 0.95 }}
+        whileDrag={{ scale: 1.1 }}
+        title="Contacter le support (déplaçable, double-clic pour réinitialiser)"
+        aria-label="Bouton de support déplaçable"
+        onDoubleClick={resetPosition}
       >
-        <HelpCircle size={24} />
+        <div className="bg-violet-600 text-white p-4 rounded-full shadow-lg hover:bg-violet-700 hover:scale-110 transition-all">
+          <HelpCircle size={24} />
+        </div>
       </motion.button>
 
       {/* Modale de contact */}
@@ -71,6 +129,7 @@ const ContactSupport = () => {
                 <button
                   onClick={() => setOpen(false)}
                   className="p-1.5 bg-white/10 text-slate-300 rounded-full hover:bg-white/20 transition-colors"
+                  aria-label="Fermer"
                 >
                   <X size={18} />
                 </button>
@@ -89,20 +148,26 @@ const ContactSupport = () => {
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Votre email</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-1" htmlFor="support-email">
+                    Votre email
+                  </label>
                   <input
+                    id="support-email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
                     placeholder="votre@email.com"
                     required
-                    disabled={!!user} // champ verrouillé si connecté
+                    disabled={!!user}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Sujet</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-1" htmlFor="support-subject">
+                    Sujet
+                  </label>
                   <input
+                    id="support-subject"
                     type="text"
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
@@ -112,8 +177,11 @@ const ContactSupport = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Message</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-1" htmlFor="support-message">
+                    Message
+                  </label>
                   <textarea
+                    id="support-message"
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     rows={4}
@@ -125,7 +193,7 @@ const ContactSupport = () => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white py-3 rounded-lg font-semibold hover:from-violet-700 hover:to-cyan-700 transition-all disabled:opacity-50 shadow-lg"
+                  className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white py-3 rounded-lg font-semibold hover:from-violet-700 hover:to-cyan-700 transition-all disabled:opacity-50 shadow-lg active:scale-95"
                 >
                   {loading ? (
                     <>
