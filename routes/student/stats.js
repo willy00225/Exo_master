@@ -7,6 +7,38 @@ const subscription = require("../../middleware/subscription");
 router.use(auth);
 router.use(subscription);
 
+// GET /api/student/stats - Résumé simple pour le frontend (sans /dashboard)
+router.get("/", async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const exercisesDone = await pool.query(
+      `SELECT COUNT(DISTINCT exercise_id) FROM exercise_attempts WHERE user_id = $1`,
+      [userId]
+    );
+
+    const quizzesDone = await pool.query(
+      "SELECT COUNT(*) FROM quiz_attempts WHERE user_id = $1",
+      [userId]
+    );
+
+    const avgScore = await pool.query(
+      `SELECT COALESCE(ROUND(AVG(score * 100.0 / NULLIF(total_questions,0)), 1), 0) AS avg
+       FROM quiz_attempts WHERE user_id = $1`,
+      [userId]
+    );
+
+    res.json({
+      exercises_done: parseInt(exercisesDone.rows[0].count),
+      quizzes_done: parseInt(quizzesDone.rows[0].count),
+      avg_score: parseFloat(avgScore.rows[0].avg),
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
 // GET /api/student/stats/dashboard – Stats complètes pour le tableau de bord
 router.get("/dashboard", async (req, res) => {
   try {

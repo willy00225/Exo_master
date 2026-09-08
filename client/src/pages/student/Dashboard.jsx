@@ -49,7 +49,7 @@ const StudentDashboard = () => {
   const [gamification, setGamification] = useState({ xp: { total_xp: 0, level: 1 }, badges: [] });
   const [blocked, setBlocked] = useState(false);
   const [blockReason, setBlockReason] = useState('');
-  const [refreshKey, setRefreshKey] = useState(0); // 🆕 pour forcer le rechargement
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const fetchData = useCallback(async () => {
     try {
@@ -59,7 +59,7 @@ const StudentDashboard = () => {
         api.get('/challenges/pending'),
         api.get('/quizzes/available'),
         api.get('/student/stats'),
-        api.get('/student/progress/gamification'),
+        api.get('/student/gamification'), // ✅ corrigé
       ]);
       setSubscription(subRes.data);
       const exercisesCount = exRes.data.subjects?.reduce((acc, subject) => acc + subject.chapters?.reduce((sum, ch) => sum + ch.exercises.length, 0), 0) || 0;
@@ -78,7 +78,6 @@ const StudentDashboard = () => {
         setBlockReason("Votre abonnement a expiré. Mais ne vous inquiétez pas, vos progrès sont sauvegardés !");
         setBlocked(true);
       } else {
-        // En cas d'erreur non bloquante, on laisse l'utilisateur voir quand même
         setSubscription(null);
         setStats({ exercises: 0, quizzes: 0, activeChallenges: 0 });
         setPendingChallenges([]);
@@ -92,7 +91,7 @@ const StudentDashboard = () => {
 
   useEffect(() => {
     fetchData();
-  }, [fetchData, refreshKey]); // 🆕 dépendance sur refreshKey
+  }, [fetchData, refreshKey]);
 
   const handleRefresh = () => setRefreshKey(prev => prev + 1);
 
@@ -128,6 +127,7 @@ const StudentDashboard = () => {
 
   const isActive = subscription?.is_active;
   const daysRemaining = subscription?.days_remaining || 0;
+  const showRenewalAlert = !isActive || daysRemaining <= 5; // ✅ affiché seulement si inactif ou ≤5 jours
 
   return (
     <div className="space-y-6 md:space-y-8 max-w-6xl mx-auto px-4 sm:px-6">
@@ -144,61 +144,68 @@ const StudentDashboard = () => {
         <p className="text-slate-400">Prêt à apprendre aujourd'hui ?</p>
       </motion.div>
 
-      {/* Statut abonnement amélioré */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className={`bg-white/5 backdrop-blur-lg border rounded-2xl p-4 md:p-6 ${
-          isActive ? 'border-emerald-500/30' : 'border-amber-500/30'
-        }`}
-      >
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-              isActive ? 'bg-emerald-500/20' : 'bg-amber-500/20'
-            }`}>
-              {isActive ? (
-                <CheckCircle size={28} className="text-emerald-400" />
-              ) : (
-                <AlertCircle size={28} className="text-amber-400" />
-              )}
-            </div>
-            <div>
-              <p className="text-white font-semibold text-lg">
-                {isActive ? 'Abonnement actif' : 'Abonnement expiré'}
-              </p>
-              {isActive ? (
-                <p className="text-slate-400 text-sm">
-                  Expire dans <span className="text-emerald-400 font-bold">{daysRemaining} jour{daysRemaining > 1 ? 's' : ''}</span>
+      {/* Statut abonnement conditionnel */}
+      {showRenewalAlert ? (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className={`bg-white/5 backdrop-blur-lg border rounded-2xl p-4 md:p-6 ${
+            isActive ? 'border-amber-500/30' : 'border-red-500/30'
+          }`}
+        >
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                isActive ? 'bg-amber-500/20' : 'bg-red-500/20'
+              }`}>
+                {isActive ? (
+                  <AlertCircle size={28} className="text-amber-400" />
+                ) : (
+                  <AlertCircle size={28} className="text-red-400" />
+                )}
+              </div>
+              <div>
+                <p className="text-white font-semibold text-lg">
+                  {isActive ? 'Abonnement bientôt expiré' : 'Abonnement expiré'}
                 </p>
-              ) : (
-                <p className="text-amber-300 text-sm">
-                  Votre abonnement a expiré, mais vos progrès sont précieux. Souscrivez à nouveau pour continuer l'aventure 🚀
-                </p>
-              )}
+                {isActive ? (
+                  <p className="text-slate-400 text-sm">
+                    Plus que <span className="text-amber-400 font-bold">{daysRemaining} jour{daysRemaining > 1 ? 's' : ''}</span> avant expiration.
+                  </p>
+                ) : (
+                  <p className="text-red-300 text-sm">
+                    Votre abonnement a expiré, mais vos progrès sont précieux. Souscrivez à nouveau pour continuer l'aventure 🚀
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2 self-start md:self-center">
-            {!isActive && (
+            <div className="flex items-center gap-2 self-start md:self-center">
               <Link
                 to="/student/subscription"
                 className="inline-flex items-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-5 py-2.5 rounded-xl font-semibold hover:from-violet-700 hover:to-cyan-700 transition-all shadow-lg"
               >
                 <CreditCard size={18} />
-                Réactiver
+                {isActive ? 'Renouveler' : 'Réactiver'}
               </Link>
-            )}
-            <button
-              onClick={handleRefresh}
-              className="inline-flex items-center gap-1 p-2 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 transition-all"
-              title="Actualiser le statut"
-            >
-              <RefreshCw size={18} />
-            </button>
+              <button
+                onClick={handleRefresh}
+                className="inline-flex items-center gap-1 p-2 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 transition-all"
+                title="Actualiser le statut"
+              >
+                <RefreshCw size={18} />
+              </button>
+            </div>
           </div>
+        </motion.div>
+      ) : (
+        <div className="flex justify-end">
+          <span className="inline-flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full text-xs font-medium">
+            <CheckCircle size={14} />
+            Abonnement actif jusqu'au {new Date(subscription.expires_at).toLocaleDateString()}
+          </span>
         </div>
-      </motion.div>
+      )}
 
       {/* Gamification + Classement */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
