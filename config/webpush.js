@@ -1,18 +1,13 @@
 const webpush = require('web-push');
 
-const vapidKeys = {
-  publicKey: process.env.VAPID_PUBLIC_KEY,
-  privateKey: process.env.VAPID_PRIVATE_KEY,
-};
+const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
+const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
 
-if (!vapidKeys.publicKey || !vapidKeys.privateKey) {
-  throw new Error('Les clés VAPID doivent être définies dans les variables d\'environnement.');
+if (vapidPublicKey && vapidPrivateKey) {
+  webpush.setVapidDetails('mailto:admin@exomaster.com', vapidPublicKey, vapidPrivateKey);
+  console.log('🔔 Web Push configuré');
+} else {
+  console.warn('⚠️ Clés VAPID manquantes. Notifications push désactivées.');
 }
-
-webpush.setVapidDetails(
-  'mailto:admin@exomaster.com',
-  vapidKeys.publicKey,
-  vapidKeys.privateKey
-);
 
 module.exports = webpush;
