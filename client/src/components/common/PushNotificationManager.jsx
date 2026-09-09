@@ -23,9 +23,11 @@ const PushNotificationManager = () => {
       return;
     }
 
-    const vapidPublicKey = process.env.REACT_APP_VAPID_PUBLIC_KEY;
+    // ⚠️ Utilisation de import.meta.env pour Vite
+    const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+
     if (!vapidPublicKey) {
-      console.error('Clé publique VAPID manquante. Configurez REACT_APP_VAPID_PUBLIC_KEY.');
+      console.error('Clé publique VAPID manquante. Configurez VITE_VAPID_PUBLIC_KEY.');
       return;
     }
 
