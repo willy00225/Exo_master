@@ -4,6 +4,21 @@ const pool = require("../config/db");
 const auth = require("../middleware/auth");
 const webpush = require("../config/webpush");
 
+// GET /api/notifications - Récupérer les notifications de l'utilisateur connecté
+router.get("/", auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const result = await pool.query(
+      "SELECT * FROM notifications WHERE user_id = $1 ORDER BY created_at DESC",
+      [userId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
 // POST /api/notifications/subscribe
 router.post("/subscribe", auth, async (req, res) => {
   try {
