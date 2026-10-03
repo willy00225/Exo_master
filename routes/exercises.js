@@ -31,10 +31,12 @@ router.get("/student/available", auth, subscription, async (req, res) => {
       return res.json({ groups: [], subjects: [] });
     }
 
-    // Récupérer tous les exercices de ces groupes, avec la matière du chapitre
+    // Récupérer tous les exercices de ces groupes, avec la matière du chapitre (summary + summary_validated inclus)
     const exercises = await pool.query(
       `SELECT e.*, 
-              c.id as chapter_id, c.title as chapter_title,
+              c.id as chapter_id, c.title as chapter_title, 
+              c.summary as chapter_summary, 
+              c.summary_validated as chapter_summary_validated,
               g.name as group_name, g.subject as group_subject, g.level,
               s.id as subject_id, s.name as subject_name
        FROM exercises e
@@ -65,6 +67,8 @@ router.get("/student/available", auth, subscription, async (req, res) => {
         subjectsMap[subjectKey].chapters[chapterKey] = {
           id: ex.chapter_id || null,
           title: ex.chapter_title || 'Sans chapitre',
+          summary: ex.chapter_summary || null, // 🆕 résumé du chapitre
+          summary_validated: ex.chapter_summary_validated || false, // 🆕 statut de validation du résumé
           exercises: []
         };
       }

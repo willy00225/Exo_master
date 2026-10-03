@@ -50,8 +50,8 @@ const Register = () => {
     try {
       const { confirmPassword, ...submitData } = formData;
       await api.post('/auth/register', submitData);
-      await login(formData.email, formData.password);
-      navigate('/');
+      // On n'auto-connecte plus : on redirige vers la page d'attente
+      navigate('/verify-email-pending', { state: { email: formData.email } });
     } catch (err) {
       setError(err.response?.data?.error || "Erreur lors de l'inscription.");
     } finally {
@@ -61,42 +61,34 @@ const Register = () => {
 
   return (
     <div className="min-h-screen bg-[#0B0E1A] flex items-start justify-center p-4 font-sans relative overflow-y-auto overflow-x-hidden">
+      {/* Fond décoratif statique (pas d'animation) */}
       <div className="absolute inset-0 -z-10">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl" />
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl" />
       </div>
 
       <motion.div
-        initial={{ opacity: 0, y: 30 }}
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: 'easeOut' }}
+        transition={{ duration: 0.4, ease: 'easeOut' }}
         className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl w-full max-w-md p-6 my-8"
       >
         {/* Logo */}
-        <motion.div
-          initial={{ scale: 0.9 }}
-          animate={{ scale: 1 }}
-          transition={{ duration: 0.3 }}
-          className="flex flex-col items-center mb-4"
-        >
+        <div className="flex flex-col items-center mb-4">
           <img src={logo} alt="EXO MASTER" className="h-12 w-auto mb-1" />
           <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">
             DEVENEZ LE MEILLEUR
           </p>
-        </motion.div>
+        </div>
 
         <h1 className="text-2xl font-bold text-white text-center mb-4 font-space-grotesk">
           Créer un compte
         </h1>
 
         {error && (
-          <motion.div
-            initial={{ opacity: 0, y: -5 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-center gap-2 bg-red-500/20 border border-red-500/50 text-red-200 p-3 rounded-xl mb-4 text-sm"
-          >
+          <div className="flex items-center gap-2 bg-red-500/20 border border-red-500/50 text-red-200 p-3 rounded-xl mb-4 text-sm">
             <AlertCircle size={16} /> {error}
-          </motion.div>
+          </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -113,6 +105,8 @@ const Register = () => {
               onChange={handleChange}
               className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
               placeholder="Votre nom"
+              autoComplete="name"
+              autoCapitalize="words"
               required
             />
           </div>
@@ -130,6 +124,7 @@ const Register = () => {
               onChange={handleChange}
               className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
               placeholder="exemple@email.com"
+              autoComplete="email"
               required
             />
           </div>
@@ -149,12 +144,14 @@ const Register = () => {
                 className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all pr-12"
                 placeholder="6 caractères minimum"
                 minLength={6}
+                autoComplete="new-password"
                 required
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+                aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
               >
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
@@ -175,12 +172,14 @@ const Register = () => {
                 onChange={handleChange}
                 className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all pr-12"
                 placeholder="Confirmez votre mot de passe"
+                autoComplete="new-password"
                 required
               />
               <button
                 type="button"
                 onClick={() => setShowConfirm(!showConfirm)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+                aria-label={showConfirm ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
               >
                 {showConfirm ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
@@ -218,6 +217,8 @@ const Register = () => {
               onChange={handleChange}
               className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
               placeholder="Code fourni par votre établissement"
+              autoComplete="off"
+              autoCapitalize="characters"
             />
           </div>
 
@@ -225,7 +226,7 @@ const Register = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white py-3 rounded-xl font-semibold hover:from-violet-700 hover:to-cyan-700 transition-all disabled:opacity-50 shadow-lg hover:shadow-xl"
+            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white py-3 rounded-xl font-semibold hover:from-violet-700 hover:to-cyan-700 transition-all disabled:opacity-50 shadow-lg hover:shadow-xl active:scale-[0.98]"
           >
             {loading ? (
               <>

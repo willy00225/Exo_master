@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import {
@@ -23,6 +23,8 @@ const Login = () => {
 
   const [searchParams] = useSearchParams();
   const expired = searchParams.get('expired');
+  const verified = searchParams.get('verified');
+  const urlError = searchParams.get('error');
 
   const handleResendVerification = async () => {
     if (!email) return;
@@ -63,30 +65,25 @@ const Login = () => {
 
   return (
     <div className="min-h-screen bg-[#0B0E1A] flex items-center justify-center p-4 font-sans relative overflow-hidden">
-      {/* Fond décoratif */}
+      {/* Fond décoratif — sans animate-pulse pour éviter le tremblement */}
       <div className="absolute inset-0 -z-10">
-        <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-1/3 left-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/3 left-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl" />
       </div>
 
       <motion.div
-        initial={{ opacity: 0, y: 30 }}
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: 'easeOut' }}
+        transition={{ duration: 0.4, ease: 'easeOut' }}
         className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl w-full max-w-md p-8"
       >
         {/* Logo */}
-        <motion.div
-          initial={{ scale: 0.9 }}
-          animate={{ scale: 1 }}
-          transition={{ duration: 0.3 }}
-          className="flex flex-col items-center mb-6"
-        >
+        <div className="flex flex-col items-center mb-6">
           <img src={logo} alt="EXO MASTER" className="h-14 w-auto mb-2" />
           <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">
             DEVENEZ LE MEILLEUR
           </p>
-        </motion.div>
+        </div>
 
         <h1 className="text-2xl font-bold text-white text-center mb-6 font-space-grotesk">
           Connexion
@@ -94,41 +91,41 @@ const Login = () => {
 
         {/* Message session expirée */}
         {expired && (
-          <motion.div
-            initial={{ opacity: 0, y: -5 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-amber-500/20 border border-amber-500/30 text-amber-300 p-3 rounded-xl mb-4 text-sm flex items-center gap-2"
-          >
+          <div className="bg-amber-500/20 border border-amber-500/30 text-amber-300 p-3 rounded-xl mb-4 text-sm flex items-center gap-2">
             <AlertCircle size={16} />
             Votre session a expiré. Veuillez vous reconnecter.
-          </motion.div>
+          </div>
         )}
 
-        {/* Messages dynamiques */}
-        <AnimatePresence>
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -5 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -5 }}
-              className="bg-red-500/20 border border-red-500/50 text-red-200 p-3 rounded-xl mb-4 text-sm flex items-center gap-2"
-            >
-              <AlertCircle size={16} /> {error}
-            </motion.div>
-          )}
+        {/* Message email vérifié */}
+        {verified === 'true' && (
+          <div className="bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 p-3 rounded-xl mb-4 text-sm flex items-center gap-2">
+            <CheckCircle size={16} />
+            Votre email a été vérifié. Vous pouvez maintenant vous connecter.
+          </div>
+        )}
 
-          {verificationSent && (
-            <motion.div
-              initial={{ opacity: 0, y: -5 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -5 }}
-              className="bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 p-3 rounded-xl mb-4 text-sm flex items-center gap-2"
-            >
-              <CheckCircle size={16} />
-              Un nouveau lien de vérification a été envoyé.
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Message lien de vérification invalide */}
+        {urlError === 'invalid_token' && (
+          <div className="bg-red-500/20 border border-red-500/40 text-red-300 p-3 rounded-xl mb-4 text-sm flex items-center gap-2">
+            <AlertCircle size={16} />
+            Lien de vérification invalide ou expiré.
+          </div>
+        )}
+
+        {/* Messages dynamiques — rendu conditionnel simple (plus d'AnimatePresence) */}
+        {error && (
+          <div className="bg-red-500/20 border border-red-500/50 text-red-200 p-3 rounded-xl mb-4 text-sm flex items-center gap-2">
+            <AlertCircle size={16} /> {error}
+          </div>
+        )}
+
+        {verificationSent && (
+          <div className="bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 p-3 rounded-xl mb-4 text-sm flex items-center gap-2">
+            <CheckCircle size={16} />
+            Un nouveau lien de vérification a été envoyé.
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -143,6 +140,7 @@ const Login = () => {
               className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
               placeholder="exemple@email.com"
               required
+              autoComplete="email"
             />
           </div>
 
@@ -159,11 +157,13 @@ const Login = () => {
                 className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all pr-12"
                 placeholder="Votre mot de passe"
                 required
+                autoComplete="current-password"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+                aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
               >
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
@@ -179,7 +179,7 @@ const Login = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white py-3 rounded-xl font-semibold hover:from-violet-700 hover:to-cyan-700 transition-all disabled:opacity-50 shadow-lg hover:shadow-xl"
+            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white py-3 rounded-xl font-semibold hover:from-violet-700 hover:to-cyan-700 transition-all disabled:opacity-50 shadow-lg hover:shadow-xl active:scale-[0.98]"
           >
             {loading ? (
               <>
@@ -195,11 +195,7 @@ const Login = () => {
 
         {/* Bouton renvoyer l'email de vérification */}
         {emailNotVerified && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mt-4 text-center"
-          >
+          <div className="mt-4 text-center">
             <button
               onClick={handleResendVerification}
               disabled={resending}
@@ -208,7 +204,7 @@ const Login = () => {
               <Send size={16} />
               {resending ? 'Envoi...' : 'Renvoyer le lien de vérification'}
             </button>
-          </motion.div>
+          </div>
         )}
 
         <p className="text-slate-400 text-sm text-center mt-6">

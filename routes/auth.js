@@ -73,8 +73,12 @@ router.post("/register", async (req, res) => {
       }
     }
 
+    // 🔗 Construction du lien de vérification (pour log / débogage)
+    const verificationLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${verificationToken}`;
+
     // 📧 Envoi de l'email de vérification (non bloquant)
     console.log(`📧 [VERIF] Début envoi vérification pour ${email} (token: ${verificationToken.substring(0,10)}...)`);
+    console.log(`🔗 [VERIF] Lien de vérification : ${verificationLink}`);
     try {
       await sendVerificationEmail(newUser.rows[0], verificationToken);
       console.log(`✅ [VERIF] Email de vérification envoyé à ${email}`);
@@ -193,6 +197,10 @@ router.post("/resend-verification", async (req, res) => {
 
     const newToken = crypto.randomBytes(32).toString('hex');
     await pool.query("UPDATE users SET verification_token = $1 WHERE id = $2", [newToken, user.rows[0].id]);
+
+    // 🔗 Log du lien pour débogage
+    const verificationLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${newToken}`;
+    console.log(`🔗 [VERIF-RESEND] Nouveau lien : ${verificationLink}`);
 
     await sendVerificationEmail(user.rows[0], newToken);
 

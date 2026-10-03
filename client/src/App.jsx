@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import PrivateRoute from './components/common/PrivateRoute';
-import PushNotificationManager from './components/common/PushNotificationManager'; // 🆕 Gestionnaire de notifications push
+import PushNotificationManager from './components/common/PushNotificationManager';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import AdminLayout from './components/layout/AdminLayout';
@@ -46,6 +46,9 @@ import EmailVerified from './pages/EmailVerified';
 // Vérification d'email (lien reçu par mail)
 import VerifyEmail from './pages/VerifyEmail';
 
+// Vérification d'email en attente (page intermédiaire après inscription)
+import VerifyEmailPending from './pages/auth/VerifyEmailPending';
+
 // Mot de passe oublié
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
@@ -56,63 +59,97 @@ import InviteLanding from './pages/InviteLanding';
 // Page 404
 import NotFound from './pages/NotFound';
 
+/* ------------------------------------------------------------------ */
+/*  Écran de chargement stable (pas de flash, pas d'animation)         */
+/* ------------------------------------------------------------------ */
+function LoadingScreen() {
+  return (
+    <div className="min-h-screen bg-[#0B0E1A] flex items-center justify-center">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-10 h-10 rounded-full border-2 border-white/10 border-t-violet-500 animate-spin" />
+        <p className="text-slate-400 text-sm">Chargement…</p>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Redirection selon le rôle (utilisée pour /login et /register)      */
+/* ------------------------------------------------------------------ */
+function RedirectIfAuthenticated({ children }) {
+  const { user, loading } = useAuth();
+
+  if (loading) return <LoadingScreen />;
+
+  if (user) {
+    // Redirige directement vers le bon dashboard selon le rôle
+    const target = user.role === 'admin' ? '/admin' : '/student';
+    return <Navigate to={target} replace />;
+  }
+
+  return children;
+}
+
 function AppContent() {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        Chargement...
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   return (
     <>
-      {/* Gestionnaire de notifications push - ne rend rien visuellement */}
+      {/* Gestionnaire de notifications push - monté une seule fois */}
       <PushNotificationManager />
 
       <Routes>
-        {/* Route publique de connexion */}
+        {/* -------------------- Routes publiques -------------------- */}
+
+        {/* Login — redirige directement vers le dashboard si déjà connecté */}
         <Route
           path="/login"
-          element={!user ? <Login /> : <Navigate to="/" />}
+          element={
+            <RedirectIfAuthenticated>
+              <Login />
+            </RedirectIfAuthenticated>
+          }
         />
 
-        {/* Route publique d'inscription */}
+        {/* Register — idem */}
         <Route
           path="/register"
-          element={!user ? <Register /> : <Navigate to="/" />}
+          element={
+            <RedirectIfAuthenticated>
+              <Register />
+            </RedirectIfAuthenticated>
+          }
         />
 
-        {/* Route invitation (publique) */}
+        {/* Routes publiques indépendantes */}
         <Route path="/invite/:token" element={<InviteLanding />} />
-
-        {/* Route mot de passe oublié (publique) */}
         <Route path="/forgot-password" element={<ForgotPassword />} />
-
-        {/* Route réinitialisation de mot de passe (publique) */}
         <Route path="/reset-password" element={<ResetPassword />} />
-
-        {/* Route email vérifié (publique) */}
         <Route path="/email-verified" element={<EmailVerified />} />
-
-        {/* Route vérification d'email (publique) */}
         <Route path="/verify-email" element={<VerifyEmail />} />
+        <Route path="/verify-email-pending" element={<VerifyEmailPending />} />
 
-        {/* Route racine : Landing page si non connecté, sinon redirection selon le rôle */}
+        {/* -------------------- Route racine -------------------- */}
+        {/* Non connecté → LandingPage | Connecté → redirection directe vers dashboard */}
         <Route
           path="/"
           element={
             !user ? (
               <LandingPage />
             ) : (
-              <Navigate to={user.role === 'admin' ? '/admin' : '/student'} />
+              <Navigate
+                to={user.role === 'admin' ? '/admin' : '/student'}
+                replace
+              />
             )
           }
         />
 
-        {/* Routes Admin avec Layout */}
+        {/* -------------------- Routes Admin -------------------- */}
         <Route
           path="/admin"
           element={
@@ -138,7 +175,7 @@ function AppContent() {
           <Route path="question-bank" element={<QuestionBank />} />
         </Route>
 
-        {/* Routes Student avec Layout */}
+        {/* -------------------- Routes Student -------------------- */}
         <Route
           path="/student"
           element={
@@ -160,7 +197,7 @@ function AppContent() {
           <Route path="change-class" element={<ChangeClass />} />
         </Route>
 
-        {/* Route 404 - doit rester en dernier */}
+        {/* -------------------- 404 -------------------- */}
         <Route path="*" element={<NotFound />} />
       </Routes>
     </>

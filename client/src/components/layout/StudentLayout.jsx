@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   Home, FileText, HelpCircle, Swords, User, CreditCard, Lock, LogOut,
   ChevronRight, MessageSquare, Menu, X, Lightbulb, GraduationCap, AlertTriangle,
-  Bell, ChevronDown
+  ChevronDown
 } from 'lucide-react';
 import logo from '../../assets/exo_master_logo.png';
 import NotificationBell from '../../components/common/NotificationBell';
@@ -53,8 +52,12 @@ const StudentLayout = () => {
         setProfileMenuOpen(false);
       }
     };
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, []);
 
   const handleLogout = () => {
@@ -79,7 +82,9 @@ const StudentLayout = () => {
     { path: '/student/support', icon: MessageSquare, label: 'Mes tickets' },
   ];
 
-  const NavContent = () => (
+  // 🎯 NavContent reçoit un `variant` pour différencier desktop/mobile
+  // → évite le conflit de layoutId (le bug principal)
+  const NavContent = ({ variant = 'desktop' }) => (
     <>
       <div className="p-6 border-b border-white/10 flex flex-col items-center">
         <img src={logo} alt="EXO MASTER" className="h-14 w-auto mb-2" />
@@ -112,18 +117,15 @@ const StudentLayout = () => {
               to={item.path}
               end={item.end}
               onClick={() => setSidebarOpen(false)}
-              className={`relative flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+              className={`relative flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
                 isActive
                   ? 'bg-gradient-to-r from-violet-600/20 to-cyan-600/20 text-violet-200 shadow-sm'
                   : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
               }`}
             >
+              {/* 🎯 Indicateur actif : barre CSS statique, PAS de layoutId */}
               {isActive && (
-                <motion.div
-                  layoutId="sidebarActiveIndicator"
-                  className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r bg-violet-400"
-                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                />
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r bg-violet-400" />
               )}
               <item.icon size={20} />
               <span className="flex-1">{item.label}</span>
@@ -147,99 +149,83 @@ const StudentLayout = () => {
 
   return (
     <div className="flex h-full bg-[#0B0E1A] text-white font-sans overflow-hidden">
-      {/* Bouton hamburger mobile - avec safe area top */}
+      {/* Bouton hamburger mobile */}
       <div className="lg:hidden fixed top-0 left-0 z-50 p-4 pt-[calc(env(safe-area-inset-top)+1rem)]">
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
           className="p-2 bg-white/10 rounded-xl text-white active:scale-95 transition-transform"
+          aria-label={sidebarOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
         >
           {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </div>
 
-      {/* Header mobile avec avatar et notifications - safe area top */}
+      {/* Header mobile */}
       <header className="lg:hidden fixed top-0 right-0 z-50 p-4 pt-[calc(env(safe-area-inset-top)+1rem)] flex items-center gap-3">
         <div className="relative" data-profile-menu>
           <button
             onClick={() => setProfileMenuOpen(!profileMenuOpen)}
             className="flex items-center gap-2 p-1.5 rounded-full bg-white/5 border border-white/10 active:scale-95 transition-transform"
+            aria-label="Menu du profil"
+            aria-expanded={profileMenuOpen}
           >
             <div className="w-8 h-8 rounded-full bg-gradient-to-r from-violet-500 to-cyan-500 flex items-center justify-center text-white font-semibold">
               {user?.name?.charAt(0) || 'E'}
             </div>
-            <ChevronDown size={16} className="text-slate-400" />
+            <ChevronDown size={16} className={`text-slate-400 transition-transform ${profileMenuOpen ? 'rotate-180' : ''}`} />
           </button>
-          <AnimatePresence>
-            {profileMenuOpen && (
-              <motion.div
-                initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                transition={{ duration: 0.15 }}
-                className="absolute right-0 mt-2 w-48 bg-slate-900 border border-white/10 rounded-2xl shadow-xl overflow-hidden z-50"
+
+          {/* Menu profil — animation CSS simple (pas de AnimatePresence) */}
+          {profileMenuOpen && (
+            <div className="absolute right-0 mt-2 w-48 bg-slate-900 border border-white/10 rounded-2xl shadow-xl overflow-hidden z-50">
+              <button
+                onClick={() => { setProfileMenuOpen(false); navigate('/student/profile'); }}
+                className="w-full flex items-center gap-2 px-4 py-3 text-sm text-white hover:bg-white/10 transition-colors"
               >
-                <button
-                  onClick={() => { setProfileMenuOpen(false); navigate('/student/profile'); }}
-                  className="w-full flex items-center gap-2 px-4 py-3 text-sm text-white hover:bg-white/10"
-                >
-                  <User size={16} /> Profil
-                </button>
-                <button
-                  onClick={handleLogout}
-                  className="w-full flex items-center gap-2 px-4 py-3 text-sm text-red-400 hover:bg-red-500/10"
-                >
-                  <LogOut size={16} /> Déconnexion
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                <User size={16} /> Profil
+              </button>
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center gap-2 px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+              >
+                <LogOut size={16} /> Déconnexion
+              </button>
+            </div>
+          )}
         </div>
         <NotificationBell />
       </header>
 
       {/* Overlay mobile */}
-      <AnimatePresence>
-        {sidebarOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="lg:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
-      </AnimatePresence>
+      {sidebarOpen && (
+        <div
+          className="lg:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
       {/* Sidebar desktop */}
       <aside className="hidden lg:flex w-72 bg-white/5 backdrop-blur-xl border-r border-white/10 flex-col shadow-2xl">
-        <NavContent />
+        <NavContent variant="desktop" />
       </aside>
 
-      {/* Drawer mobile - animation framer-motion */}
-      <AnimatePresence>
-        {sidebarOpen && (
-          <motion.aside
-            initial={{ x: '-100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '-100%' }}
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="fixed inset-y-0 left-0 z-50 w-72 bg-slate-900/95 backdrop-blur-xl border-r border-white/10 flex flex-col shadow-2xl lg:hidden"
-          >
-            <NavContent />
-          </motion.aside>
-        )}
-      </AnimatePresence>
+      {/* Drawer mobile — transition CSS au lieu de Framer Motion */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-72 bg-slate-900/95 backdrop-blur-xl border-r border-white/10 flex flex-col shadow-2xl lg:hidden transition-transform duration-300 ease-out ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+        aria-hidden={!sidebarOpen}
+      >
+        <NavContent variant="mobile" />
+      </aside>
 
-      {/* Zone principale - padding top ajusté pour safe area */}
+      {/* Zone principale */}
       <div className="flex-1 flex flex-col min-w-0 bg-[#0B0E1A] lg:pl-0 pt-[calc(env(safe-area-inset-top)+3.5rem)] lg:pt-0 pb-20 lg:pb-0">
         <main className="flex-1 overflow-y-auto p-4 md:p-8">
           {checkingSubscription ? (
             <div className="flex flex-col items-center justify-center h-full gap-4">
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
-                className="w-10 h-10 border-4 border-violet-500 border-t-transparent rounded-full"
-              />
+              {/* 🎯 Spinner CSS au lieu de Framer Motion */}
+              <div className="w-10 h-10 border-4 border-violet-500/30 border-t-violet-500 rounded-full animate-spin" />
               <p className="text-slate-400 text-lg">Vérification de votre abonnement…</p>
             </div>
           ) : !isSubscriptionActive && !isUnrestrictedPage ? (
@@ -276,9 +262,7 @@ const StudentLayout = () => {
         </footer>
       </div>
 
-      {/* Bottom Navigation mobile - cohérente avec le thème violet/cyan */}
       <BottomNav />
-
       <WhatsAppButton />
     </div>
   );

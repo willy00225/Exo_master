@@ -17,11 +17,16 @@ router.get("/pending", async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // Défis reçus
+    // Défis reçus — has_played = true si l'utilisateur (challenged) a terminé sa tentative
     const received = await pool.query(
       `SELECT c.id, c.challenger_id, c.challenged_id, c.quiz_id, c.status,
               u.name AS challenger_name, q.title AS quiz_title,
-              CASE WHEN c.challenged_id = $1 THEN true ELSE false END AS has_played
+              EXISTS (
+                SELECT 1 FROM quiz_attempts qa
+                WHERE qa.challenge_id = c.id
+                  AND qa.user_id = $1
+                  AND qa.completed_at IS NOT NULL
+              ) AS has_played
        FROM challenges c
        JOIN users u ON c.challenger_id = u.id
        JOIN quizzes q ON c.quiz_id = q.id
@@ -32,11 +37,16 @@ router.get("/pending", async (req, res) => {
       [userId]
     );
 
-    // Défis envoyés
+    // Défis envoyés — has_played = true si l'utilisateur (challenger) a terminé sa tentative
     const sent = await pool.query(
       `SELECT c.id, c.challenger_id, c.challenged_id, c.quiz_id, c.status,
               u.name AS challenged_name, q.title AS quiz_title,
-              CASE WHEN c.challenger_id = $1 THEN true ELSE false END AS has_played
+              EXISTS (
+                SELECT 1 FROM quiz_attempts qa
+                WHERE qa.challenge_id = c.id
+                  AND qa.user_id = $1
+                  AND qa.completed_at IS NOT NULL
+              ) AS has_played
        FROM challenges c
        JOIN users u ON c.challenged_id = u.id
        JOIN quizzes q ON c.quiz_id = q.id
@@ -194,7 +204,7 @@ router.get("/available-opponents", async (req, res) => {
 });
 
 // ------------------------------------------------------------------
-// POST /api/challenges/:id/accept – Accepter un défi
+// PUT /api/challenges/:id/accept – Accepter un défi
 // ------------------------------------------------------------------
 router.put("/:id/accept", async (req, res) => {
   try {
@@ -269,6 +279,16 @@ router.post("/:id/start", async (req, res) => {
 
     const challengeData = challenge.rows[0];
 
+    // Vérifier qu'il n'a pas déjà démarré ou terminé ce défi
+    const existingAttempt = await pool.query(
+      `SELECT id, completed_at FROM quiz_attempts 
+       WHERE user_id = $1 AND challenge_id = $2`,
+      [userId, challengeId]
+    );
+    if (existingAttempt.rows.length > 0 && existingAttempt.rows[0].completed_at) {
+      return res.status(400).json({ error: "Vous avez déjà traité ce défi." });
+    }
+
     // Récupérer les questions liées au quiz via la table de liaison
     const questionsResult = await pool.query(
       `SELECT qb.*
@@ -291,11 +311,11 @@ router.post("/:id/start", async (req, res) => {
       options: Array.isArray(q.options) ? q.options : (typeof q.options === 'string' ? q.options.split(' ').filter(Boolean) : []),
     }));
 
-    // Créer une tentative (stockée dans quiz_attempts, mais on pourrait aussi utiliser challenge_attempts)
+    // Créer une tentative en incluant challenge_id
     const attempt = await pool.query(
-      `INSERT INTO quiz_attempts (user_id, quiz_id, score, total_questions, started_at, questions)
-       VALUES ($1, $2, 0, $3, NOW(), $4) RETURNING id`,
-      [userId, challengeData.quiz_id, questions.length, JSON.stringify(questions)]
+      `INSERT INTO quiz_attempts (user_id, quiz_id, challenge_id, score, total_questions, started_at, questions)
+       VALUES ($1, $2, $3, 0, $4, NOW(), $5) RETURNING id`,
+      [userId, challengeData.quiz_id, challengeId, questions.length, JSON.stringify(questions)]
     );
 
     res.json({
@@ -328,15 +348,17 @@ router.post("/:id/submit", async (req, res) => {
       return res.status(404).json({ error: "Challenge non trouvé." });
     }
 
-    // Récupérer la tentative (quiz_attempts) pour obtenir les questions
-    const attempt = await pool.query(
-      `SELECT * FROM quiz_attempts WHERE id = $1 AND user_id = $2`,
-      [attempt_id, userId]
+    // Vérifier que la tentative est valide et non déjà soumise
+    const attemptCheck = await pool.query(
+      `SELECT * FROM quiz_attempts 
+       WHERE id = $1 AND user_id = $2 AND challenge_id = $3 AND completed_at IS NULL`,
+      [attempt_id, userId, challengeId]
     );
-    if (attempt.rows.length === 0) {
-      return res.status(404).json({ error: "Tentative introuvable." });
+    if (attemptCheck.rows.length === 0) {
+      return res.status(400).json({ error: "Tentative invalide ou déjà soumise." });
     }
 
+    const attempt = attemptCheck;
     const questions = attempt.rows[0].questions;
 
     // Calculer le score
@@ -400,7 +422,7 @@ router.post("/:id/submit", async (req, res) => {
       );
     }
 
-    // Retourner les corrections (à adapter selon votre logique)
+    // Retourner les corrections
     res.json({
       score,
       total: questions.length,

@@ -1,12 +1,11 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   Lock, Save, AlertCircle, CheckCircle, Loader, Eye, EyeOff,
-  ShieldCheck, ShieldAlert, ShieldX, Info
+  ShieldCheck, ShieldAlert, ShieldX
 } from 'lucide-react';
 import api from '../../services/api';
 
-// Fonction pour évaluer la force du mot de passe (couleurs harmonisées violet/cyan)
+// Fonction pour évaluer la force du mot de passe
 const getPasswordStrength = (password) => {
   let score = 0;
   if (password.length >= 6) score++;
@@ -18,6 +17,36 @@ const getPasswordStrength = (password) => {
   if (score <= 4) return { label: 'Moyen', color: 'text-violet-400', barColor: 'bg-violet-500', icon: ShieldAlert, width: 66 };
   return { label: 'Fort', color: 'text-cyan-400', barColor: 'bg-cyan-500', icon: ShieldCheck, width: 100 };
 };
+
+// Composant d'input avec bouton œil
+const PasswordInput = ({ value, onChange, placeholder, show, setShow, label, id }) => (
+  <div>
+    <label className="block text-sm font-medium text-slate-300 mb-1" htmlFor={id}>
+      {label}
+    </label>
+    <div className="relative">
+      <input
+        id={id}
+        type={show ? 'text' : 'password'}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all pr-12"
+        placeholder={placeholder}
+        autoComplete="new-password"
+        required
+      />
+      <button
+        type="button"
+        onClick={() => setShow(!show)}
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors active:scale-90"
+        aria-label={show ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+        tabIndex={-1}
+      >
+        {show ? <EyeOff size={20} /> : <Eye size={20} />}
+      </button>
+    </div>
+  </div>
+);
 
 const ChangePassword = () => {
   const [oldPassword, setOldPassword] = useState('');
@@ -52,6 +81,7 @@ const ChangePassword = () => {
       setOldPassword('');
       setNewPassword('');
       setConfirmPassword('');
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000);
     } catch (err) {
       setMessage({
         type: 'error',
@@ -62,42 +92,8 @@ const ChangePassword = () => {
     }
   };
 
-  // Composant d'input avec bouton œil
-  const PasswordInput = ({ value, onChange, placeholder, show, setShow, label, id }) => (
-    <div>
-      <label className="block text-sm font-medium text-slate-300 mb-1" htmlFor={id}>
-        {label}
-      </label>
-      <div className="relative">
-        <input
-          id={id}
-          type={show ? 'text' : 'password'}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all pr-12"
-          placeholder={placeholder}
-          required
-        />
-        <button
-          type="button"
-          onClick={() => setShow(!show)}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors active:scale-90"
-          aria-label={show ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
-          tabIndex={-1}
-        >
-          {show ? <EyeOff size={20} /> : <Eye size={20} />}
-        </button>
-      </div>
-    </div>
-  );
-
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-      className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6 max-w-lg"
-    >
+    <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6 max-w-lg">
       <div className="flex items-center gap-3 mb-6">
         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-600 to-cyan-600 flex items-center justify-center shadow-lg">
           <Lock size={24} className="text-white" />
@@ -105,23 +101,17 @@ const ChangePassword = () => {
         <h2 className="text-2xl font-bold text-white font-space-grotesk">Mot de passe</h2>
       </div>
 
-      <AnimatePresence>
-        {message.text && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className={`flex items-center gap-2 p-3 rounded-lg mb-4 ${
-              message.type === 'success'
-                ? 'bg-cyan-500/20 border border-cyan-500/30 text-cyan-300'
-                : 'bg-red-500/20 border border-red-500/30 text-red-300'
-            }`}
-          >
-            {message.type === 'success' ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
-            {message.text}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Message — rendu conditionnel simple */}
+      {message.text && (
+        <div className={`flex items-center gap-2 p-3 rounded-lg mb-4 border ${
+          message.type === 'success'
+            ? 'bg-cyan-500/20 border-cyan-500/30 text-cyan-300'
+            : 'bg-red-500/20 border-red-500/30 text-red-300'
+        }`}>
+          {message.type === 'success' ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
+          {message.text}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <PasswordInput
@@ -144,25 +134,21 @@ const ChangePassword = () => {
             show={showNewPassword}
             setShow={setShowNewPassword}
           />
+
+          {/* Barre de force — animation CSS simple */}
           {newPassword && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="mt-2"
-            >
+            <div className="mt-2">
               <div className="flex items-center gap-2 text-xs">
                 <StrengthIcon size={14} className={passwordStrength.color} />
                 <span className={passwordStrength.color}>{passwordStrength.label}</span>
               </div>
               <div className="h-1.5 bg-white/10 rounded-full mt-1 overflow-hidden">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${passwordStrength.width}%` }}
-                  className={`h-full ${passwordStrength.barColor} rounded-full`}
-                  transition={{ duration: 0.3 }}
+                <div
+                  className={`h-full ${passwordStrength.barColor} rounded-full transition-[width] duration-300 ease-out`}
+                  style={{ width: `${passwordStrength.width}%` }}
                 />
               </div>
-            </motion.div>
+            </div>
           )}
         </div>
 
@@ -179,7 +165,7 @@ const ChangePassword = () => {
         <button
           type="submit"
           disabled={loading}
-          className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white py-3 rounded-xl font-semibold hover:from-violet-700 hover:to-cyan-700 transition-all disabled:opacity-50 shadow-lg active:scale-95"
+          className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white py-3 rounded-xl font-semibold hover:from-violet-700 hover:to-cyan-700 transition-colors disabled:opacity-50 shadow-lg active:scale-95"
           aria-label="Mettre à jour le mot de passe"
         >
           {loading ? (
@@ -193,7 +179,7 @@ const ChangePassword = () => {
           )}
         </button>
       </form>
-    </motion.div>
+    </div>
   );
 };
 

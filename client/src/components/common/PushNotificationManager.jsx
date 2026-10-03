@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import api from '../../services/api'; // Ajustez le chemin si nécessaire
+import api from '../../services/api';
 
 // Convertit une clé VAPID base64 en Uint8Array
 function urlBase64ToUint8Array(base64String) {
@@ -17,61 +17,56 @@ function urlBase64ToUint8Array(base64String) {
 
 const PushNotificationManager = () => {
   useEffect(() => {
-    // Vérifier que le navigateur supporte les notifications push
+    let cancelled = false;
+
+    // Vérifier le support navigateur
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
       console.warn('Push notifications non supportées par ce navigateur.');
       return;
     }
 
-    // ⚠️ Utilisation de import.meta.env pour Vite
     const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
-
     if (!vapidPublicKey) {
       console.error('Clé publique VAPID manquante. Configurez VITE_VAPID_PUBLIC_KEY.');
       return;
     }
 
-    // Vérifier si l'utilisateur est déjà abonné (stockage local simple)
     const isSubscribed = localStorage.getItem('push_subscription');
     if (isSubscribed === 'true') {
-      console.log('Déjà abonné aux notifications push.');
       return;
     }
 
-    async function subscribeUser() {
+    const subscribeUser = async () => {
       try {
-        // 1. Demander la permission
         const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
-          console.log('Permission de notification refusée.');
-          return;
-        }
+        if (cancelled || permission !== 'granted') return;
 
-        // 2. Enregistrer le service worker
-        const registration = await navigator.serviceWorker.register('/sw.js');
+        await navigator.serviceWorker.register('/sw.js');
         const readyRegistration = await navigator.serviceWorker.ready;
 
-        // 3. S'abonner au push
         const subscription = await readyRegistration.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
         });
 
-        // 4. Envoyer l'abonnement au backend
+        if (cancelled) return;
+
         await api.post('/notifications/subscribe', subscription);
         localStorage.setItem('push_subscription', 'true');
-        console.log('Abonnement aux notifications push réussi.');
       } catch (error) {
-        console.error('Erreur lors de la souscription aux notifications push :', error);
+        if (!cancelled) {
+          console.error('Erreur push :', error);
+        }
       }
-    }
+    };
 
     subscribeUser();
 
-    // Nettoyage éventuel (rien à faire ici)
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  // Ce composant ne rend rien
   return null;
 };
 

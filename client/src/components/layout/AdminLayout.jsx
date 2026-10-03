@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  LayoutDashboard, Users, BookOpen, FileText, HelpCircle, CreditCard, Settings, LogOut, ChevronRight, Swords, Ticket, Menu, X, Mail, Lightbulb, Database, GraduationCap
+import {
+  LayoutDashboard, Users, BookOpen, FileText, HelpCircle, CreditCard, Settings,
+  LogOut, ChevronRight, Swords, Ticket, Menu, X, Mail, Lightbulb, Database, GraduationCap
 } from 'lucide-react';
 import logo from '../../assets/exo_master_logo.png';
 import NotificationBell from '../../components/common/NotificationBell';
@@ -24,7 +24,7 @@ const AdminLayout = () => {
     { path: '/admin/students', icon: Users, label: 'Élèves' },
     { path: '/admin/groups', icon: Users, label: 'Classes' },
     { path: '/admin/subjects', icon: GraduationCap, label: 'Matières' },
-    { path: '/admin/schools', icon: GraduationCap, label: 'Écoles' }, // 🏫 Écoles
+    { path: '/admin/schools', icon: GraduationCap, label: 'Écoles' },
     { path: '/admin/chapters', icon: BookOpen, label: 'Chapitres' },
     { path: '/admin/exercises', icon: FileText, label: 'Exercices' },
     { path: '/admin/quizzes', icon: HelpCircle, label: 'Quiz' },
@@ -37,7 +37,6 @@ const AdminLayout = () => {
     { path: '/admin/support', icon: Ticket, label: 'Support' },
   ];
 
-  // Composant de navigation réutilisé dans la sidebar et le menu mobile
   const NavContent = () => (
     <>
       {/* Logo */}
@@ -69,9 +68,9 @@ const AdminLayout = () => {
             key={item.path}
             to={item.path}
             end={item.end}
-            onClick={() => setSidebarOpen(false)}  // ferme le menu mobile après clic
+            onClick={() => setSidebarOpen(false)}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                 isActive
                   ? 'bg-gradient-to-r from-violet-600/20 to-cyan-600/20 text-violet-200 border-l-2 border-violet-400 shadow-sm'
                   : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
@@ -101,53 +100,44 @@ const AdminLayout = () => {
   return (
     <div className="flex h-full bg-[#0B0E1A] text-white font-sans overflow-hidden">
       {/* Bouton hamburger mobile */}
-      <div className="lg:hidden fixed top-0 left-0 z-50 p-4">
+      <div className="lg:hidden fixed top-0 left-0 z-50 p-4 pt-[calc(env(safe-area-inset-top)+1rem)]">
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="p-2 bg-white/10 rounded-lg text-white"
+          className="p-2 bg-white/10 rounded-lg text-white active:scale-95 transition-transform"
+          aria-label={sidebarOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
         >
           {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </div>
 
-      {/* Overlay mobile */}
-      <AnimatePresence>
-        {sidebarOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="lg:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
-      </AnimatePresence>
+      {/* Overlay mobile — rendu conditionnel simple */}
+      {sidebarOpen && (
+        <div
+          className="lg:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
       {/* Sidebar desktop (toujours visible sur grand écran) */}
       <aside className="hidden lg:flex w-72 bg-white/5 backdrop-blur-xl border-r border-white/10 flex-col shadow-2xl">
         <NavContent />
       </aside>
 
-      {/* Drawer mobile */}
-      <motion.aside
-        initial={{ x: '-100%' }}
-        animate={{ x: sidebarOpen ? 0 : '-100%' }}
-        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-        className="fixed inset-y-0 left-0 z-50 w-72 bg-slate-900/95 backdrop-blur-xl border-r border-white/10 flex flex-col shadow-2xl lg:hidden"
+      {/* Drawer mobile — transition CSS (pas de Framer Motion) */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-72 bg-slate-900/95 backdrop-blur-xl border-r border-white/10 flex flex-col shadow-2xl lg:hidden transition-transform duration-300 ease-out ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+        aria-hidden={!sidebarOpen}
       >
         <NavContent />
-      </motion.aside>
+      </aside>
 
       {/* Zone principale */}
       <div className="flex-1 flex flex-col min-w-0 bg-[#0B0E1A] lg:pl-0 pt-14 lg:pt-0">
-        <motion.main
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="flex-1 overflow-y-auto p-4 md:p-8"
-        >
+        <main className="flex-1 overflow-y-auto p-4 md:p-8">
           <Outlet />
-        </motion.main>
+        </main>
 
         <footer className="border-t border-white/10 bg-white/5 backdrop-blur-md px-4 md:px-8 py-4">
           <div className="flex flex-col md:flex-row md:justify-between items-center text-sm text-slate-400 gap-2">

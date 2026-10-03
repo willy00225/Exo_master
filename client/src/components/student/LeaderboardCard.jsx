@@ -1,11 +1,9 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import { Trophy, Medal, Star } from 'lucide-react';
 import api from '../../services/api';
 
-// Composant pour un élément du classement
+// Composant pour un élément du classement — statique
 const LeaderboardItem = ({ user, index }) => {
-  // Déterminer le style selon le rang
   const isTop3 = index < 3;
   const medalColors = [
     'text-amber-400 bg-amber-500/20 border-amber-500/30',
@@ -14,10 +12,7 @@ const LeaderboardItem = ({ user, index }) => {
   ];
 
   return (
-    <motion.div
-      initial={{ opacity: 0, x: -10 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: index * 0.05 }}
+    <div
       className={`flex items-center justify-between p-3 rounded-xl border ${
         isTop3 ? medalColors[index] : 'bg-white/5 border-white/10'
       }`}
@@ -45,7 +40,7 @@ const LeaderboardItem = ({ user, index }) => {
         <p className="text-sm font-bold text-violet-400">{user.total_xp} XP</p>
         {isTop3 && <Star size={14} className="inline text-amber-400 ml-1" />}
       </div>
-    </motion.div>
+    </div>
   );
 };
 
@@ -63,11 +58,7 @@ const LeaderboardCard = () => {
   if (loading) return null;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6"
-    >
+    <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6">
       <h3 className="text-sm font-semibold text-slate-300 mb-4 flex items-center gap-2">
         <Trophy size={16} className="text-amber-400" />
         Classement
@@ -77,7 +68,7 @@ const LeaderboardCard = () => {
           <LeaderboardItem key={user.id} user={user} index={idx} />
         ))}
       </div>
-    </motion.div>
+    </div>
   );
 };
 

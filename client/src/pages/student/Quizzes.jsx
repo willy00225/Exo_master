@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   Play, Clock, Loader, HelpCircle, BookOpen, Search,
   Filter, ChevronLeft, ChevronRight, RotateCcw, X,
@@ -39,20 +38,22 @@ const Quizzes = () => {
 
   const ITEMS_PER_PAGE = 10;
 
+  const fetchQuizzes = async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const res = await api.get('/quizzes/available');
+      setQuizzes(res.data);
+    } catch (err) {
+      console.error(err);
+      setLoadError("Impossible de charger les quiz. Vérifiez votre abonnement.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await api.get('/quizzes/available');
-        setQuizzes(res.data);
-        setLoadError(null);
-      } catch (err) {
-        console.error(err);
-        setLoadError("Impossible de charger les quiz. Vérifiez votre abonnement.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
+    fetchQuizzes();
   }, []);
 
   const switchView = (mode) => {
@@ -64,7 +65,6 @@ const Quizzes = () => {
     setSelectedSubject('all');
   };
 
-  // Extraire les matières uniques à partir de subject_name
   const subjects = useMemo(() => {
     const set = new Set(quizzes.map(q => q.subject_name).filter(Boolean));
     return Array.from(set).sort();
@@ -148,7 +148,7 @@ const Quizzes = () => {
     setPage(1);
   };
 
-  // Écran de chargement amélioré
+  // Écran de chargement
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-12 gap-3">
@@ -158,7 +158,7 @@ const Quizzes = () => {
     );
   }
 
-  // Écran d'erreur amélioré
+  // Écran d'erreur — sans rechargement complet
   if (loadError) {
     return (
       <div className="flex flex-col items-center justify-center py-12 gap-4 px-4">
@@ -167,8 +167,9 @@ const Quizzes = () => {
         </div>
         <p className="text-red-400 text-center max-w-md">{loadError}</p>
         <button
-          onClick={() => window.location.reload()}
-          className="inline-flex items-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-5 py-2.5 rounded-xl font-semibold hover:from-violet-700 hover:to-cyan-700 transition-all shadow-lg"
+          type="button"
+          onClick={fetchQuizzes}
+          className="inline-flex items-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-5 py-2.5 rounded-xl font-semibold hover:from-violet-700 hover:to-cyan-700 transition-colors shadow-lg active:scale-95"
         >
           <RotateCcw size={18} />
           Réessayer
@@ -183,8 +184,9 @@ const Quizzes = () => {
         <div className="flex flex-col items-center justify-center py-12 gap-4 text-white">
           <p>Quiz introuvable. Veuillez revenir à la liste.</p>
           <button
+            type="button"
             onClick={() => setActiveQuiz(null)}
-            className="text-cyan-400 hover:underline flex items-center gap-1"
+            className="text-cyan-400 hover:underline flex items-center gap-1 transition-colors"
           >
             <ChevronLeft size={16} /> Retour
           </button>
@@ -196,17 +198,19 @@ const Quizzes = () => {
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto px-4 sm:px-6">
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
+      {/* En-tête — statique */}
+      <div>
         <h1 className="text-3xl font-bold text-white font-space-grotesk">Quiz disponibles</h1>
         <p className="text-slate-400 mt-1">
           {viewMode === 'chapters'
             ? "Validez un chapitre avec un score ≥ 70 % pour débloquer le niveau suivant."
             : "Révisez librement avec les quiz globaux de votre classe."}
         </p>
-      </motion.div>
+      </div>
 
       <div className="flex justify-end">
         <button
+          type="button"
           onClick={() => switchView(viewMode === 'chapters' ? 'global' : 'chapters')}
           className="flex items-center gap-2 text-sm text-violet-300 hover:text-violet-200 bg-violet-500/10 px-4 py-2 rounded-lg transition-colors active:scale-95"
         >
@@ -224,7 +228,7 @@ const Quizzes = () => {
         </button>
       </div>
 
-      {/* Filtres avec BottomSheetSelect */}
+      {/* Filtres */}
       <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-4 space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <BottomSheetSelect
@@ -265,8 +269,9 @@ const Quizzes = () => {
             />
             {searchTerm && (
               <button
+                type="button"
                 onClick={() => setSearchTerm('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white active:scale-90"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors active:scale-90"
                 aria-label="Effacer la recherche"
               >
                 <X size={16} />
@@ -277,6 +282,7 @@ const Quizzes = () => {
 
         <div className="flex justify-end">
           <button
+            type="button"
             onClick={resetFilters}
             className="flex items-center gap-1 text-sm text-violet-400 hover:text-violet-300 bg-violet-500/10 px-3 py-1.5 rounded-lg transition-colors active:scale-95"
           >
@@ -285,81 +291,72 @@ const Quizzes = () => {
         </div>
       </div>
 
-      {/* Liste des quiz */}
-      <AnimatePresence>
-        {currentPageQuizzes.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-12 text-center"
-          >
-            <HelpCircle size={48} className="mx-auto text-slate-600 mb-4" />
-            <p className="text-slate-400 text-lg">
-              {viewMode === 'chapters'
-                ? "Aucun quiz de chapitre trouvé avec ces critères."
-                : "Aucun quiz global trouvé pour le moment."}
-            </p>
-          </motion.div>
-        ) : (
-          <div className="space-y-4">
-            {currentPageQuizzes.map((q, index) => (
-              <motion.div
-                key={q.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ delay: index * 0.03 }}
-                className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 hover:bg-white/10 hover:border-violet-500/30 transition-all cursor-pointer active:scale-[0.99]"
-                onClick={() => setActiveQuiz(q.id)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    setActiveQuiz(q.id);
-                  }
-                }}
-              >
-                <div className="flex items-start gap-3 flex-1">
-                  <div className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center shrink-0">
-                    <HelpCircle size={20} className="text-violet-400" />
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="font-semibold text-white truncate">{q.title}</h3>
-                    <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-1">
-                      <span className="text-sm text-slate-400 flex items-center gap-1">
-                        <BookOpen size={14} /> {q.chapter_title || 'Révision générale'}
-                      </span>
-                      <span className={`text-xs px-2 py-0.5 rounded border ${difficultyLabels[q.difficulty_filter]?.color}`}>
-                        {difficultyLabels[q.difficulty_filter]?.label}
-                      </span>
-                      <span className="text-sm text-slate-400 flex items-center gap-1">
-                        <Clock size={14} /> {Math.floor(q.time_limit / 60)} min
-                      </span>
-                    </div>
+      {/* Liste des quiz — rendu conditionnel simple */}
+      {currentPageQuizzes.length === 0 ? (
+        <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-12 text-center">
+          <HelpCircle size={48} className="mx-auto text-slate-600 mb-4" />
+          <p className="text-slate-400 text-lg">
+            {viewMode === 'chapters'
+              ? "Aucun quiz de chapitre trouvé avec ces critères."
+              : "Aucun quiz global trouvé pour le moment."}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {currentPageQuizzes.map((q) => (
+            <div
+              key={q.id}
+              className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 hover:bg-white/10 hover:border-violet-500/30 transition-colors cursor-pointer active:scale-[0.99]"
+              onClick={() => setActiveQuiz(q.id)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setActiveQuiz(q.id);
+                }
+              }}
+            >
+              <div className="flex items-start gap-3 flex-1">
+                <div className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center shrink-0">
+                  <HelpCircle size={20} className="text-violet-400" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-white truncate">{q.title}</h3>
+                  <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-1">
+                    <span className="text-sm text-slate-400 flex items-center gap-1">
+                      <BookOpen size={14} /> {q.chapter_title || 'Révision générale'}
+                    </span>
+                    <span className={`text-xs px-2 py-0.5 rounded border ${difficultyLabels[q.difficulty_filter]?.color}`}>
+                      {difficultyLabels[q.difficulty_filter]?.label}
+                    </span>
+                    <span className="text-sm text-slate-400 flex items-center gap-1">
+                      <Clock size={14} /> {Math.floor(q.time_limit / 60)} min
+                    </span>
                   </div>
                 </div>
-                <button
-                  className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-5 py-2.5 rounded-lg font-medium hover:from-violet-700 hover:to-cyan-700 transition-all shadow-md self-start sm:self-center shrink-0 active:scale-95"
-                  onClick={(e) => {
-                    e.stopPropagation(); // Empêche le déclenchement du clic de la carte
-                    setActiveQuiz(q.id);
-                  }}
-                  aria-label={`Jouer au quiz ${q.title}`}
-                >
-                  <Play size={18} /> Jouer
-                </button>
-              </motion.div>
-            ))}
-          </div>
-        )}
-      </AnimatePresence>
+              </div>
+              <button
+                type="button"
+                className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-5 py-2.5 rounded-lg font-medium hover:from-violet-700 hover:to-cyan-700 transition-colors shadow-md self-start sm:self-center shrink-0 active:scale-95"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveQuiz(q.id);
+                }}
+                aria-label={`Jouer au quiz ${q.title}`}
+              >
+                <Play size={18} /> Jouer
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-3 mt-6">
           <button
+            type="button"
             onClick={() => setPage(p => Math.max(1, p - 1))}
             disabled={page === 1}
             className="p-2 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
@@ -371,6 +368,7 @@ const Quizzes = () => {
             Page {page} sur {totalPages}
           </span>
           <button
+            type="button"
             onClick={() => setPage(p => Math.min(totalPages, p + 1))}
             disabled={page === totalPages}
             className="p-2 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"

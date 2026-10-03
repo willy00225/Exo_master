@@ -27,9 +27,9 @@ const BottomNav = () => {
               end={end}
               aria-label={label}
               aria-current={isActive ? 'page' : undefined}
-              className="relative flex flex-col items-center justify-center flex-1 h-full text-xs transition-transform duration-150 active:scale-95 select-none [-webkit-tap-highlight-color:transparent]"
+              className="relative flex flex-col items-center justify-center flex-1 h-full text-xs active:scale-95 select-none [-webkit-tap-highlight-color:transparent] transition-transform duration-150"
             >
-              {/* Pastille active derrière l'icône */}
+              {/* Pastille active derrière l'icône — layoutId unique, safe ici */}
               <div className="relative flex items-center justify-center">
                 {isActive && (
                   <motion.div
@@ -47,12 +47,14 @@ const BottomNav = () => {
                 />
               </div>
 
-              <motion.span
-                animate={{ opacity: isActive ? 1 : 0.7 }}
-                className={`mt-1 ${isActive ? 'text-violet-300 font-medium' : 'text-slate-500'}`}
+              {/* Label — transition CSS au lieu de motion.span */}
+              <span
+                className={`mt-1 transition-opacity duration-200 ${
+                  isActive ? 'text-violet-300 font-medium opacity-100' : 'text-slate-500 opacity-70'
+                }`}
               >
                 {label}
-              </motion.span>
+              </span>
             </NavLink>
           );
         })}

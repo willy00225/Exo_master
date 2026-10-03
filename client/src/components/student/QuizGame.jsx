@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import api from '../../services/api';
 import Button from '../../components/common/Button';
 import {
@@ -15,7 +15,7 @@ const formatExplanation = (text) => {
   return lines.map((line, i) => {
     let className = "mb-1 leading-relaxed text-slate-300";
     if (/^(Étape\s?\d+|Etape\s?\d+|\d+\.|Phase \d+|Conclusion|En conclusion|Donc|Ainsi|Résultat final)/i.test(line)) {
-      className += " font-semibold text-emerald-300 mt-2";
+      className += " font-semibold text-cyan-300 mt-2";
     }
     return <p key={i} className={className}>{line}</p>;
   });
@@ -41,7 +41,7 @@ const formatRelativeTime = (timestamp) => {
   return msgTime.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
 };
 
-// Composant TimerCirculaire
+// Composant TimerCirculaire (inchangé)
 const CircularTimer = ({ timeLeft, totalTime }) => {
   const radius = 24;
   const circumference = 2 * Math.PI * radius;
@@ -81,11 +81,9 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
   const timerRef = useRef(null);
   const handleSubmitRef = useRef(() => {});
 
-  // Nouveau state pour le mode une question à la fois
   const [currentIndex, setCurrentIndex] = useState(0);
   const [chatOpen, setChatOpen] = useState(false);
 
-  // États du chat (inchangés, mais on ajoute chatOpen)
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
@@ -101,7 +99,7 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
   const isChallenge = !!challengeId;
   const MAX_MESSAGE_LENGTH = 500;
 
-  // Chargement initial du quiz/challenge
+  // Chargement initial du quiz/challenge (inchangé)
   useEffect(() => {
     const startUrl = challengeId
       ? `/challenges/${challengeId}/start`
@@ -132,7 +130,7 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
     return () => clearInterval(timerRef.current);
   }, [quizId, challengeId]);
 
-  // Charger les messages avec polling intelligent (inchangé)
+  // Chargement des messages — polling augmenté à 5s + pause onglet caché
   useEffect(() => {
     if (!isChallenge) return;
 
@@ -166,13 +164,14 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
     };
 
     fetchMessages();
-    chatPollingRef.current = setInterval(fetchMessages, 3000);
+    chatPollingRef.current = setInterval(fetchMessages, 5000); // ⬆️ 3s → 5s
+
     const handleVisibilityChange = () => {
       if (document.hidden) {
         if (chatPollingRef.current) clearInterval(chatPollingRef.current);
       } else {
         fetchMessages();
-        chatPollingRef.current = setInterval(fetchMessages, 3000);
+        chatPollingRef.current = setInterval(fetchMessages, 5000);
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -183,7 +182,7 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
     };
   }, [challengeId, isChallenge, lastReadMessageId, retryCount, user?.id]);
 
-  // Auto-scroll et gestion du scroll (inchangé)
+  // Auto-scroll
   useEffect(() => {
     if (messagesEndRef.current && shouldAutoScroll) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -248,7 +247,7 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
     }
   };
 
-  // Soumission du quiz (inchangé)
+  // Soumission du quiz
   const handleSubmit = useCallback(async () => {
     if (submitted) return;
     clearInterval(timerRef.current);
@@ -354,24 +353,24 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
       <div className="space-y-6 text-white">
         {isChallenge && hasChallengeResult && (
           <div className={`text-center p-6 rounded-2xl border ${
-            challengeResult.isWinner ? 'bg-emerald-500/10 border-emerald-500/30' :
+            challengeResult.isWinner ? 'bg-cyan-500/10 border-cyan-500/30' :
             challengeResult.isDraw ? 'bg-amber-500/10 border-amber-500/30' :
             'bg-red-500/10 border-red-500/30'
           }`}>
             {challengeResult.isWinner ? (
               <>
-                <Trophy size={48} className="mx-auto text-emerald-400 animate-bounce" />
-                <h2 className="text-2xl font-bold mt-2 text-emerald-400">Victoire !</h2>
+                <Trophy size={48} className="mx-auto text-cyan-400" />
+                <h2 className="text-2xl font-bold mt-2 text-cyan-400">Victoire !</h2>
                 <p className="text-slate-300">Vous avez gagné le duel !</p>
                 <div className="flex justify-center gap-4 mt-3 text-lg">
-                  <span className="text-emerald-400 font-bold">{challengeResult.challenger_score} pts</span>
+                  <span className="text-cyan-400 font-bold">{challengeResult.challenger_score} pts</span>
                   <span className="text-slate-500">vs</span>
                   <span className="text-red-400 font-bold">{challengeResult.challenged_score} pts</span>
                 </div>
               </>
             ) : challengeResult.isDraw ? (
               <>
-                <Swords size={48} className="mx-auto text-amber-400 animate-pulse" />
+                <Swords size={48} className="mx-auto text-amber-400" />
                 <h2 className="text-2xl font-bold mt-2 text-amber-400">Égalité</h2>
                 <p className="text-slate-300">Aucun vainqueur !</p>
                 <div className="flex justify-center gap-4 mt-3 text-lg">
@@ -382,13 +381,13 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
               </>
             ) : (
               <>
-                <XCircle size={48} className="mx-auto text-red-400 animate-shake" />
+                <XCircle size={48} className="mx-auto text-red-400" />
                 <h2 className="text-2xl font-bold mt-2 text-red-400">Défaite</h2>
                 <p className="text-slate-300">Vous avez perdu le duel...</p>
                 <div className="flex justify-center gap-4 mt-3 text-lg">
                   <span className="text-red-400 font-bold">{challengeResult.challenger_score} pts</span>
                   <span className="text-slate-500">vs</span>
-                  <span className="text-emerald-400 font-bold">{challengeResult.challenged_score} pts</span>
+                  <span className="text-cyan-400 font-bold">{challengeResult.challenged_score} pts</span>
                 </div>
               </>
             )}
@@ -406,7 +405,7 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
           {result.corrections?.map((corr, idx) => (
             <div key={corr.questionId} className="bg-white/5 border border-white/10 rounded-2xl p-5">
               <div className="flex items-start gap-3">
-                <span className={`mt-1 p-1 rounded-full ${corr.isCorrect ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+                <span className={`mt-1 p-1 rounded-full ${corr.isCorrect ? 'bg-cyan-500/20 text-cyan-400' : 'bg-red-500/20 text-red-400'}`}>
                   {corr.isCorrect ? <CheckCircle size={18} /> : <XCircle size={18} />}
                 </span>
                 <div>
@@ -415,7 +414,7 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
                     {normalizeOptions(corr.options).map((opt, optIdx) => (
                       <div key={optIdx} className={`p-2 rounded-lg text-sm ${
                         optIdx === corr.correctOption
-                          ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-300'
+                          ? 'bg-cyan-500/10 border border-cyan-500/30 text-cyan-300'
                           : optIdx === corr.selectedOption && optIdx !== corr.correctOption
                           ? 'bg-red-500/10 border border-red-500/30 text-red-300'
                           : 'text-slate-400'
@@ -446,73 +445,72 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
     <div className="space-y-6 text-white max-w-3xl mx-auto">
       {/* En-tête avec progression et timer */}
       <div className="flex items-center justify-between">
-        <button onClick={onBack} className="p-2 rounded-lg bg-white/5 hover:bg-white/10">
+        <button
+          onClick={onBack}
+          className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors active:scale-95"
+          aria-label="Retour"
+        >
           <ArrowLeft size={20} />
         </button>
         <div className="flex-1 mx-4">
           <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-            <motion.div
-              className="h-full bg-gradient-to-r from-violet-500 to-cyan-500"
-              initial={{ width: 0 }}
-              animate={{ width: `${progressPercent}%` }}
-              transition={{ duration: 0.3 }}
+            <div
+              className="h-full bg-gradient-to-r from-violet-500 to-cyan-500 transition-[width] duration-300"
+              style={{ width: `${progressPercent}%` }}
             />
           </div>
         </div>
         <CircularTimer timeLeft={timeLeft} totalTime={timeLimit} />
       </div>
 
-      {/* Question actuelle */}
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={currentQuestion.id}
-          initial={{ opacity: 0, x: 50 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -50 }}
-          transition={{ duration: 0.3 }}
-          className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6"
-        >
-          <p className="text-sm text-slate-400 mb-2">
-            Question {currentIndex + 1} / {questions.length}
-          </p>
-          <h2 className="text-xl font-semibold mb-6">{currentQuestion.text}</h2>
+      {/* Question actuelle — animation slide conservée mais plus courte */}
+      <motion.div
+        key={currentQuestion.id}
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.2, ease: 'easeOut' }}
+        className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6"
+      >
+        <p className="text-sm text-slate-400 mb-2">
+          Question {currentIndex + 1} / {questions.length}
+        </p>
+        <h2 className="text-xl font-semibold mb-6">{currentQuestion.text}</h2>
 
-          <div className="space-y-3">
-            {currentQuestion.options.map((opt, optIdx) => (
-              <button
-                key={optIdx}
-                onClick={() => selectAnswer(currentQuestion.id, optIdx)}
-                className={`w-full flex items-center p-4 rounded-xl border transition-all ${
-                  answers[currentQuestion.id] === optIdx
-                    ? 'border-violet-400 bg-violet-500/20 text-white'
-                    : 'border-white/10 text-slate-300 hover:bg-white/10 hover:border-white/20'
-                }`}
-              >
-                <span className={`w-6 h-6 rounded-full border-2 mr-3 flex items-center justify-center ${
-                  answers[currentQuestion.id] === optIdx ? 'border-violet-400 bg-violet-500' : 'border-slate-500'
-                }`}>
-                  {answers[currentQuestion.id] === optIdx && <CheckCircle size={14} className="text-white" />}
-                </span>
-                <span className="text-left flex-1">{opt}</span>
-              </button>
-            ))}
-          </div>
-        </motion.div>
-      </AnimatePresence>
+        <div className="space-y-3">
+          {currentQuestion.options.map((opt, optIdx) => (
+            <button
+              key={optIdx}
+              onClick={() => selectAnswer(currentQuestion.id, optIdx)}
+              className={`w-full flex items-center p-4 rounded-xl border transition-colors ${
+                answers[currentQuestion.id] === optIdx
+                  ? 'border-violet-400 bg-violet-500/20 text-white'
+                  : 'border-white/10 text-slate-300 hover:bg-white/10 hover:border-white/20'
+              }`}
+            >
+              <span className={`w-6 h-6 rounded-full border-2 mr-3 flex items-center justify-center ${
+                answers[currentQuestion.id] === optIdx ? 'border-violet-400 bg-violet-500' : 'border-slate-500'
+              }`}>
+                {answers[currentQuestion.id] === optIdx && <CheckCircle size={14} className="text-white" />}
+              </span>
+              <span className="text-left flex-1">{opt}</span>
+            </button>
+          ))}
+        </div>
+      </motion.div>
 
       {/* Navigation précédent/suivant */}
       <div className="flex items-center justify-between">
         <button
           onClick={goToPrevious}
           disabled={currentIndex === 0}
-          className="flex items-center gap-1 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center gap-1 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 transition-transform"
         >
           <ChevronLeft size={18} /> Précédent
         </button>
         {!isLastQuestion ? (
           <button
             onClick={goToNext}
-            className="flex items-center gap-1 px-4 py-2 rounded-lg bg-violet-600 text-white hover:bg-violet-700 transition"
+            className="flex items-center gap-1 px-4 py-2 rounded-lg bg-violet-600 text-white hover:bg-violet-700 transition-colors active:scale-95"
           >
             Suivant <ChevronRight size={18} />
           </button>
@@ -528,7 +526,8 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
         <div className="fixed bottom-20 right-4 z-50">
           <button
             onClick={() => setChatOpen(!chatOpen)}
-            className="relative p-3 bg-violet-600 rounded-full shadow-lg hover:bg-violet-700 transition"
+            className="relative p-3 bg-violet-600 rounded-full shadow-lg hover:bg-violet-700 transition-colors active:scale-95"
+            aria-label={chatOpen ? 'Fermer le chat' : 'Ouvrir le chat'}
           >
             <MessageCircle size={24} />
             {unreadCount > 0 && (
@@ -537,72 +536,71 @@ const QuizGame = ({ quizId, challengeId, onBack }) => {
               </span>
             )}
           </button>
-          <AnimatePresence>
-            {chatOpen && (
-              <motion.div
-                initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 20, scale: 0.95 }}
-                className="absolute bottom-16 right-0 w-80 bg-slate-900 border border-white/10 rounded-2xl p-4 shadow-2xl"
+
+          {/* Chat — rendu conditionnel simple (plus d'AnimatePresence) */}
+          {chatOpen && (
+            <div className="absolute bottom-16 right-0 w-80 bg-slate-900 border border-white/10 rounded-2xl p-4 shadow-2xl">
+              <div className="flex items-center gap-2 mb-3">
+                <MessageCircle size={18} className="text-violet-400" />
+                <h4 className="font-semibold text-white">Discussion</h4>
+              </div>
+              {chatError && (
+                <p className="text-xs text-red-400 mb-2">{chatError}</p>
+              )}
+              <div
+                ref={chatContainerRef}
+                onScroll={handleChatScroll}
+                className="space-y-2 max-h-48 overflow-y-auto pr-1 mb-3"
               >
-                <div className="flex items-center gap-2 mb-3">
-                  <MessageCircle size={18} className="text-violet-400" />
-                  <h4 className="font-semibold text-white">Discussion</h4>
-                </div>
-                <div
-                  ref={chatContainerRef}
-                  onScroll={handleChatScroll}
-                  className="space-y-2 max-h-48 overflow-y-auto pr-1 mb-3"
-                >
-                  {messages.length === 0 ? (
-                    <p className="text-slate-500 text-xs italic text-center py-4">Aucun message</p>
-                  ) : (
-                    messages.map((msg) => (
+                {messages.length === 0 ? (
+                  <p className="text-slate-500 text-xs italic text-center py-4">Aucun message</p>
+                ) : (
+                  messages.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={`flex ${msg.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}
+                    >
                       <div
-                        key={msg.id}
-                        className={`flex ${msg.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}
+                        className={`max-w-[85%] p-2 rounded-lg text-xs ${
+                          msg.sender_id === user?.id
+                            ? 'bg-violet-600 text-white rounded-br-none'
+                            : 'bg-white/10 text-slate-300 rounded-bl-none'
+                        }`}
                       >
-                        <div
-                          className={`max-w-[85%] p-2 rounded-lg text-xs ${
-                            msg.sender_id === user?.id
-                              ? 'bg-violet-600 text-white rounded-br-none'
-                              : 'bg-white/10 text-slate-300 rounded-bl-none'
-                          }`}
-                        >
-                          <p className="font-semibold mb-0.5">
-                            {msg.sender_id === user?.id ? 'Vous' : msg.sender_name}
-                          </p>
-                          <p className="break-words">{msg.message}</p>
-                          <p className="text-[10px] opacity-70 mt-0.5">
-                            {formatRelativeTime(msg.created_at)}
-                          </p>
-                        </div>
+                        <p className="font-semibold mb-0.5">
+                          {msg.sender_id === user?.id ? 'Vous' : msg.sender_name}
+                        </p>
+                        <p className="break-words">{msg.message}</p>
+                        <p className="text-[10px] opacity-70 mt-0.5">
+                          {formatRelativeTime(msg.created_at)}
+                        </p>
                       </div>
-                    ))
-                  )}
-                  <div ref={messagesEndRef} />
-                </div>
-                <form onSubmit={handleSendMessage} className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder="Écrire..."
-                    maxLength={MAX_MESSAGE_LENGTH}
-                    className="flex-1 bg-white/5 border border-white/20 rounded-lg px-3 py-1.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
-                  />
-                  <button
-                    type="submit"
-                    disabled={sending || !newMessage.trim()}
-                    className="bg-violet-600 text-white p-2 rounded-lg disabled:opacity-50"
-                  >
-                    <Send size={16} />
-                  </button>
-                </form>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                    </div>
+                  ))
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+              <form onSubmit={handleSendMessage} className="flex gap-2">
+                <input
+                  type="text"
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Écrire..."
+                  maxLength={MAX_MESSAGE_LENGTH}
+                  className="flex-1 bg-white/5 border border-white/20 rounded-lg px-3 py-1.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                />
+                <button
+                  type="submit"
+                  disabled={sending || !newMessage.trim()}
+                  className="bg-violet-600 text-white p-2 rounded-lg disabled:opacity-50 active:scale-95 transition-transform"
+                  aria-label="Envoyer le message"
+                >
+                  <Send size={16} />
+                </button>
+              </form>
+            </div>
+          )}
         </div>
       )}
     </div>

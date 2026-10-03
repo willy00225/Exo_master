@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Bell } from 'lucide-react';
 import api from '../../services/api';
 
@@ -6,6 +7,7 @@ const NotificationBell = () => {
   const [notifs, setNotifs] = useState([]);
   const [open, setOpen] = useState(false);
   const ref = useRef();
+  const navigate = useNavigate();
 
   const fetchNotifs = async () => {
     try {
@@ -18,8 +20,22 @@ const NotificationBell = () => {
 
   useEffect(() => {
     fetchNotifs();
-    const interval = setInterval(fetchNotifs, 15000); // rafraîchit toutes les 15s
-    return () => clearInterval(interval);
+
+    // Rafraîchit toutes les 60s (au lieu de 15s) pour réduire les re-renders
+    const interval = setInterval(fetchNotifs, 60000);
+
+    // 🎯 Pause l'intervalle quand l'onglet n'est pas visible (économie CPU)
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        fetchNotifs(); // refresh immédiat au retour
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, []);
 
   // Fermer le dropdown en cliquant à l'extérieur
@@ -30,14 +46,23 @@ const NotificationBell = () => {
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, []);
 
   const markRead = async (id, link) => {
     try {
       await api.put(`/notifications/${id}/read`);
       setNotifs(prev => prev.filter(n => n.id !== id));
-      if (link) window.location.href = link;
+      setOpen(false);
+
+      // 🎯 Navigation SPA (pas de rechargement complet de la page)
+      if (link) {
+        navigate(link);
+      }
     } catch (e) {
       console.error(e);
     }
@@ -48,11 +73,13 @@ const NotificationBell = () => {
       <button
         onClick={() => setOpen(!open)}
         className="relative p-2 text-slate-300 hover:bg-white/10 rounded-lg transition-colors"
+        aria-label="Notifications"
+        aria-expanded={open}
       >
         <Bell size={20} />
         {notifs.length > 0 && (
           <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-            {notifs.length}
+            {notifs.length > 9 ? '9+' : notifs.length}
           </span>
         )}
       </button>

@@ -69,7 +69,6 @@ async function generateSingleExercise({ group_id, chapter_id, difficulty, curric
       subject = chapter.rows[0].subject_name;
     }
   } else {
-    // Si pas de chapitre et que le groupe est "Toutes matières", on ne peut pas deviner la matière
     if (subject === 'Toutes matières') {
       throw new Error("Matière indéterminée : un chapitre est requis pour les classes générales.");
     }
@@ -126,7 +125,6 @@ Retourne UNIQUEMENT un objet JSON valide avec les clés suivantes :
     throw new Error("L'IA n'a pas pu produire un exercice valide.");
   }
 
-  // Double vérification avec contrainte de langue
   let finalExercise = generated;
   try {
     const verifyPrompt = `
@@ -155,7 +153,6 @@ Retourne UNIQUEMENT le JSON, sans commentaire.
     console.warn("⚠️ Erreur lors de la double vérification, utilisation de l'exercice original :", verifyErr.message);
   }
 
-  // Validation élève (conservée)
   try {
     const validatePrompt = `
 En tant qu'élève de niveau ${level}, résous l'exercice suivant :
@@ -179,7 +176,6 @@ Ne retourne QUE le JSON demandé, sans commentaire.
     console.warn("⚠️ Validation élève impossible, on garde le corrigé existant.");
   }
 
-  // Insertion en base
   const result = await pool.query(
     `INSERT INTO exercises (title, description, content, correction, difficulty, group_id, chapter_id, file_path, figure)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
@@ -226,8 +222,6 @@ router.use(admin);
 
 // ------------------------------------------------------------------
 // 🚀 POST /api/ai/generate-all-quizzes – Génération automatique massive
-// par matière et par classe, avec option allow_duplicates
-// et option generate_chapter_quizzes pour les quiz par chapitre
 // ------------------------------------------------------------------
 router.post("/generate-all-quizzes", async (req, res) => {
   try {
@@ -236,7 +230,7 @@ router.post("/generate-all-quizzes", async (req, res) => {
       questions_per_quiz = 10,
       exclude_subjects = [],
       allow_duplicates = false,
-      generate_chapter_quizzes = false   // ✅ nouveau paramètre
+      generate_chapter_quizzes = false
     } = req.body;
 
     const groups = await pool.query("SELECT id, name, subject FROM groups");
@@ -269,7 +263,7 @@ router.post("/generate-all-quizzes", async (req, res) => {
       if (subjectIds.length === 0) continue;
 
       for (const subject of subjectIds) {
-        // ---- Quiz globaux (révision générale) ----
+        // ---- Quiz globaux ----
         for (const difficulty of difficulties) {
           try {
             if (!allow_duplicates) {
@@ -314,7 +308,7 @@ router.post("/generate-all-quizzes", async (req, res) => {
                 `Quiz de ${difficulty} en ${subject.name} pour la classe ${group.name}`,
                 group.id,
                 subject.id,
-                null, // pas de chapitre
+                null,
                 difficulty,
                 questions.length,
                 difficulty,
@@ -356,7 +350,7 @@ router.post("/generate-all-quizzes", async (req, res) => {
           }
         }
 
-        // ---- Quiz par chapitre (si demandé) ----
+        // ---- Quiz par chapitre ----
         if (generate_chapter_quizzes) {
           const chapters = await pool.query(
             `SELECT id, title FROM chapters WHERE group_id = $1 AND subject_id = $2 ORDER BY order_index`,
@@ -467,7 +461,6 @@ router.post("/generate-all-quizzes", async (req, res) => {
 
 // ------------------------------------------------------------------
 // 🔧 Fonction interne : générer des questions pour un groupe + matière + difficulté (+ chapitre optionnel)
-// Retourne un tableau d'objets question avec leur ID (id, text, options, correct)
 // ------------------------------------------------------------------
 async function generateQuestionsForGroup(groupId, subjectId, difficulty, count = 10, chapterId = null) {
   const group = await pool.query("SELECT name, level FROM groups WHERE id = $1", [groupId]);
@@ -510,7 +503,6 @@ Format JSON exact : { "questions": [ { "text": "énoncé", "options": ["Option A
     throw new Error("L'IA n'a pas pu générer de questions valides.");
   }
 
-  // Vérification arithmétique basique
   function safeEvaluate(expr) {
     let sanitized = expr.replace(/,/g, '.').replace(/\s+/g, '');
     if (!/^[\d.+\-*\/()]+$/.test(sanitized)) return null;
@@ -542,7 +534,6 @@ Format JSON exact : { "questions": [ { "text": "énoncé", "options": ["Option A
     }
   }
 
-  // Vérification pédagogique et linguistique de chaque question
   for (const q of parsed.questions) {
     const verifyPrompt = `
 Tu es un vérificateur pédagogique strict.
@@ -577,7 +568,6 @@ Réponds UNIQUEMENT avec ce JSON.`;
     }
   }
 
-  // Insérer les questions dans la banque avec subject_id et chapter_id et récupérer leurs IDs
   const insertedQuestions = [];
   for (const q of parsed.questions) {
     const result = await pool.query(
@@ -728,7 +718,7 @@ Réponds UNIQUEMENT avec un JSON : { "isCorrect": true/false, "correctIndex": 0,
 });
 
 // ------------------------------------------------------------------
-// 📝 POST /api/ai/generate-exercise – Génération unitaire (utilise la fonction partagée)
+// 📝 POST /api/ai/generate-exercise – Génération unitaire
 // ------------------------------------------------------------------
 router.post("/generate-exercise", async (req, res) => {
   try {
@@ -879,7 +869,7 @@ router.get("/tips", async (req, res) => {
 });
 
 // ------------------------------------------------------------------
-// 🧹 POST /api/ai/clean-exercises – Nettoyage intelligent des exercices (sans matière)
+// 🧹 POST /api/ai/clean-exercises – Nettoyage intelligent des exercices
 // ------------------------------------------------------------------
 router.post("/clean-exercises", async (req, res) => {
   try {
@@ -921,6 +911,110 @@ router.post("/clean-exercises", async (req, res) => {
 // GET /api/ai/usage (inchangé)
 router.get("/usage", async (req, res) => {
   res.json({ message: "Fonctionnalité à venir." });
+});
+
+// ------------------------------------------------------------------
+// 📘 POST /api/ai/generate-summaries-batch – Génération des résumés de cours
+// ------------------------------------------------------------------
+router.post("/generate-summaries-batch", async (req, res) => {
+  try {
+    const { group_id, subject_id, chapter_id } = req.body;
+
+    // Récupérer les chapitres concernés (un seul ou tous ceux de la matière/classe)
+    let chaptersQuery = `SELECT c.id, c.title, g.name AS group_name, g.level, s.name AS subject_name
+                         FROM chapters c
+                         JOIN groups g ON c.group_id = g.id
+                         JOIN subjects s ON c.subject_id = s.id
+                         WHERE c.group_id = $1 AND c.subject_id = $2`;
+    const params = [group_id, subject_id];
+    if (chapter_id) {
+      chaptersQuery += ` AND c.id = $3`;
+      params.push(chapter_id);
+    }
+    chaptersQuery += ` ORDER BY c.order_index`;
+
+    const chaptersResult = await pool.query(chaptersQuery, params);
+    if (chaptersResult.rows.length === 0) {
+      return res.status(404).json({ error: "Aucun chapitre trouvé." });
+    }
+
+    const results = [];
+
+    for (const chapter of chaptersResult.rows) {
+      try {
+        // 1️⃣ Rédaction du résumé par l'IA
+        const systemInstruction = "Tu es un professeur titulaire du système éducatif ivoirien. Réponds UNIQUEMENT avec un objet JSON valide contenant la clé 'summary'.";
+        const prompt = `
+Tu es un professeur titulaire en ${chapter.subject_name}, classe de ${chapter.group_name} (niveau ${chapter.level}) en Côte d'Ivoire.
+Rédige un résumé de cours clair, pédagogique et concis pour le chapitre : "${chapter.title}".
+Le résumé doit contenir :
+- Une introduction (définition ou contexte)
+- Les notions clés (formules, règles, propriétés)
+- Un ou deux exemples simples
+- Un encadré "À retenir" avec 2-3 points essentiels
+
+Contraintes :
+- Maximum 350 mots.
+- Vocabulaire adapté au niveau de la classe.
+- Conforme au programme officiel ivoirien.
+
+Retourne UNIQUEMENT un JSON : { "summary": "..." }
+`;
+        const raw = await generateWithAI(prompt, systemInstruction);
+        const parsed = parseAIResponse(raw);
+        let summary = parsed?.summary;
+
+        if (!summary || summary.length < 50) {
+          throw new Error("Résumé IA invalide.");
+        }
+
+        // 2️⃣ Double vérification (auto-correction)
+        try {
+          const verifyPrompt = `
+Voici un résumé de cours rédigé par un professeur pour le chapitre "${chapter.title}" (${chapter.subject_name}, ${chapter.group_name}) :
+
+${summary}
+
+En tant qu'expert pédagogique du programme ivoirien, vérifie :
+- l'exactitude scientifique et pédagogique
+- l'absence d'erreurs de définition ou de formule
+- l'adéquation au niveau ${chapter.level}
+
+Si tu détectes une erreur, corrige-la et retourne le résumé corrigé. Sinon, retourne le résumé original.
+Retourne UNIQUEMENT un JSON : { "summary": "..." }
+`;
+          const raw2 = await generateWithAI(verifyPrompt, "Tu es un vérificateur pédagogique impitoyable.");
+          const verified = parseAIResponse(raw2);
+          if (verified?.summary && verified.summary.length > 50) {
+            summary = verified.summary;
+            console.log(`✅ Résumé corrigé pour le chapitre "${chapter.title}".`);
+          }
+        } catch (verifyErr) {
+          console.warn(`⚠️ Double vérification échouée pour "${chapter.title}" :`, verifyErr.message);
+        }
+
+        // 3️⃣ Sauvegarde dans la base (non validé par défaut)
+        await pool.query(
+          `UPDATE chapters SET summary = $1, summary_validated = false WHERE id = $2`,
+          [summary, chapter.id]
+        );
+
+        results.push({ chapter: chapter.title, status: 'ok' });
+        await new Promise(resolve => setTimeout(resolve, 25000)); // respect quota OpenAI
+      } catch (err) {
+        console.error(`Erreur sur le chapitre ${chapter.title}:`, err.message);
+        results.push({ chapter: chapter.title, status: 'error', error: err.message });
+      }
+    }
+
+    res.json({
+      message: `Génération terminée. ${results.filter(r => r.status === 'ok').length} résumé(s) créé(s).`,
+      results
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erreur lors de la génération des résumés." });
+  }
 });
 
 module.exports = router;

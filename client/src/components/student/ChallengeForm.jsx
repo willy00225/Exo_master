@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   Swords, Loader, CheckCircle, AlertCircle, Send, Copy, Link, Search, X, User
 } from 'lucide-react';
@@ -33,6 +32,7 @@ const ChallengeForm = ({ onChallengeSent }) => {
       .catch(console.error);
   }, []);
 
+  // Fermer le dropdown au clic/tap extérieur
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -40,7 +40,11 @@ const ChallengeForm = ({ onChallengeSent }) => {
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, []);
 
   const filteredUsers = users.filter(u =>
@@ -103,8 +107,19 @@ const ChallengeForm = ({ onChallengeSent }) => {
   };
 
   const handleCopyLink = async () => {
-    await navigator.clipboard.writeText(inviteLink);
-    setMessage({ type: 'success', text: 'Lien copié dans le presse-papier !' });
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      setMessage({ type: 'success', text: 'Lien copié dans le presse-papier !' });
+    } catch (err) {
+      // Fallback
+      const textArea = document.createElement('textarea');
+      textArea.value = inviteLink;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setMessage({ type: 'success', text: 'Lien copié dans le presse-papier !' });
+    }
   };
 
   return (
@@ -116,10 +131,10 @@ const ChallengeForm = ({ onChallengeSent }) => {
 
       {message.text && (
         <div
-          className={`flex items-center gap-2 p-3 rounded-lg mb-4 ${
+          className={`flex items-center gap-2 p-3 rounded-lg mb-4 border ${
             message.type === 'success'
-              ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-300'
-              : 'bg-red-500/20 border border-red-500/30 text-red-300'
+              ? 'bg-cyan-500/20 border-cyan-500/30 text-cyan-300'
+              : 'bg-red-500/20 border-red-500/30 text-red-300'
           }`}
         >
           {message.type === 'success' ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
@@ -138,8 +153,9 @@ const ChallengeForm = ({ onChallengeSent }) => {
           />
           <button
             onClick={handleCopyLink}
-            className="p-1.5 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-all"
+            className="p-1.5 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors active:scale-95"
             title="Copier le lien"
+            aria-label="Copier le lien"
           >
             <Copy size={16} />
           </button>
@@ -187,48 +203,43 @@ const ChallengeForm = ({ onChallengeSent }) => {
               <button
                 type="button"
                 onClick={() => { setSearchTerm(''); setSelectedUser(null); }}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white"
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+                aria-label="Effacer la recherche"
               >
                 <X size={18} />
               </button>
             )}
           </div>
 
-          <AnimatePresence>
-            {showDropdown && searchTerm && (
-              <motion.div
-                initial={{ opacity: 0, y: -5 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -5 }}
-                className="absolute z-20 w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg max-h-48 overflow-y-auto shadow-lg"
-              >
-                {filteredUsers.length === 0 ? (
-                  <div className="px-4 py-3 text-sm text-slate-400">Aucun élève trouvé.</div>
-                ) : (
-                  filteredUsers.map((u) => (
-                    <button
-                      key={u.id}
-                      type="button"
-                      onClick={() => handleSelectUser(u)}
-                      className={`w-full flex items-center gap-2 text-left px-4 py-3 text-sm text-white hover:bg-amber-500/20 transition-all ${
-                        selectedUser?.id === u.id ? 'bg-amber-500/30' : ''
-                      }`}
-                    >
-                      <User size={16} className="text-slate-400" />
-                      {u.name}
-                    </button>
-                  ))
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {/* Dropdown — rendu conditionnel simple (plus d'AnimatePresence) */}
+          {showDropdown && searchTerm && (
+            <div className="absolute z-20 w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg max-h-48 overflow-y-auto shadow-lg">
+              {filteredUsers.length === 0 ? (
+                <div className="px-4 py-3 text-sm text-slate-400">Aucun élève trouvé.</div>
+              ) : (
+                filteredUsers.map((u) => (
+                  <button
+                    key={u.id}
+                    type="button"
+                    onClick={() => handleSelectUser(u)}
+                    className={`w-full flex items-center gap-2 text-left px-4 py-3 text-sm text-white hover:bg-amber-500/20 transition-colors ${
+                      selectedUser?.id === u.id ? 'bg-amber-500/30' : ''
+                    }`}
+                  >
+                    <User size={16} className="text-slate-400" />
+                    {u.name}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">
           <button
             type="submit"
             disabled={loading}
-            className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white py-3 rounded-lg font-semibold hover:from-amber-600 hover:to-orange-600 transition-all disabled:opacity-50 shadow-lg"
+            className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white py-3 rounded-lg font-semibold hover:from-amber-600 hover:to-orange-600 transition-all disabled:opacity-50 shadow-lg active:scale-95"
           >
             {loading ? <Loader size={18} className="animate-spin" /> : <Send size={18} />}
             {loading ? 'Lancement...' : 'Lancer le défi'}
@@ -238,10 +249,10 @@ const ChallengeForm = ({ onChallengeSent }) => {
             type="button"
             onClick={handleGenerateLink}
             disabled={generatingLink}
-            className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white py-3 rounded-lg font-semibold hover:from-violet-700 hover:to-fuchsia-700 transition-all disabled:opacity-50 shadow-lg"
+            className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white py-3 rounded-lg font-semibold hover:from-violet-700 hover:to-cyan-700 transition-all disabled:opacity-50 shadow-lg active:scale-95"
           >
             {generatingLink ? <Loader size={18} className="animate-spin" /> : <Link size={18} />}
-            {generatingLink ? 'Génération...' : 'Obtenir un lien d\'invitation'}
+            {generatingLink ? 'Génération...' : "Obtenir un lien d'invitation"}
           </button>
         </div>
       </form>

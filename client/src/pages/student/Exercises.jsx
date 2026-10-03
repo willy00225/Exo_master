@@ -1,11 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Download, Loader, FileText, BookOpen, ChevronRight, Filter,
+  Download, Loader, FileText, BookOpen, ChevronRight,
   Unlock, Lock, CheckCircle, Info, Search, ArrowRight, AlertTriangle,
-  ChevronLeft, X, Layers, Target, Clock
+  ChevronLeft, X, Layers
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import api from '../../services/api';
 
 // Formatage mathématique (inchangé)
@@ -27,7 +25,7 @@ const difficultyLabels = {
   very_hard: { label: 'Très difficile', color: 'text-red-400 bg-red-500/20 border-red-500/30' },
 };
 
-// Composant ExerciseItem (version améliorée avec timer circulaire)
+// Composant ExerciseItem — statique
 const ExerciseItem = ({ ex, apiBaseURL }) => {
   const [showContent, setShowContent] = useState(false);
   const [showCorrection, setShowCorrection] = useState(false);
@@ -35,7 +33,7 @@ const ExerciseItem = ({ ex, apiBaseURL }) => {
   const [remainingSeconds, setRemainingSeconds] = useState(0);
   const [canViewCorrection, setCanViewCorrection] = useState(false);
   const [attemptCompleted, setAttemptCompleted] = useState(false);
-  const [startingAttempt, setStartingAttempt] = useState(false); // état de chargement pour le bouton
+  const [startingAttempt, setStartingAttempt] = useState(false);
   const timerRef = useRef(null);
 
   const requiredMinutes = { easy: 5, medium: 10, hard: 15, very_hard: 20 }[ex.difficulty] || 10;
@@ -49,7 +47,6 @@ const ExerciseItem = ({ ex, apiBaseURL }) => {
       setRemainingSeconds(requiredSeconds);
     } catch (err) {
       console.error(err);
-      // Optionnel : message d'erreur
     } finally {
       setStartingAttempt(false);
     }
@@ -86,12 +83,7 @@ const ExerciseItem = ({ ex, apiBaseURL }) => {
   const progress = attemptStarted ? ((requiredSeconds - remainingSeconds) / requiredSeconds) * 100 : 0;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-5 hover:bg-white/10 transition-all"
-    >
+    <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-5 hover:bg-white/10 transition-colors">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-start gap-3">
           <div className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center shrink-0">
@@ -113,25 +105,27 @@ const ExerciseItem = ({ ex, apiBaseURL }) => {
         <div className="flex gap-2 items-center flex-wrap">
           {ex.content && (
             <button
+              type="button"
               onClick={() => setShowContent(!showContent)}
-              className="text-cyan-400 hover:underline text-sm flex items-center gap-1"
+              className="text-cyan-400 hover:underline text-sm flex items-center gap-1 transition-colors"
             >
-              {showContent ? 'Cacher l’énoncé' : 'Voir l’énoncé'}
+              {showContent ? 'Cacher l\'énoncé' : 'Voir l\'énoncé'}
             </button>
           )}
 
           {ex.correction && !attemptStarted && (
             <button
+              type="button"
               onClick={startAttempt}
               disabled={startingAttempt}
-              className="text-cyan-400 hover:underline text-sm flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="text-cyan-400 hover:underline text-sm flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {startingAttempt ? (
                 <>
                   <Loader size={14} className="animate-spin" /> Démarrage...
                 </>
               ) : (
-                'Commencer l’exercice'
+                'Commencer l\'exercice'
               )}
             </button>
           )}
@@ -139,11 +133,9 @@ const ExerciseItem = ({ ex, apiBaseURL }) => {
           {ex.correction && attemptStarted && !canViewCorrection && (
             <div className="flex items-center gap-2">
               <div className="w-24 h-2 bg-white/10 rounded-full overflow-hidden">
-                <motion.div
-                  className="h-full bg-gradient-to-r from-violet-500 to-cyan-500"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${progress}%` }}
-                  transition={{ duration: 0.8, ease: 'easeOut' }}
+                <div
+                  className="h-full bg-gradient-to-r from-violet-500 to-cyan-500 transition-[width] duration-500 ease-out"
+                  style={{ width: `${progress}%` }}
                 />
               </div>
               <span className="text-amber-400 text-sm font-medium tabular-nums">
@@ -154,8 +146,9 @@ const ExerciseItem = ({ ex, apiBaseURL }) => {
 
           {ex.correction && canViewCorrection && (
             <button
+              type="button"
               onClick={() => setShowCorrection(!showCorrection)}
-              className="text-cyan-400 hover:underline text-sm flex items-center gap-1"
+              className="text-cyan-400 hover:underline text-sm flex items-center gap-1 transition-colors"
             >
               {showCorrection ? 'Cacher le corrigé' : 'Voir le corrigé'}
             </button>
@@ -190,13 +183,12 @@ const ExerciseItem = ({ ex, apiBaseURL }) => {
           dangerouslySetInnerHTML={{ __html: formatMathText(ex.correction) }}
         />
       )}
-    </motion.div>
+    </div>
   );
 };
 
 const Exercises = () => {
   const [data, setData] = useState({ groups: [], subjects: [] });
-  const [progress, setProgress] = useState([]);
   const [chaptersProgress, setChaptersProgress] = useState([]);
   const [loading, setLoading] = useState(true);
   const [chaptersLoading, setChaptersLoading] = useState(false);
@@ -205,7 +197,7 @@ const Exercises = () => {
   const [searchChapter, setSearchChapter] = useState('');
   const [selectedChapter, setSelectedChapter] = useState(null);
   const [message, setMessage] = useState(null);
-  const [unlocking, setUnlocking] = useState(false); // état pour le bouton "Passer à la suite"
+  const [unlocking, setUnlocking] = useState(false);
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
@@ -334,6 +326,20 @@ const Exercises = () => {
     return chapter.exercises.filter(ex => ex.difficulty === currentDiff);
   };
 
+  const getChapterSummary = (chapterId) => {
+    const subject = data.subjects.find(s => s.id === activeSubject);
+    if (!subject) return null;
+    const chapter = subject.chapters.find(ch => ch.id === chapterId);
+    return chapter?.summary || null;
+  };
+
+  const isChapterSummaryValidated = (chapterId) => {
+    const subject = data.subjects.find(s => s.id === activeSubject);
+    if (!subject) return false;
+    const chapter = subject.chapters.find(ch => ch.id === chapterId);
+    return chapter?.summary_validated === true;
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -348,25 +354,26 @@ const Exercises = () => {
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto px-4 sm:px-6">
-      {/* En-tête */}
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
+      {/* En-tête — statique */}
+      <div>
         <h1 className="text-3xl font-bold text-white font-space-grotesk">Exercices</h1>
         <p className="text-slate-400 mt-1">
-          Progression adaptative – Validez un niveau pour débloquer le suivant
+          Progression adaptative — Validez un niveau pour débloquer le suivant
         </p>
-      </motion.div>
+      </div>
 
-      {/* Onglets matières avec indicateur animé */}
+      {/* Onglets matières */}
       {subjects.length > 0 && (
         <div className="relative">
           <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none" role="tablist">
             {subjects.map(subject => (
               <button
                 key={subject.id || 'none'}
+                type="button"
                 onClick={() => handleSubjectChange(subject.id)}
                 role="tab"
                 aria-selected={activeSubject === subject.id}
-                className={`relative px-4 py-2 rounded-full font-medium transition-all flex items-center gap-2 whitespace-nowrap active:scale-95 ${
+                className={`relative px-4 py-2 rounded-full font-medium transition-colors flex items-center gap-2 whitespace-nowrap active:scale-95 ${
                   activeSubject === subject.id
                     ? 'bg-gradient-to-r from-violet-600 to-cyan-600 text-white shadow-lg'
                     : 'bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10 hover:text-white'
@@ -384,7 +391,7 @@ const Exercises = () => {
         <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-5 space-y-5">
           <div>
             <p className="text-white text-lg font-medium">
-              👋 Bonjour <span className="text-violet-400">{user?.name || 'élève'}</span>, on s’exerce dans quelle matière aujourd’hui ?
+              Bonjour <span className="text-violet-400">{user?.name || 'élève'}</span>, on s'exerce dans quelle matière aujourd'hui ?
             </p>
             <p className="text-slate-400 text-sm mt-1">
               Vous avez choisi : <span className="text-white font-semibold">{currentSubject.name}</span>
@@ -405,7 +412,7 @@ const Exercises = () => {
                 <button
                   type="button"
                   onClick={() => { setSearchChapter(''); setMessage(null); }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
                   aria-label="Effacer la recherche"
                 >
                   <X size={18} />
@@ -414,31 +421,26 @@ const Exercises = () => {
             </div>
             <button
               type="submit"
-              className="bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg hover:shadow-violet-500/20 transition-all active:scale-95"
+              className="bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-violet-700 hover:to-cyan-700 transition-colors active:scale-95"
+              aria-label="Rechercher"
             >
               <ArrowRight size={20} />
             </button>
           </form>
 
-          <AnimatePresence>
-            {message && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className={`p-4 rounded-xl flex items-start gap-2 ${
-                  message.type === 'error'
-                    ? 'bg-red-500/20 border border-red-500/30 text-red-300'
-                    : message.type === 'success'
-                    ? 'bg-cyan-500/20 border border-cyan-500/30 text-cyan-300'
-                    : 'bg-amber-500/20 border border-amber-500/30 text-amber-300'
-                }`}
-              >
-                <AlertTriangle size={20} className="mt-0.5 flex-shrink-0" />
-                <span>{message.text}</span>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {/* Message — rendu conditionnel simple */}
+          {message && (
+            <div className={`p-4 rounded-xl flex items-start gap-2 border ${
+              message.type === 'error'
+                ? 'bg-red-500/20 border-red-500/30 text-red-300'
+                : message.type === 'success'
+                ? 'bg-cyan-500/20 border-cyan-500/30 text-cyan-300'
+                : 'bg-amber-500/20 border-amber-500/30 text-amber-300'
+            }`}>
+              <AlertTriangle size={20} className="mt-0.5 shrink-0" />
+              <span>{message.text}</span>
+            </div>
+          )}
 
           {!selectedChapter && (
             <div>
@@ -461,13 +463,12 @@ const Exercises = () => {
                     const isLocked = idx > 0 && !chaptersProgress[idx - 1].is_completed;
                     const isCompleted = ch.is_completed;
                     return (
-                      <motion.button
+                      <button
                         key={ch.id}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
+                        type="button"
                         onClick={() => handleChapterClick(ch)}
                         disabled={isLocked}
-                        className={`text-left p-4 rounded-2xl border transition-all flex flex-col gap-2 ${
+                        className={`text-left p-4 rounded-2xl border transition-colors flex flex-col gap-2 active:scale-[0.98] ${
                           isLocked
                             ? 'bg-white/5 border-white/10 text-slate-500 cursor-not-allowed'
                             : isCompleted
@@ -491,13 +492,13 @@ const Exercises = () => {
                         <div className="flex items-center text-xs text-slate-400 gap-2">
                           <div className="flex-1 bg-white/10 rounded-full h-1.5">
                             <div
-                              className="bg-violet-500 h-1.5 rounded-full"
+                              className="bg-violet-500 h-1.5 rounded-full transition-[width] duration-500"
                               style={{ width: `${ch.social_percent || 0}%` }}
                             />
                           </div>
                           <span>{ch.social_percent || 0}% social</span>
                         </div>
-                      </motion.button>
+                      </button>
                     );
                   })}
                 </div>
@@ -511,72 +512,79 @@ const Exercises = () => {
         </div>
       )}
 
-      {/* Zone d'exercices du chapitre sélectionné */}
-      <AnimatePresence>
-        {selectedChapter && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="space-y-4"
-          >
-            <div className="flex items-center gap-3">
+      {/* Zone d'exercices du chapitre sélectionné — rendu conditionnel simple */}
+      {selectedChapter && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => { setSelectedChapter(null); setMessage(null); }}
+              className="p-2 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:border-white/30 transition-colors active:scale-95"
+              aria-label="Retour à la liste des chapitres"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+              <ChevronRight size={20} className="text-violet-400" />
+              {selectedChapter.title}
+            </h2>
+          </div>
+
+          <div className="bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-sm p-3 rounded-xl">
+            Pour débloquer le niveau suivant, réussissez le quiz de ce chapitre avec au moins 70 %.
+          </div>
+
+          {/* Résumé du cours — affiché uniquement si validé par un admin */}
+          {getChapterSummary(selectedChapter.id) && isChapterSummaryValidated(selectedChapter.id) && (
+            <div className="bg-violet-500/10 border border-violet-500/30 rounded-2xl p-4">
+              <h4 className="text-sm font-semibold text-violet-300 mb-2">
+                Résumé du cours
+              </h4>
+              <p className="text-slate-200 whitespace-pre-wrap leading-relaxed text-sm">
+                {getChapterSummary(selectedChapter.id)}
+              </p>
+            </div>
+          )}
+
+          <div className="space-y-3">
+            {getChapterExercises(selectedChapter.id).map(ex => (
+              <ExerciseItem key={ex.id} ex={ex} apiBaseURL={api.defaults.baseURL} />
+            ))}
+            {getChapterExercises(selectedChapter.id).length === 0 && (
+              <p className="text-slate-500 italic bg-white/5 border border-white/10 rounded-2xl p-4">
+                Aucun exercice pour ce niveau. Passez à la suite ou revenez plus tard.
+              </p>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 mt-4">
+            {selectedChapter.current_difficulty !== 'very_hard' && (
               <button
-                onClick={() => { setSelectedChapter(null); setMessage(null); }}
-                className="p-2 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:border-white/30 transition-colors active:scale-95"
-                aria-label="Retour à la liste des chapitres"
+                type="button"
+                onClick={() => handleUnlock(selectedChapter.id)}
+                disabled={unlocking}
+                className="flex items-center gap-1 text-sm text-amber-400 hover:text-amber-300 bg-amber-500/10 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
               >
-                <ChevronLeft size={20} />
+                {unlocking ? (
+                  <>
+                    <Loader size={14} className="animate-spin" /> Déblocage...
+                  </>
+                ) : (
+                  <>
+                    <Unlock size={14} /> Passer à la suite
+                  </>
+                )}
               </button>
-              <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-                <ChevronRight size={20} className="text-violet-400" />
-                {selectedChapter.title}
-              </h2>
-            </div>
-
-            <div className="bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-sm p-3 rounded-xl">
-              Pour débloquer le niveau suivant, réussissez le quiz de ce chapitre avec au moins 70 %.
-            </div>
-
-            <div className="space-y-3">
-              {getChapterExercises(selectedChapter.id).map(ex => (
-                <ExerciseItem key={ex.id} ex={ex} apiBaseURL={api.defaults.baseURL} />
-              ))}
-              {getChapterExercises(selectedChapter.id).length === 0 && (
-                <p className="text-slate-500 italic bg-white/5 border border-white/10 rounded-2xl p-4">
-                  Aucun exercice pour ce niveau. Passez à la suite ou revenez plus tard.
-                </p>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2 mt-4">
-              {selectedChapter.current_difficulty !== 'very_hard' && (
-                <button
-                  onClick={() => handleUnlock(selectedChapter.id)}
-                  disabled={unlocking}
-                  className="flex items-center gap-1 text-sm text-amber-400 hover:text-amber-300 bg-amber-500/10 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {unlocking ? (
-                    <>
-                      <Loader size={14} className="animate-spin" /> Déblocage...
-                    </>
-                  ) : (
-                    <>
-                      <Unlock size={14} /> Passer à la suite
-                    </>
-                  )}
-                </button>
-              )}
-              <span
-                className="text-xs text-slate-500 cursor-help flex items-center gap-1"
-                title="Pour débloquer le niveau suivant, vous devez obtenir au moins 70 % à un quiz de ce chapitre."
-              >
-                <Info size={14} /> Comment débloquer ?
-              </span>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            )}
+            <span
+              className="text-xs text-slate-500 cursor-help flex items-center gap-1"
+              title="Pour débloquer le niveau suivant, vous devez obtenir au moins 70 % à un quiz de ce chapitre."
+            >
+              <Info size={14} /> Comment débloquer ?
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

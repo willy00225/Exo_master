@@ -1,5 +1,4 @@
 import { useState, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   Upload, Send, CreditCard, AlertCircle, CheckCircle, Loader,
   FileImage, X, Phone, Copy
@@ -32,7 +31,7 @@ const Subscription = () => {
     },
     {
       operator: 'Wave',
-      number: '+225 0150912519', // à ajuster si nécessaire
+      number: '+225 0150912519',
       gradient: 'from-cyan-500 to-cyan-700',
       initials: 'W',
       bg: 'bg-cyan-500',
@@ -58,7 +57,6 @@ const Subscription = () => {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(number);
       } else {
-        // Fallback pour les navigateurs sans API Clipboard
         const textArea = document.createElement('textarea');
         textArea.value = number;
         document.body.appendChild(textArea);
@@ -104,12 +102,8 @@ const Subscription = () => {
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto px-4 sm:px-6">
-      {/* En-tête */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex items-center gap-4"
-      >
+      {/* En-tête — statique */}
+      <div className="flex items-center gap-4">
         <div className="w-14 h-14 rounded-full bg-gradient-to-br from-violet-600 to-cyan-600 flex items-center justify-center shadow-lg">
           <CreditCard size={28} className="text-white" />
         </div>
@@ -119,15 +113,10 @@ const Subscription = () => {
           </h1>
           <p className="text-slate-400 text-sm">Activez votre accès en envoyant votre preuve de paiement</p>
         </div>
-      </motion.div>
+      </div>
 
-      {/* Moyens de paiement */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6"
-      >
+      {/* Moyens de paiement — statique */}
+      <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6">
         <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
           <Phone size={20} className="text-violet-400" />
           Numéros de paiement
@@ -141,7 +130,6 @@ const Subscription = () => {
               key={item.operator}
               className={`bg-gradient-to-br ${item.gradient} p-4 rounded-2xl flex items-center gap-3 shadow-lg`}
             >
-              {/* Logo de l'opérateur */}
               <div className={`w-12 h-12 rounded-full ${item.bg} bg-opacity-20 flex items-center justify-center text-white font-bold text-lg border border-white/30`}>
                 {item.initials}
               </div>
@@ -150,6 +138,7 @@ const Subscription = () => {
                 <p className="text-white/90 font-mono">{item.number}</p>
               </div>
               <button
+                type="button"
                 onClick={() => handleCopyNumber(item.number)}
                 className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors active:scale-90"
                 title={`Copier le numéro ${item.operator}`}
@@ -165,39 +154,23 @@ const Subscription = () => {
           ))}
         </div>
         <p className="text-xs text-slate-500 mt-3">
-          💡 Copiez le numéro puis effectuez le paiement via votre application Mobile Money.
+          Copiez le numéro puis effectuez le paiement via votre application Mobile Money.
         </p>
-      </motion.div>
+      </div>
 
-      {/* Carte principale formulaire */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6 space-y-6"
-      >
-        <AnimatePresence>
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -5 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -5 }}
-              className="flex items-center gap-2 bg-red-500/20 border border-red-500/30 text-red-200 p-3 rounded-lg"
-            >
-              <AlertCircle size={18} /> {error}
-            </motion.div>
-          )}
-          {success && (
-            <motion.div
-              initial={{ opacity: 0, y: -5 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -5 }}
-              className="flex items-center gap-2 bg-cyan-500/20 border border-cyan-500/30 text-cyan-200 p-3 rounded-lg"
-            >
-              <CheckCircle size={18} /> {success}
-            </motion.div>
-          )}
-        </AnimatePresence>
+      {/* Carte principale formulaire — statique */}
+      <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6 space-y-6">
+        {/* Messages — rendu conditionnel simple */}
+        {error && (
+          <div className="flex items-center gap-2 bg-red-500/20 border border-red-500/30 text-red-200 p-3 rounded-lg">
+            <AlertCircle size={18} /> {error}
+          </div>
+        )}
+        {success && (
+          <div className="flex items-center gap-2 bg-cyan-500/20 border border-cyan-500/30 text-cyan-200 p-3 rounded-lg">
+            <CheckCircle size={18} /> {success}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
@@ -241,7 +214,7 @@ const Subscription = () => {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full flex flex-col items-center justify-center gap-2 p-6 bg-white/5 border border-dashed border-white/20 rounded-xl text-slate-400 hover:bg-white/10 hover:border-violet-400/50 transition-all active:scale-[0.98]"
+                className="w-full flex flex-col items-center justify-center gap-2 p-6 bg-white/5 border border-dashed border-white/20 rounded-xl text-slate-400 hover:bg-white/10 hover:border-violet-400/50 transition-colors active:scale-[0.98]"
                 aria-label="Choisir une image de preuve"
               >
                 <Upload size={28} />
@@ -274,7 +247,7 @@ const Subscription = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white py-3 rounded-xl font-semibold hover:from-violet-700 hover:to-cyan-700 transition-all disabled:opacity-50 shadow-lg active:scale-95"
+            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white py-3 rounded-xl font-semibold hover:from-violet-700 hover:to-cyan-700 transition-colors disabled:opacity-50 shadow-lg active:scale-95"
             aria-label="Envoyer la preuve de paiement"
           >
             {loading ? (
@@ -288,7 +261,7 @@ const Subscription = () => {
             )}
           </button>
         </form>
-      </motion.div>
+      </div>
     </div>
   );
 };

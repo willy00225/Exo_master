@@ -1,8 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, Users, Loader, ChevronLeft, ChevronRight,
-  Swords, BookOpen, Filter, CheckCircle2
+  Swords, BookOpen, Filter, CheckCircle2, AlertCircle, CheckCircle
 } from 'lucide-react';
 import api from '../../services/api';
 import BottomSheetSelect from '../common/BottomSheetSelect';
@@ -32,9 +31,11 @@ const OpponentList = ({ onChallengeCreated }) => {
   const [loadingOpponents, setLoadingOpponents] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [sendingChallengeId, setSendingChallengeId] = useState(null);
+  const [feedback, setFeedback] = useState({ type: '', text: '' });
 
   const limit = 10;
 
+  // Debounce de la recherche
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchTerm);
@@ -43,6 +44,7 @@ const OpponentList = ({ onChallengeCreated }) => {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
+  // Chargement initial des quiz
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -122,30 +124,46 @@ const OpponentList = ({ onChallengeCreated }) => {
     }
   }, [page, debouncedSearch]);
 
+  // Polling espacé + pause onglet caché
   useEffect(() => {
     fetchOpponents();
-    const interval = setInterval(fetchOpponents, 10000);
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchOpponents, 30000); // ⬆️ 10s → 30s
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        fetchOpponents();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [fetchOpponents]);
 
   const handleChallenge = async (opponentId) => {
     if (!selectedQuizId) {
-      alert('Veuillez sélectionner un quiz pour lancer le défi.');
+      setFeedback({ type: 'error', text: 'Veuillez sélectionner un quiz pour lancer le défi.' });
+      setTimeout(() => setFeedback({ type: '', text: '' }), 3000);
       return;
     }
 
     setSendingChallengeId(opponentId);
+    setFeedback({ type: '', text: '' });
     try {
       await api.post('/challenges', {
         challenged_id: opponentId,
         quiz_id: selectedQuizId,
       });
+      setFeedback({ type: 'success', text: 'Défi envoyé !' });
+      setTimeout(() => setFeedback({ type: '', text: '' }), 3000);
       if (onChallengeCreated) onChallengeCreated();
-      alert('Défi envoyé !');
     } catch (err) {
       console.error(err);
       const message = err.response?.data?.error || "Erreur lors de l'envoi du défi.";
-      alert(message);
+      setFeedback({ type: 'error', text: message });
+      setTimeout(() => setFeedback({ type: '', text: '' }), 4000);
     } finally {
       setSendingChallengeId(null);
     }
@@ -161,6 +179,18 @@ const OpponentList = ({ onChallengeCreated }) => {
 
   return (
     <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-5 space-y-6">
+      {/* Feedback global */}
+      {feedback.text && (
+        <div className={`flex items-center gap-2 p-3 rounded-xl border ${
+          feedback.type === 'success'
+            ? 'bg-cyan-500/20 border-cyan-500/30 text-cyan-300'
+            : 'bg-red-500/20 border-red-500/30 text-red-300'
+        }`}>
+          {feedback.type === 'success' ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
+          {feedback.text}
+        </div>
+      )}
+
       {/* Section choix du quiz */}
       <div>
         <h3 className="text-lg font-semibold text-white flex items-center gap-2">
@@ -168,7 +198,6 @@ const OpponentList = ({ onChallengeCreated }) => {
           Choisir le quiz du défi
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
-          {/* Matière */}
           <BottomSheetSelect
             value={selectedSubjectId}
             onChange={(newVal) => {
@@ -181,7 +210,6 @@ const OpponentList = ({ onChallengeCreated }) => {
             options={subjects.map(s => ({ value: s.id, label: s.name }))}
           />
 
-          {/* Chapitre */}
           <BottomSheetSelect
             value={selectedChapterId}
             onChange={(newVal) => {
@@ -197,7 +225,6 @@ const OpponentList = ({ onChallengeCreated }) => {
             disabled={!selectedSubjectId}
           />
 
-          {/* Difficulté */}
           <BottomSheetSelect
             value={selectedDifficulty}
             onChange={(newVal) => {
@@ -212,7 +239,6 @@ const OpponentList = ({ onChallengeCreated }) => {
             ]}
           />
 
-          {/* Quiz précis */}
           <BottomSheetSelect
             value={selectedQuizId}
             onChange={(newVal) => setSelectedQuizId(parseInt(newVal))}
@@ -224,7 +250,7 @@ const OpponentList = ({ onChallengeCreated }) => {
         </div>
 
         {selectedQuizId && (
-          <p className="text-xs text-emerald-400 mt-2">
+          <p className="text-xs text-cyan-400 mt-2">
             Quiz sélectionné : {quizzes.find(q => q.id === selectedQuizId)?.title}
           </p>
         )}
@@ -263,40 +289,37 @@ const OpponentList = ({ onChallengeCreated }) => {
           <p className="text-slate-500 text-center py-8">Aucun élève trouvé.</p>
         ) : (
           <div className="space-y-3 mt-4">
-            <AnimatePresence>
-              {opponents.map((opp) => (
-                <motion.div
-                  key={opp.id}
-                  initial={{ opacity: 0, y: 5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -5 }}
-                  className="flex items-center justify-between bg-white/5 p-4 rounded-xl border border-white/10 hover:border-violet-400/30 transition-all"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="relative">
-                      <div className="w-10 h-10 rounded-full bg-violet-500/20 flex items-center justify-center text-white font-semibold">
-                        {opp.name.charAt(0).toUpperCase()}
-                      </div>
-                      <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#0a0a1a] ${opp.is_online ? 'bg-emerald-400' : 'bg-gray-500'}`} />
+            {opponents.map((opp) => (
+              <div
+                key={opp.id}
+                className="flex items-center justify-between bg-white/5 p-4 rounded-xl border border-white/10 hover:border-violet-400/30 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <div className="w-10 h-10 rounded-full bg-violet-500/20 flex items-center justify-center text-white font-semibold">
+                      {opp.name.charAt(0).toUpperCase()}
                     </div>
-                    <div>
-                      <p className="text-white font-medium">{opp.name}</p>
-                      <p className="text-xs text-slate-400">
-                        {opp.is_online ? 'En ligne' : 'Hors ligne'}
-                      </p>
-                    </div>
+                    <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#0a0a1a] ${
+                      opp.is_online ? 'bg-cyan-400' : 'bg-gray-500'
+                    }`} />
                   </div>
-                  <button
-                    onClick={() => handleChallenge(opp.id)}
-                    disabled={!selectedQuizId || sendingChallengeId === opp.id}
-                    className="flex items-center gap-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Swords size={16} />
-                    {sendingChallengeId === opp.id ? 'Envoi...' : 'Défier'}
-                  </button>
-                </motion.div>
-              ))}
-            </AnimatePresence>
+                  <div>
+                    <p className="text-white font-medium">{opp.name}</p>
+                    <p className="text-xs text-slate-400">
+                      {opp.is_online ? 'En ligne' : 'Hors ligne'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleChallenge(opp.id)}
+                  disabled={!selectedQuizId || sendingChallengeId === opp.id}
+                  className="flex items-center gap-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:shadow-md active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Swords size={16} />
+                  {sendingChallengeId === opp.id ? 'Envoi...' : 'Défier'}
+                </button>
+              </div>
+            ))}
           </div>
         )}
 
@@ -305,15 +328,19 @@ const OpponentList = ({ onChallengeCreated }) => {
             <button
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="p-2 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 disabled:opacity-50"
+              className="p-2 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 disabled:opacity-50 active:scale-95 transition-transform"
+              aria-label="Page précédente"
             >
               <ChevronLeft size={18} />
             </button>
-            <span className="text-slate-400 text-sm">Page {page} sur {totalPages}</span>
+            <span className="text-slate-400 text-sm">
+              Page {page} sur {totalPages}
+            </span>
             <button
               onClick={() => setPage(p => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              className="p-2 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 disabled:opacity-50"
+              className="p-2 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 disabled:opacity-50 active:scale-95 transition-transform"
+              aria-label="Page suivante"
             >
               <ChevronRight size={18} />
             </button>
