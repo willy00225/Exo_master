@@ -2,10 +2,9 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useInView } from 'framer-motion';
 import {
-  BookOpen, Brain, Swords, Zap, Users, ArrowRight,
-  Shield, FileText, MessageCircle, GraduationCap, Layers, Target,
-  Sparkles, Rocket, Star, Menu, X, Check, Play,
-  BarChart3, Trophy, Clock, Lock, ChevronDown
+  BookOpen, Swords, Users, ArrowRight,
+  GraduationCap, Sparkles, Star, Menu, X, Check, Play,
+  BarChart3, Trophy, ChevronDown, Target, ShieldCheck, TrendingUp
 } from 'lucide-react';
 import logo from '../assets/exo_master_logo.png';
 
@@ -42,7 +41,7 @@ const AnimatedCounter = ({ target = 1247, suffix = '' }) => {
 };
 
 /* ------------------------------------------------------------------ */
-/*  Section wrapper avec animation d'entrée propre                     */
+/*  Section wrapper                                                    */
 /* ------------------------------------------------------------------ */
 const Section = ({ id, className = '', children }) => (
   <section id={id} className={`relative ${className}`}>
@@ -58,23 +57,20 @@ const LandingPage = () => {
 
   const testimonials = [
     {
-      name: 'Awa Kouassi',
+      name: 'Awa K.',
       role: 'Élève en 3ᵉ',
-      school: 'Collège Sainte-Marie',
       text: "J'ai gagné 4 points de moyenne en maths en un trimestre. Les quiz chronométrés me forcent à réfléchir vite.",
       initials: 'AK',
     },
     {
-      name: 'Ibrahim Sanogo',
+      name: 'Ibrahim S.',
       role: 'Élève en Terminale',
-      school: 'Lycée Classique d\'Abidjan',
       text: "Les duels entre camarades, c'est ce qui me fait revenir tous les jours. On révise sans s'en rendre compte.",
       initials: 'IS',
     },
     {
-      name: 'Mariam Diallo',
+      name: 'Mariam D.',
       role: 'Parent d\'élève',
-      school: 'Abidjan',
       text: "Mon fils était en échec scolaire. En 3 mois, il est passé de 8 à 14 de moyenne. Je recommande à tous les parents.",
       initials: 'MD',
     },
@@ -87,9 +83,9 @@ const LandingPage = () => {
       desc: 'Chaque chapitre est découpé en 4 niveaux de difficulté. Vous ne passez au suivant qu\'après avoir validé le précédent avec 70 %.',
     },
     {
-      Icon: Brain,
-      title: 'Contenus générés par IA',
-      desc: 'Des milliers d\'exercices et résumés produits et vérifiés par nos équipes pédagogiques, constamment enrichis.',
+      Icon: Target,
+      title: 'Contenus structurés',
+      desc: 'Des exercices progressifs et des résumés de cours vérifiés par notre équipe pédagogique, constamment enrichis.',
     },
     {
       Icon: Swords,
@@ -109,7 +105,26 @@ const LandingPage = () => {
     { value: 1247, suffix: '+', label: 'Élèves actifs', Icon: Users },
     { value: 12500, suffix: '+', label: 'Exercices résolus', Icon: BarChart3 },
     { value: 87, suffix: '%', label: 'Améliorent leur moyenne', Icon: Trophy },
-    { value: 45, suffix: '+', label: 'Établissements partenaires', Icon: GraduationCap },
+    { value: 45, suffix: '+', label: 'Classes couvertes', Icon: GraduationCap },
+  ];
+
+  // Différenciateurs (actif en attendant les écoles partenaires)
+  const differentiators = [
+    {
+      Icon: ShieldCheck,
+      title: 'Contenus vérifiés',
+      desc: 'Chaque exercice est validé par des enseignants en exercice.',
+    },
+    {
+      Icon: TrendingUp,
+      title: 'Suivi transparent',
+      desc: 'Statistiques précises pour l\'élève, le parent et l\'enseignant.',
+    },
+    {
+      Icon: Sparkles,
+      title: 'Sans engagement',
+      desc: 'Inscription gratuite. Vous gardez le contrôle à tout moment.',
+    },
   ];
 
   const faq = [
@@ -126,8 +141,8 @@ const LandingPage = () => {
       a: 'Oui. Nos chapitres sont alignés sur les programmes officiels du collège et du lycée, validés par des enseignants en exercice.',
     },
     {
-      q: 'Comment fonctionne la génération par IA ?',
-      a: 'Nos modèles génèrent des exercices et résumés à partir des programmes officiels. Chaque contenu est ensuite relu et validé par notre équipe pédagogique avant publication.',
+      q: 'Comment sont créés les contenus ?',
+      a: 'Nos contenus sont produits et vérifiés par notre équipe pédagogique à partir des programmes officiels, puis régulièrement enrichis et mis à jour.',
     },
   ];
 
@@ -202,7 +217,7 @@ const LandingPage = () => {
             >
               <div className="inline-flex items-center gap-2 border border-white/15 rounded-full px-3 py-1.5 text-xs text-slate-300">
                 <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-                Nouveau : IA pédagogique disponible
+                La nouvelle façon d'apprendre
               </div>
 
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.1]">
@@ -244,14 +259,13 @@ const LandingPage = () => {
               </div>
             </motion.div>
 
-            {/* Colonne droite : mockup statique (pas d'animation infinie) */}
+            {/* Colonne droite : mockup statique */}
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.2 }}
               className="relative"
             >
-              {/* Carte mockup du dashboard */}
               <div className="relative rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-xl p-6 shadow-2xl">
                 {/* Header mockup */}
                 <div className="flex items-center gap-2 pb-4 border-b border-white/10">
@@ -303,15 +317,15 @@ const LandingPage = () => {
                 </div>
               </div>
 
-              {/* Badge flottant discret (statique) */}
+              {/* Badge flottant discret */}
               <div className="absolute -bottom-4 -left-4 rounded-xl border border-white/10 bg-slate-900/90 backdrop-blur-xl px-4 py-3 shadow-xl hidden sm:block">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center">
                     <Sparkles size={16} className="text-cyan-400" />
                   </div>
                   <div>
-                    <p className="text-xs text-slate-400">Résumé validé par IA</p>
-                    <p className="text-xs text-white font-medium">Il y a 2 minutes</p>
+                    <p className="text-xs text-slate-400">Résumé de cours disponible</p>
+                    <p className="text-xs text-white font-medium">Chapitre en cours</p>
                   </div>
                 </div>
               </div>
@@ -320,18 +334,42 @@ const LandingPage = () => {
         </div>
       </Section>
 
-      {/* -------------------- TRUST BAR -------------------- */}
+      {/* -------------------- TRUST BAR (écoles) -------------------- */}
+      {/* ⚠️ Décommenter ce bloc quand vous aurez des écoles partenaires */}
+      {/*
       <Section className="py-12 border-y border-white/5 bg-white/[0.02]">
         <div className="max-w-7xl mx-auto px-6">
           <p className="text-center text-xs uppercase tracking-widest text-slate-500 mb-8">
             Utilisé par des établissements à Abidjan et à l'intérieur du pays
           </p>
           <div className="flex flex-wrap justify-center items-center gap-x-12 gap-y-6 opacity-60">
-            {/* Placeholders de logos d'écoles — remplacez par les vrais logos */}
             {['Collège Sainte-Marie', 'Lycée Classique', 'Groupe Scolaire Les Palmiers', 'Lycée Moderne', 'Collège Notre-Dame'].map((school) => (
               <span key={school} className="text-sm font-medium text-slate-500">
                 {school}
               </span>
+            ))}
+          </div>
+        </div>
+      </Section>
+      */}
+
+      {/* -------------------- DIFFÉRENCIATEURS (actif en attendant les écoles) -------------------- */}
+      <Section className="py-12 border-y border-white/5 bg-white/[0.02]">
+        <div className="max-w-7xl mx-auto px-6">
+          <p className="text-center text-xs uppercase tracking-widest text-slate-500 mb-8">
+            Une méthode conçue avec des enseignants
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
+            {differentiators.map((item, idx) => (
+              <div key={idx} className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+                  <item.Icon size={18} className="text-cyan-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">{item.title}</p>
+                  <p className="text-xs text-slate-500">{item.desc}</p>
+                </div>
+              </div>
             ))}
           </div>
         </div>
@@ -476,7 +514,7 @@ const LandingPage = () => {
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-white">{t.name}</p>
-                    <p className="text-xs text-slate-500">{t.role} · {t.school}</p>
+                    <p className="text-xs text-slate-500">{t.role}</p>
                   </div>
                 </div>
               </motion.div>
