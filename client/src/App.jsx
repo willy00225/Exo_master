@@ -99,8 +99,10 @@ function AppContent() {
 
   return (
     <>
-      {/* Gestionnaire de notifications push - monté une seule fois */}
-      <PushNotificationManager />
+      {/* ✅ Gestionnaire de notifications push
+          - Monté uniquement si l'utilisateur est connecté
+          - Évite les appels API 401 en boucle sur /login, /register, etc. */}
+      {user && <PushNotificationManager />}
 
       <Routes>
         {/* -------------------- Routes publiques -------------------- */}
